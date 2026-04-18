@@ -37,7 +37,7 @@ div[data-testid="stHeader"] { display: none !important; }
 
 # --- CONFIGURAZIONE API ---
 # Modo 1: Inserisci direttamente qui (meno sicuro)
-API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"
+API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"  # <-- SOSTITUISCI CON LA TUA KEY
 
 # Modo 2: Usa secrets di Streamlit (più sicuro) - decommenta la riga sotto se usi secrets
 # API_KEY = st.secrets.get("API_KEY", "028b02ea1d97fdd09cf5f4a89f6860b3")
