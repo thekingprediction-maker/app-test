@@ -36,7 +36,12 @@ div[data-testid="stHeader"] { display: none !important; }
 """, unsafe_allow_html=True)
 
 # --- CONFIGURAZIONE API ---
-API_KEY = st.secrets.get("API_KEY", "028b02ea1d97fdd09cf5f4a89f6860b3"
+# Modo 1: Inserisci direttamente qui (meno sicuro)
+API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"
+
+# Modo 2: Usa secrets di Streamlit (più sicuro) - decommenta la riga sotto se usi secrets
+# API_KEY = st.secrets.get("API_KEY", "028b02ea1d97fdd09cf5f4a89f6860b3")
+
 BASE_URL = "https://v3.football.api-sports.io"
 
 LEAGUES = {
@@ -45,7 +50,7 @@ LEAGUES = {
     'LIGA': {'id': 140, 'season': 2025, 'name': 'La Liga'}
 }
 
-# --- FUNZIONI API CON GESTIONE ERRORI ---
+# --- FUNZIONI API ---
 def get_teams(league_id, season):
     """Recupera squadre con gestione errori"""
     headers = {'x-apisports-key': API_KEY}
@@ -76,14 +81,13 @@ def get_team_stats(team_id, league_id, season):
         'shots_against_home': 0, 'shots_against_away': 0,
         'shots_on_for_home': 0, 'shots_on_for_away': 0,
         'shots_on_against_home': 0, 'shots_on_against_away': 0,
-        'fouls_for_home': 0, 'fouls_for_away': 0,  # Per piano pagamento
+        'fouls_for_home': 0, 'fouls_for_away': 0,
         'fouls_against_home': 0, 'fouls_against_away': 0,
         'yellows_for_home': 0, 'yellows_for_away': 0,
         'reds_for_home': 0, 'reds_for_away': 0
     }
     
     try:
-        # Fixtures giocate
         fix_r = requests.get(
             f"{BASE_URL}/fixtures?league={league_id}&season={season}&team={team_id}&status=FT", 
             headers=headers, 
@@ -121,7 +125,6 @@ def get_team_stats(team_id, league_id, season):
                     stats['shots_against_home'] += get_val(stat_data[opp_idx], "Total Shots")
                     stats['shots_on_for_home'] += get_val(stat_data[my_idx], "Shots on Goal")
                     stats['shots_on_against_home'] += get_val(stat_data[opp_idx], "Shots on Goal")
-                    # Dati falli - piano pagamento
                     stats['fouls_for_home'] += get_val(stat_data[my_idx], "Fouls")
                     stats['fouls_against_home'] += get_val(stat_data[opp_idx], "Fouls")
                     stats['yellows_for_home'] += get_val(stat_data[my_idx], "Yellow Cards")
@@ -132,7 +135,6 @@ def get_team_stats(team_id, league_id, season):
                     stats['shots_against_away'] += get_val(stat_data[opp_idx], "Total Shots")
                     stats['shots_on_for_away'] += get_val(stat_data[my_idx], "Shots on Goal")
                     stats['shots_on_against_away'] += get_val(stat_data[opp_idx], "Shots on Goal")
-                    # Dati falli - piano pagamento
                     stats['fouls_for_away'] += get_val(stat_data[my_idx], "Fouls")
                     stats['fouls_against_away'] += get_val(stat_data[opp_idx], "Fouls")
                     stats['yellows_for_away'] += get_val(stat_data[my_idx], "Yellow Cards")
@@ -144,14 +146,12 @@ def get_team_stats(team_id, league_id, season):
         print(f"Errore stats team {team_id}: {e}")
         return None
 
-# --- CARICAMENTO DATI ---
 @st.cache_data(ttl=1800)
 def load_all_league_data(league_key):
     """Carica tutti i dati di una lega"""
     league = LEAGUES[league_key]
     
-    # Check API key
-    if API_KEY == "INSERISCI_API_KEY_QUI" or not API_KEY:
+    if not API_KEY or API_KEY == "INSERISCI_API_KEY_QUI":
         return {"error": "API KEY MANCANTE", "teams": []}
     
     teams_result = get_teams(league['id'], league['season'])
@@ -159,7 +159,9 @@ def load_all_league_data(league_key):
         return {"error": teams_result["error"], "teams": []}
     
     teams_data = []
-    for t in teams_result["teams"]:
+    total = len(teams_result["teams"])
+    
+    for i, t in enumerate(teams_result["teams"]):
         stats = get_team_stats(t['id'], league['id'], league['season'])
         if stats and (stats['matches_home'] > 0 or stats['matches_away'] > 0):
             teams_data.append({
@@ -167,7 +169,7 @@ def load_all_league_data(league_key):
                 'id': t['id'],
                 'stats': stats
             })
-        time.sleep(0.1)  # Rate limiting
+        time.sleep(0.05)  # Rate limiting
     
     return {"teams": teams_data, "error": None}
 
@@ -189,7 +191,6 @@ league_data = st.session_state.data_cache.get(current_league, {"teams": [], "err
 teams_list = league_data.get("teams", [])
 error_msg = league_data.get("error")
 
-# Prepara JSON per JavaScript
 teams_json = json.dumps(teams_list)
 error_json = json.dumps(error_msg if error_msg else "")
 
@@ -382,12 +383,6 @@ main {{
             <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">OSPITE</label>
             <select id="away" class="mt-1"><option>Caricamento...</option></select>
         </div>
-        <div id="ref-box" class="hidden">
-            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">ARBITRO (Piano Pro)</label>
-            <select id="referee" class="mt-1 text-yellow-400">
-                <option>Seleziona Arbitro</option>
-            </select>
-        </div>
     </div>
     
     <hr class="border-slate-800 mb-5 opacity-50">
@@ -398,16 +393,6 @@ main {{
             <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180"></i>
         </summary>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-            <!-- Sezione Falli - visibile solo con dati -->
-            <div id="box-falli-lines" class="bg-slate-950 p-3 rounded-lg border border-slate-800 hidden">
-                <div class="text-[9px] font-bold text-red-400 uppercase mb-2 text-center border-b border-slate-800 pb-1">LINEE FALLI</div>
-                <input type="number" id="line-f-match" value="24.5" step="0.5" class="input-dark mb-2 text-lg font-bold text-white">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="line-f-h" value="11.5" class="input-dark text-xs" placeholder="Casa">
-                    <input type="number" id="line-f-a" value="11.5" class="input-dark text-xs" placeholder="Ospite">
-                </div>
-            </div>
-            
             <div id="box-tiri-lines" class="bg-slate-950 p-3 rounded-lg border border-slate-800 md:col-span-3">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -437,14 +422,6 @@ main {{
 </div>
 
 <div id="results" class="hidden pb-20">
-    <div id="sec-falli" class="hidden">
-        <div class="flex items-center gap-2 mb-3 mt-8 border-b border-slate-800 pb-2">
-            <i data-lucide="alert-circle" class="text-red-400 w-4 h-4"></i>
-            <span class="text-sm font-bold text-red-400 uppercase tracking-widest" id="title-falli">Analisi Falli</span>
-        </div>
-        <div id="grid-falli" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8"></div>
-    </div>
-    
     <div id="sec-tiri">
         <div class="flex items-center gap-2 mb-3 mt-8 border-b border-slate-800 pb-2">
             <i data-lucide="crosshair" class="text-blue-400 w-4 h-4"></i>
@@ -475,11 +452,10 @@ function initApp() {{
     const pill = document.getElementById('status-pill');
     const warningBox = document.getElementById('warning-box');
     
-    // Gestione errori/API key
     if(ERROR_MSG && ERROR_MSG.includes("API KEY")) {{
         pill.className = 'api-status status-error';
         pill.innerHTML = '<span>❌ API KEY MANCANTE</span>';
-        warningBox.innerHTML = '⚠️ ' + ERROR_MSG + '<br><small>Inserisci la tua API key di API-Sports.io nelle secrets di Streamlit o nel codice</small>';
+        warningBox.innerHTML = '⚠️ ' + ERROR_MSG + '<br><small>Inserisci la tua API key nel codice (riga 39)</small>';
         warningBox.classList.remove('hidden');
         populateEmptySelectors();
         return;
@@ -501,7 +477,6 @@ function initApp() {{
         return;
     }}
     
-    // Successo
     pill.className = 'api-status status-ready';
     pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>API CONNESSA • ' + TEAMS_DATA.length + ' SQUADRE</span>';
     warningBox.classList.add('hidden');
@@ -540,7 +515,6 @@ function updateLeagueButtons(l) {{
 }}
 
 function switchLeague(l) {{
-    // Ricarica la pagina con nuova lega
     const url = new URL(window.location.href);
     url.searchParams.set('league', l);
     window.location.href = url.toString();
@@ -607,7 +581,6 @@ function calculate() {{
     const expTPAway = (m_tipf_a + m_tips_h) / 2;
     const totTP = expTPHome + expTPAway;
     
-    // Rendering
     document.getElementById('results').classList.remove('hidden');
     
     renderBox('grid-tiri', "MATCH TOTALE", totTiri, 'line-t-match');
@@ -618,7 +591,6 @@ function calculate() {{
     renderBox('grid-tp', homeName, expTPHome, 'line-tp-h');
     renderBox('grid-tp', awayName, expTPAway, 'line-tp-a');
     
-    // Scroll ai risultati
     setTimeout(() => document.getElementById('results').scrollIntoView({{behavior:'smooth'}}), 100);
 }}
 
@@ -669,7 +641,7 @@ function renderBox(id, title, val, lineId) {{
 
 components.html(html_template, height=1200, scrolling=True)
 
-# Gestione cambio lega da URL
+# Gestione cambio lega
 query_params = st.query_params
 if 'league' in query_params:
     new_league = query_params['league']
