@@ -1,161 +1,152 @@
 import streamlit as st
 import requests
 import pandas as pd
-import numpy as np
-from scipy.stats import poisson
 import time
 
 # --- CONFIGURAZIONE ---
-API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"
+API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3" 
 BASE_URL = "https://v3.football.api-sports.io"
-LEAGUE_ID = 135 # Serie A
+LEAGUE_ID = 135  
 SEASON = 2025
 
-st.set_page_config(page_title="PROBET AI V2 PRO", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="PROBET AI PROFESSIONAL", layout="wide")
 
-# --- CSS PER CLONARE L'INTERFACCIA ORIGINALE (DARK MODE PRO) ---
+# STILE PULITO E LEGGIBILE (Rimosso il nero che copriva i numeri)
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #0b1120;
-        color: white;
-        font-family: 'Rajdhani', sans-serif;
+    .main { background-color: #f8f9fa; color: #1e1e1e; }
+    .stMetric { 
+        background-color: #ffffff !important; 
+        padding: 20px !important; 
+        border-radius: 12px !important; 
+        border: 2px solid #e9ecef !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }
-
-    /* Rimuoviamo padding inutili */
-    .block-container { padding: 1rem 2rem; }
-
-    /* Stile Sezioni */
-    .section-header {
-        color: #818cf8;
-        font-size: 0.9rem;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin: 25px 0 10px 0;
-        display: flex;
-        align-items: center;
-        text-transform: uppercase;
-    }
-
-    /* Box delle Predizioni */
-    .prediction-card {
-        border-radius: 6px;
-        padding: 15px;
-        text-align: center;
-        transition: transform 0.2s;
-        border: 1px solid rgba(255,255,255,0.05);
-    }
-    
-    /* Colore VERDE (Super Valore) */
-    .bg-green { background: linear-gradient(180deg, #064e3b 0%, #065f46 100%); border: 1px solid #10b981; }
-    /* Colore ARANCIO (Buono) */
-    .bg-orange { background: linear-gradient(180deg, #78350f 0%, #92400e 100%); border: 1px solid #f59e0b; }
-    /* Colore GRIGIO (Pass/No Edge) */
-    .bg-gray { background: #1f2937; color: #9ca3af; }
-
-    .card-title { font-size: 0.65rem; font-weight: 700; opacity: 0.8; text-transform: uppercase; margin-bottom: 5px; }
-    .card-main { font-size: 1.6rem; font-weight: 800; margin: 2px 0; }
-    .card-sub { font-size: 0.75rem; font-weight: 600; }
-    .card-prob { font-size: 0.7rem; font-weight: 600; margin-top: 10px; opacity: 0.7; }
-    
-    .badge-high {
-        background-color: white;
-        color: black;
-        font-size: 0.55rem;
-        padding: 1px 5px;
-        border-radius: 4px;
-        font-weight: 900;
-        vertical-align: middle;
-        margin-left: 5px;
-    }
+    .stMetric div { color: #1e1e1e !important; }
+    .stDataFrame { border-radius: 10px; }
+    h1, h2, h3 { color: #0d6efd !important; font-weight: 800; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNZIONI STATISTICHE ---
-def get_poisson_prob(mu, line):
-    # Probabilità che il risultato sia superiore alla linea
-    return round((1 - poisson.cdf(line, mu)) * 100, 1)
+st.title("🏆 PROBET AI - Dashboard Professionale")
 
-def get_ui_elements(mu, line, prob):
-    diff = mu - line
-    if diff > 1.2 and prob > 58:
-        return "OVER", "SUPER VALORE", "bg-green", "HIGH CONFIDENCE"
-    elif diff > 0.4:
-        return "OVER", "BUONO", "bg-orange", None
-    elif diff < -1.2 and prob < 40:
-        return "UNDER", "SUPER VALORE", "bg-green", "HIGH CONFIDENCE"
-    else:
-        return "PASS", "NO EDGE", "bg-gray", None
+# --- FUNZIONE RECUPERO DATI COMPLETI ---
+def get_full_database():
+    headers = {'x-apisports-key': API_KEY}
+    try:
+        r = requests.get(f"{BASE_URL}/teams?league={LEAGUE_ID}&season={SEASON}", headers=headers)
+        teams_data = r.json().get('response', [])
+    except: return None
 
-# --- RENDERIZZAZIONE BOX (CLONE) ---
-def render_box(title, main_val, sub_ai, status_lbl, prob, bg_class, badge=None):
-    badge_html = f'<span class="badge-high">⚡ {badge}</span>' if badge else ""
-    st.markdown(f"""
-        <div class="prediction-card {bg_class}">
-            <div class="card-title">{title} {badge_html}</div>
-            <div class="card-main">{main_val}</div>
-            <div class="card-sub">AI: {sub_ai:.2f} | {status_lbl}</div>
-            <div class="card-prob">PROB. {prob}%</div>
-        </div>
-    """, unsafe_allow_html=True)
+    final_rows = []
+    progress = st.progress(0)
+    status = st.empty()
+    
+    for i, t in enumerate(teams_data):
+        tid, tname = t['team']['id'], t['team']['name']
+        status.text(f"Analisi dati: {tname}...")
+        
+        row = {
+            "Squadra": tname,
+            "P_Casa": 0, "TF_C": 0, "TS_C": 0, "TiP_F_C": 0, "TiP_S_C": 0,
+            "P_Fuori": 0, "TF_F": 0, "TS_F": 0, "TiP_F_F": 0, "TiP_S_F": 0
+        }
 
-# --- APP MAIN ---
-st.title("PROBET AI")
+        fix_r = requests.get(f"{BASE_URL}/fixtures?league={LEAGUE_ID}&season={SEASON}&team={tid}", headers=headers)
+        fixtures = fix_r.json().get('response', [])
 
-# Simulo caricamento dati per test (In produzione qui carichi il tuo df_final)
+        for f in fixtures:
+            if f['fixture']['status']['short'] == 'FT':
+                fid, is_home = f['fixture']['id'], f['teams']['home']['id'] == tid
+                stat_r = requests.get(f"{BASE_URL}/fixtures/statistics?fixture={fid}", headers=headers)
+                stats = stat_r.json().get('response', [])
+
+                if len(stats) == 2:
+                    my_idx = 0 if stats[0]['team']['id'] == tid else 1
+                    opp_idx = 1 - my_idx
+                    
+                    def get_v(s_list, label):
+                        for s in s_list['statistics']:
+                            if s['type'] == label: return s['value'] or 0
+                        return 0
+
+                    if is_home:
+                        row["P_Casa"] += 1
+                        row["TF_C"] += get_v(stats[my_idx], "Total Shots")
+                        row["TS_C"] += get_v(stats[opp_idx], "Total Shots")
+                        row["TiP_F_C"] += get_v(stats[my_idx], "Shots on Goal")
+                        row["TiP_S_C"] += get_v(stats[opp_idx], "Shots on Goal")
+                    else:
+                        row["P_Fuori"] += 1
+                        row["TF_F"] += get_v(stats[my_idx], "Total Shots")
+                        row["TS_F"] += get_v(stats[opp_idx], "Total Shots")
+                        row["TiP_F_F"] += get_v(stats[my_idx], "Shots on Goal")
+                        row["TiP_S_F"] += get_v(stats[opp_idx], "Shots on Goal")
+        
+        final_rows.append(row)
+        progress.progress((i + 1) / len(teams_data))
+        time.sleep(0.1)
+
+    return pd.DataFrame(final_rows)
+
+if st.button("🔄 AGGIORNA DATABASE (CREA CSV)"):
+    df = get_full_database()
+    st.session_state['data'] = df
+
 if 'data' in st.session_state:
     df = st.session_state['data']
+    st.dataframe(df, use_container_width=True)
+
+    st.divider()
+    st.header("🎯 Analisi Match e Tiri in Porta")
     
-    # Header Selezione
-    col_h, col_a, col_l = st.columns([2,2,1])
-    home = col_h.selectbox("CASA", df['Squadra'].unique(), index=5) # Udinese
-    away = col_a.selectbox("FUORI", df['Squadra'].unique(), index=1) # Parma
-    linea_input = col_l.number_input("LINEA TIRI", value=23.5)
+    c1, c2, c3 = st.columns(3)
+    h_team = c1.selectbox("Squadra Casa", df['Squadra'].unique())
+    a_team = c2.selectbox("Squadra Fuori", df['Squadra'].unique())
+    linea = c3.number_input("Linea Over Tiri", value=23.5)
 
-    if st.button("🚀 GENERA PREVISIONE AI"):
-        h_row = df[df['Squadra'] == home].iloc[0]
-        a_row = df[df['Squadra'] == away].iloc[0]
+    if st.button("GENERA PREVISIONE PROFESSIONALE"):
+        h, a = df[df['Squadra'] == h_team].iloc[0], df[df['Squadra'] == a_team].iloc[0]
 
-        # Calcoli Medie (Uguali al tuo CSV)
-        m_h = ((h_row['TF_C']/h_row['P_Casa']) + (a_row['TS_F']/a_row['P_Fuori'])) / 2
-        m_a = ((a_row['TF_F']/a_row['P_Fuori']) + (h_row['TS_C']/h_row['P_Casa'])) / 2
-        tot = m_h + m_a
+        # --- CALCOLO MEDIE TIRI TOTALI ---
+        m_tf_h = h['TF_C']/h['P_Casa'] if h['P_Casa']>0 else 0
+        m_ts_a = a['TS_F']/a['P_Fuori'] if a['P_Fuori']>0 else 0
+        m_tf_a = a['TF_F']/a['P_Fuori'] if a['P_Fuori']>0 else 0
+        m_ts_h = h['TS_C']/h['P_Casa'] if h['P_Casa']>0 else 0
 
-        # Calcoli Tiri in Porta
-        m_tip_h = ((h_row['TiP_F_C']/h_row['P_Casa']) + (a_row['TiP_S_F']/a_row['P_Fuori'])) / 2
-        m_tip_a = ((a_row['TiP_F_F']/a_row['P_Fuori']) + (h_row['TiP_S_C']/h_row['P_Casa'])) / 2
-        tot_tip = m_tip_h + m_tip_a
+        prev_tiri_h = (m_tf_h + m_ts_a) / 2
+        prev_tiri_a = (m_tf_a + m_ts_h) / 2
+        tot_tiri = prev_tiri_h + prev_tiri_a
 
-        # --- SEZIONE TIRI TOTALI ---
-        st.markdown('<div class="section-header">🌐 TIRI TOTALI</div>', unsafe_allow_html=True)
-        c1, c2, c3 = st.columns(3)
+        # --- CALCOLO MEDIE TIRI IN PORTA ---
+        m_tipf_h = h['TiP_F_C']/h['P_Casa'] if h['P_Casa']>0 else 0
+        m_tips_a = a['TiP_S_F']/a['P_Fuori'] if a['P_Fuori']>0 else 0
+        m_tipf_a = a['TiP_F_F']/a['P_Fuori'] if a['P_Fuori']>0 else 0
+        m_tips_h = h['TiP_S_C']/h['P_Casa'] if h['P_Casa']>0 else 0
+
+        prev_tip_h = (m_tipf_h + m_tips_a) / 2
+        prev_tip_a = (m_tipf_a + m_tips_h) / 2
+        tot_tip = prev_tip_h + prev_tip_a
+
+        # --- RISULTATI VISIBILI ---
+        st.subheader(f"Analisi: {h_team} vs {a_team}")
         
-        # Match Totale
-        p_tot = get_poisson_prob(tot, linea_input)
-        res, lbl, css, bdg = get_ui_elements(tot, linea_input, p_tot)
-        with c1: render_box("MATCH TOTALE", f"{res} {linea_input}", tot, lbl, p_tot, css, bdg)
-        
-        # Udinese (Esempio linea 12.5)
-        p_uh = get_poisson_prob(m_h, 12.5)
-        res_uh, lbl_uh, css_uh, bdg_uh = get_ui_elements(m_h, 12.5, p_uh)
-        with c2: render_box(home, f"{res_uh} 12.5", m_h, lbl_uh, p_uh, css_uh, bdg_uh)
-        
-        # Parma (Esempio linea 10.5)
-        p_pa = get_poisson_prob(m_a, 10.5)
-        res_pa, lbl_pa, css_pa, bdg_pa = get_ui_elements(m_a, 10.5, p_pa)
-        with c3: render_box(away, f"PASS", m_a, "NO EDGE", p_pa, "bg-gray")
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            st.metric(f"Tiri Totali {h_team}", f"{prev_tiri_h:.2f}")
+            st.metric(f"Tiri in Porta {h_team}", f"{prev_tip_h:.2f}")
+        with col_t2:
+            st.metric(f"Tiri Totali {a_team}", f"{prev_tiri_a:.2f}")
+            st.metric(f"Tiri in Porta {a_team}", f"{prev_tip_a:.2f}")
 
-        # --- SEZIONE TIRI IN PORTA ---
-        st.markdown('<div class="section-header">🎯 TIRI IN PORTA</div>', unsafe_allow_html=True)
-        t1, t2, t3 = st.columns(3)
-        
-        p_tip_tot = get_poisson_prob(tot_tip, 8.5)
-        res_t, lbl_t, css_t, bdg_t = get_ui_elements(tot_tip, 8.5, p_tip_tot)
-        with t1: render_box("MATCH TOTALE", f"UNDER 8.5", tot_tip, "BUONO", p_tip_tot, "bg-orange", "HIGH CONFIDENCE")
-        with t2: render_box(home, f"UNDER 4.5", m_tip_h, "BUONO", 64.0, "bg-orange")
-        with t3: render_box(away, f"PASS", m_tip_a, "NO EDGE", 50.0, "bg-gray")
+        st.divider()
+        res1, res2 = st.columns(2)
+        res1.metric("TOTALE TIRI MATCH", f"{tot_tiri:.2f}", delta=round(tot_tiri-linea, 2))
+        res2.metric("TOTALE IN PORTA MATCH", f"{tot_tip:.2f}")
 
-else:
-    st.info("Esegui la sincronizzazione del database per visualizzare l'interfaccia di analisi.")
+        if tot_tiri > (linea + 0.5):
+            st.success(f"CONSIGLIO: OVER {linea} ✅")
+        elif tot_tiri < (linea - 0.5):
+            st.error(f"CONSIGLIO: UNDER {linea} ❌")
+        else:
+            st.warning("NO BET: Valore troppo vicino alla linea")
