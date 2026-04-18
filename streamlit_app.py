@@ -1,221 +1,157 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import requests
+import pandas as pd
+import time
 
-# --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="ProBet AI - Professional V2", layout="wide", initial_sidebar_state="collapsed")
+# --- CONFIGURAZIONE ---
+# Inserisci qui la tua chiave API-Football
+API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3" 
+BASE_URL = "https://v3.football.api-sports.io"
+LEAGUE_ID = 135  # Serie A
+SEASON = 2025
 
+st.set_page_config(page_title="PROBET AI - Professional Dashboard", layout="wide")
+
+# Stile CSS per rendere l'app professionale e scura
 st.markdown("""
-<style>
-#MainMenu, footer, header {visibility: hidden;}
-.block-container {padding: 0 !important;}
-</style>
-""", unsafe_allow_html=True)
-
-html_code = """
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ProBet AI Professional</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;700&family=Inter:wght@400;700;900&display=swap');
-        body { background-color: #0f172a; color: #f1f5f9; font-family: 'Inter', sans-serif; }
-        .teko { font-family: 'Teko', sans-serif; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 15px; }
-        .table-auto { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .table-auto th { background: #0f172a; color: #64748b; padding: 8px; text-align: left; text-transform: uppercase; }
-        .table-auto td { border-bottom: 1px solid #334155; padding: 8px; }
-        .val-high { background: linear-gradient(135deg,#15803d 0%,#166534 100%); border: 1px solid #22c55e; }
-        .val-med { background: linear-gradient(135deg,#ca8a04 0%,#a16207 100%); border: 1px solid #facc15; }
-        .input-dark { background:#0f172a; border:1px solid #334155; color:white; padding:8px; border-radius:6px; width:100%; text-align:center; }
+    .main { background-color: #0e1117; color: white; }
+    .stDataFrame { border: 1px solid #30363d; border-radius: 10px; }
+    .stats-card { background-color: #161b22; padding: 20px; border-radius: 10px; border: 1px solid #30363d; }
     </style>
-</head>
-<body class="p-4">
+    """, unsafe_allow_html=True)
 
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-black teko tracking-wider text-white">PROBET AI <span class="text-blue-500">V2 PRO</span></h1>
-            <p class="text-[10px] text-slate-500 uppercase font-bold">Sistema di Analisi Automatica Season 2025/26</p>
-        </div>
-        <div id="api-status" class="px-3 py-1 bg-slate-800 rounded-full border border-slate-700 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
-            <span class="text-[10px] font-bold text-slate-400">CONNESSIONE...</span>
-        </div>
-    </div>
+st.title("🏆 PROBET AI - Stagione 2025/26")
+st.subheader("Database Automatico Tiri (Identico al CSV)")
 
-    <div class="card mb-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-sm font-bold uppercase flex items-center gap-2"><i data-lucide="database" class="w-4 h-4 text-blue-400"></i> Database Live (Auto-Aggiornante)</h2>
-            <button onclick="fetchDatabase()" class="text-[10px] bg-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-500">AGGIORNA ORA</button>
-        </div>
-        <div class="overflow-x-auto max-h-60 overflow-y-auto border border-slate-700 rounded-lg">
-            <table class="table-auto" id="db-table">
-                <thead>
-                    <tr>
-                        <th>Squadra</th><th>P. Casa</th><th>Fatti C.</th><th>Subiti C.</th><th>P. Fuori</th><th>Fatti F.</th><th>Subiti F.</th>
-                    </tr>
-                </thead>
-                <tbody id="db-body" class="text-slate-300">
-                    <tr><td colspan="7" class="text-center py-4">Caricamento dati dall'API...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+# --- FUNZIONE RECUPERO DATI ---
+def fetch_serie_a_data():
+    headers = {'x-apisports-key': API_KEY}
+    
+    # 1. Prendo l'elenco squadre
+    try:
+        r_teams = requests.get(f"{BASE_URL}/teams?league={LEAGUE_ID}&season={SEASON}", headers=headers)
+        teams_list = r_teams.json().get('response', [])
+    except:
+        st.error("Errore di connessione all'API. Controlla la tua chiave.")
+        return None
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="card">
-            <label class="text-[10px] font-bold text-slate-500 uppercase">Partita in Analisi</label>
-            <div class="grid grid-cols-2 gap-2 mt-2">
-                <select id="home-team" class="input-dark font-bold"></select>
-                <select id="away-team" class="input-dark font-bold"></select>
-            </div>
-            <div class="mt-4">
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Linea Bookmaker (Tiri Totali)</label>
-                <input type="number" id="line-goal" value="23.5" step="0.5" class="input-dark text-xl font-black text-blue-400 mt-1">
-            </div>
-            <button onclick="calculatePrevision()" class="w-full mt-4 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all flex justify-center items-center gap-2">
-                <i data-lucide="zap" class="w-5 h-5"></i> GENERA PREVISIONE AI
-            </button>
-        </div>
+    data_rows = []
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-        <div id="result-box" class="hidden card flex flex-col justify-center items-center text-center">
-            <div class="text-[10px] font-bold text-slate-400 uppercase mb-2">Risultato Elaborazione</div>
-            <div id="rec-color" class="w-full p-6 rounded-xl">
-                <div id="rec-label" class="text-4xl font-black teko leading-none">---</div>
-                <div id="rec-ai-val" class="text-sm font-bold opacity-80">Media AI: --</div>
-                <div id="rec-prob" class="mt-2 text-[10px] bg-black/30 inline-block px-2 py-1 rounded-full font-bold">PROB: --</div>
-            </div>
-        </div>
-    </div>
-
-    <div id="logs" class="text-[9px] font-mono text-slate-600 p-2 border-t border-slate-800"></div>
-
-<script>
-    const API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3";
-    const BASE_URL = "https://v3.football.api-sports.io";
-    let teamData = {}; 
-
-    function log(m) { document.getElementById('logs').innerHTML += `> ${m}<br>`; }
-
-    async function checkAPI() {
-        try {
-            const r = await fetch(`${BASE_URL}/status`, { headers: { 'x-apisports-key': API_KEY } });
-            const d = await r.json();
-            document.getElementById('api-status').innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div><span class="text-[10px] font-bold text-green-400 uppercase">API PRONTA: ${d.response.subscription.plan}</span>`;
-            fetchDatabase();
-        } catch(e) { log("Errore API: chiave non valida."); }
-    }
-
-    async function fetchDatabase() {
-        log("Inizio sincronizzazione database 2025/26...");
-        try {
-            const r = await fetch(`${BASE_URL}/teams?league=135&season=2025`, { headers: { 'x-apisports-key': API_KEY } });
-            const d = await r.json();
-            const teams = d.response;
-            const tbody = document.getElementById('db-body');
-            const selH = document.getElementById('home-team');
-            const selA = document.getElementById('away-team');
-            
-            tbody.innerHTML = "";
-            selH.innerHTML = ""; selA.innerHTML = "";
-
-            for(let t of teams) {
-                const id = t.team.id;
-                const name = t.team.name;
-                
-                // Per ogni squadra prendiamo le statistiche medie (più veloce per il database)
-                const sR = await fetch(`${BASE_URL}/teams/statistics?league=135&season=2025&team=${id}`, { headers: { 'x-apisports-key': API_KEY } });
-                const sD = await sR.json();
-                const stats = sD.response;
-
-                const casa = stats.fixtures.played.home || 0;
-                const fuori = stats.fixtures.played.away || 0;
-                
-                // Estrazione tiri (fatti e subiti)
-                const shots = stats.lineups || []; // In realtà l'API Pro ha un oggetto 'statistics' più profondo
-                // Simuliamo i campi del tuo CSV per la tabella
-                const row = `<tr>
-                    <td class="font-bold text-white">${name}</td>
-                    <td>${casa}</td>
-                    <td>${(stats.goals.for.average.home || 0)}*</td> <td>--</td>
-                    <td>${fuori}</td>
-                    <td>${(stats.goals.for.average.away || 0)}*</td>
-                    <td>--</td>
-                </tr>`;
-                tbody.innerHTML += row;
-                
-                const opt = new Option(name, id);
-                selH.add(opt.cloneNode(true));
-                selA.add(opt);
-
-                teamData[id] = { name, stats };
-            }
-            log("Database aggiornato con successo.");
-            lucide.createIcons();
-        } catch(e) { log("Errore fetch: " + e.message); }
-    }
-
-    async function calculatePrevision() {
-        const hId = document.getElementById('home-team').value;
-        const aId = document.getElementById('away-team').value;
-        const line = parseFloat(document.getElementById('line-goal').value);
+    for idx, item in enumerate(teams_list):
+        t_id = item['team']['id']
+        t_name = item['team']['name']
+        status_text.text(f"Analisi in corso: {t_name}...")
         
-        document.getElementById('result-box').classList.remove('hidden');
-        
-        log(`Analisi profonda partita ${hId} vs ${aId}...`);
-        
-        // RECUPERO TIRI REALI ULTIME PARTITE (LOGICA PRO)
-        async function getRealShots(id) {
-            const r = await fetch(`${BASE_URL}/fixtures?team=${id}&league=135&season=2025&last=8`, { headers: { 'x-apisports-key': API_KEY } });
-            const d = await r.json();
-            let sumFatti = 0, sumSubiti = 0, count = 0;
-            
-            for(let f of d.response) {
-                const fid = f.fixture.id;
-                const sr = await fetch(`${BASE_URL}/fixtures/statistics?fixture=${fid}&team=${id}`, { headers: { 'x-apisports-key': API_KEY } });
-                const sd = await sr.json();
-                if(sd.response[0]) {
-                    const s = sd.response[0].statistics;
-                    sumFatti += s.find(x => x.type === "Total Shots")?.value || 0;
-                    // Qui potremmo prendere anche i subiti dall'avversario
-                    count++;
-                }
-            }
-            return sumFatti / (count || 1);
+        # Inizializzo riga come il tuo CSV
+        row = {
+            "Squadra": t_name, "Partite Casa": 0, "Tiri Fatti Casa": 0, "Tiri Subiti Casa": 0,
+            "Tiri in porta Fatti Casa": 0, "Tiri in porta Subiti Casa": 0,
+            "Partite Trasferta": 0, "Tiri Fatti Trasferta": 0, "Tiri Subiti Trasferta": 0,
+            "Tiri in porta Fatti Trasferta": 0, "Tiri in porta Subiti Trasferta": 0
         }
 
-        const avgH = await getRealShots(hId);
-        const avgA = await getRealShots(aId);
-        const totalAI = avgH + (avgA * 0.8); // Esempio di formula pesata più potente
+        # 2. Prendo le ultime partite di questa squadra
+        r_fix = requests.get(f"{BASE_URL}/fixtures?league={LEAGUE_ID}&season={SEASON}&team={t_id}", headers=headers)
+        fixtures = r_fix.json().get('response', [])
 
-        const diff = totalAI - line;
-        const resBox = document.getElementById('rec-color');
-        const resLab = document.getElementById('rec-label');
-        const resVal = document.getElementById('rec-ai-val');
+        for f in fixtures:
+            if f['fixture']['status']['short'] == 'FT':
+                f_id = f['fixture']['id']
+                is_home = f['teams']['home']['id'] == t_id
+                
+                if is_home: row["Partite Casa"] += 1
+                else: row["Partite Trasferta"] += 1
 
-        resVal.innerText = `MEDIA AI: ${totalAI.toFixed(2)} TIRI`;
+                # 3. Prendo le statistiche dettagliate del match (Tiri Fatti e Subiti)
+                r_stat = requests.get(f"{BASE_URL}/fixtures/statistics?fixture={f_id}", headers=headers)
+                f_stats = r_stat.json().get('response', [])
+
+                if len(f_stats) == 2:
+                    # Individuo chi è la squadra corrente e chi l'avversario
+                    my_idx = 0 if f_stats[0]['team']['id'] == t_id else 1
+                    opp_idx = 1 - my_idx
+                    
+                    def get_val(stats_list, label):
+                        for s in stats_list:
+                            if s['type'] == label: return s['value'] if s['value'] is not None else 0
+                        return 0
+
+                    my_shots = get_val(f_stats[my_idx]['statistics'], "Total Shots")
+                    my_on_goal = get_val(f_stats[my_idx]['statistics'], "Shots on Goal")
+                    opp_shots = get_val(f_stats[opp_idx]['statistics'], "Total Shots")
+                    opp_on_goal = get_val(f_stats[opp_idx]['statistics'], "Shots on Goal")
+
+                    if is_home:
+                        row["Tiri Fatti Casa"] += my_shots
+                        row["Tiri in porta Fatti Casa"] += my_on_goal
+                        row["Tiri Subiti Casa"] += opp_shots
+                        row["Tiri in porta Subiti Casa"] += opp_on_goal
+                    else:
+                        row["Tiri Fatti Trasferta"] += my_shots
+                        row["Tiri in porta Fatti Trasferta"] += my_on_goal
+                        row["Tiri Subiti Trasferta"] += opp_shots
+                        row["Tiri in porta Subiti Trasferta"] += opp_on_goal
         
-        if(diff >= 1.5) {
-            resBox.className = "w-full p-6 rounded-xl val-high text-white";
-            resLab.innerText = `OVER ${line} - SUPER VALORE`;
-        } else if (diff <= -1.5) {
-            resBox.className = "w-full p-6 rounded-xl val-high text-white";
-            resLab.innerText = `UNDER ${line} - SUPER VALORE`;
-        } else {
-            resBox.className = "w-full p-6 rounded-xl bg-slate-700 text-slate-400";
-            resLab.innerText = "NO VALORE - PASS";
-        }
+        data_rows.append(row)
+        progress_bar.progress((idx + 1) / len(teams_list))
+        time.sleep(0.1) # Piccolo delay per non bloccare l'API
+
+    return pd.DataFrame(data_rows)
+
+# --- INTERFACCIA ---
+if st.button("🔄 SINCRONIZZA DATABASE DALLE API"):
+    df = fetch_serie_a_data()
+    if df is not None:
+        st.session_state['df_seriea'] = df
+        st.success("Database aggiornato con successo!")
+
+if 'df_seriea' in st.session_state:
+    df = st.session_state['df_seriea']
+    
+    st.write("### Tabella Completa Dati Tiri")
+    st.dataframe(df, use_container_width=True)
+
+    # --- SEZIONE CALCOLO ---
+    st.divider()
+    st.header("🎯 Analizzatore Partita")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        home_choice = st.selectbox("Squadra in Casa", df['Squadra'].unique())
+    with col2:
+        away_choice = st.selectbox("Squadra Ospite", df['Squadra'].unique())
+    with col3:
+        linea = st.number_input("Linea Tiri Bookmaker", value=23.5, step=0.5)
+
+    if st.button("CALCOLA PREVISIONE"):
+        h_data = df[df['Squadra'] == home_choice].iloc[0]
+        a_data = df[df['Squadra'] == away_choice].iloc[0]
+
+        # Calcolo Medie (La tua formula)
+        # Media Tiri Casa = (Fatti Casa + Subiti Casa) / Partite
+        # Ma noi vogliamo incrociare: (Fatti Casa di uno + Subiti Trasferta dell'altro)
         
-        document.getElementById('rec-prob').innerText = `CONFIDENZA: ${Math.min(95, (60 + Math.abs(diff)*10)).toFixed(0)}%`;
-    }
+        m_fatti_h = h_data['Tiri Fatti Casa'] / h_data['Partite Casa'] if h_data['Partite Casa'] > 0 else 0
+        m_subiti_h = h_data['Tiri Subiti Casa'] / h_data['Partite Casa'] if h_data['Partite Casa'] > 0 else 0
+        
+        m_fatti_a = a_data['Tiri Fatti Trasferta'] / a_data['Partite Trasferta'] if a_data['Partite Trasferta'] > 0 else 0
+        m_subiti_a = a_data['Tiri Subiti Trasferta'] / a_data['Partite Trasferta'] if a_data['Partite Trasferta'] > 0 else 0
 
-    window.onload = checkAPI;
-</script>
-</body>
-</html>
-"""
+        stima_totale = (m_fatti_h + m_subiti_a) + (m_fatti_a + m_subiti_h)
+        # Nota: Ho usato la somma delle medie incrociate, che è il calcolo più preciso.
 
-components.html(html_code, height=1000, scrolling=True)
+        st.metric("Tiri Totali Stimati", f"{stima_totale:.2f}")
+
+        if stima_totale > (linea + 1):
+            st.success(f"CONSIGLIO: OVER {linea} (Valore Alto)")
+        elif stima_totale < (linea - 1):
+            st.error(f"CONSIGLIO: UNDER {linea} (Valore Alto)")
+        else:
+            st.warning("NESSUN VALORE CHIARO")
+
+else:
+    st.warning("Clicca sul tasto sopra per caricare i dati dall'API per la prima volta.")
