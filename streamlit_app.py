@@ -78,7 +78,7 @@ html_code = """
             </button>
         </div>
 
-        <div id="results" class="hidden space-y-4 animate-in fade-in duration-500">
+        <div id="results" class="hidden space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div id="res-tiri" class="card-res"></div>
                 <div id="res-tp" class="card-res"></div>
@@ -87,14 +87,12 @@ html_code = """
     </main>
 
 <script>
-// --- CONFIGURAZIONE CHIAVE ---
 const API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3";
 const HOST = "v3.football.api-sports.io";
 const SEASON = "2025"; 
 
 let currentLeague = 135;
 
-// Carica squadre all'inizio
 async function changeLeague(id, btnId) {
     currentLeague = id;
     document.querySelectorAll('.btn-league').forEach(b => b.classList.remove('btn-active', 'text-white'));
@@ -134,7 +132,6 @@ async function analyze() {
     btn.innerHTML = '<div class="loader"></div> ELABORAZIONE...';
     
     try {
-        // Chiamata parallela per le statistiche delle due squadre
         const [resH, resA] = await Promise.all([
             fetch(`https://${HOST}/teams/statistics?league=${currentLeague}&season=${SEASON}&team=${idHome}`, {
                 headers: { "x-rapidapi-key": API_KEY, "x-rapidapi-host": HOST }
@@ -144,20 +141,34 @@ async function analyze() {
             }).then(r => r.json())
         ]);
 
+        if (!resH.response || !resA.response) {
+            throw new Error("Dati non disponibili per questa stagione");
+        }
+
         const sH = resH.response;
         const sA = resA.response;
 
-        // Calcolo medie (Tiri Fatti Casa + Tiri Fatti Trasferta)
-        const pC = sH.fixtures.played.home || 1;
-        const pF = sA.fixtures.played.away || 1;
+        // Estrazione dati con paracadute se mancano valori
+        const tfC = (sH.shots?.total?.home) || 0;
+        const tfF = (sA.shots?.total?.away) || 0;
+        const tpfC = (sH.shots?.on_goal?.home) || 0;
+        const tpfF = (sA.shots?.on_goal?.away) || 0;
         
-        const mediaT = (sH.shots.total.home / pC) + (sA.shots.total.away / pF);
-        const mediaTP = (sH.shots.on_goal.home / pC) + (sA.shots.on_goal.away / pF);
+        const pC = (sH.fixtures?.played?.home) || 1;
+        const pF = (sA.fixtures?.played?.away) || 1;
+        
+        const mediaT = (tfC / pC) + (tfF / pF);
+        const mediaTP = (tpfC / pC) + (tpfF / pF);
+
+        if (mediaT === 0) {
+            alert("L'API non ha ancora dati sui tiri per queste squadre in questa stagione.");
+            return;
+        }
 
         renderResults(mediaT, mediaTP);
         document.getElementById('results').classList.remove('hidden');
     } catch(e) {
-        alert("Errore nel recupero dati API");
+        alert("Errore API: " + e.message);
     } finally {
         btn.disabled = false;
         btn.innerHTML = 'ELABORA DATI API LIVE';
@@ -168,7 +179,6 @@ function renderResults(mt, mtp) {
     const lineT = parseFloat(document.getElementById('line-t').value);
     const lineTP = parseFloat(document.getElementById('line-tp').value);
     
-    // Formula Poisson semplificata per probabilità
     const getProb = (m, l) => {
         const type = m > l ? 'OVER' : 'UNDER';
         let p = m > l ? (m / l) * 45 : (l / m) * 45;
