@@ -89,7 +89,7 @@ html_code = """
 <script>
 const API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3";
 const HOST = "v3.football.api-sports.io";
-const SEASON = "2025"; 
+const SEASON = "2024"; 
 
 let currentLeague = 135;
 
