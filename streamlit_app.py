@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import requests
 import json
 import time
+from datetime import datetime, timedelta
 
 # --- CONFIGURAZIONE ---
 st.set_page_config(page_title="ProBet AI", layout="wide", initial_sidebar_state="collapsed")
@@ -36,12 +37,7 @@ div[data-testid="stHeader"] { display: none !important; }
 """, unsafe_allow_html=True)
 
 # --- CONFIGURAZIONE API ---
-# Modo 1: Inserisci direttamente qui (meno sicuro)
-API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"  # <-- SOSTITUISCI CON LA TUA KEY
-
-# Modo 2: Usa secrets di Streamlit (più sicuro) - decommenta la riga sotto se usi secrets
-# API_KEY = st.secrets.get("API_KEY", "028b02ea1d97fdd09cf5f4a89f6860b3")
-
+API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"  # <-- LA TUA API KEY
 BASE_URL = "https://v3.football.api-sports.io"
 
 LEAGUES = {
@@ -50,31 +46,135 @@ LEAGUES = {
     'LIGA': {'id': 140, 'season': 2025, 'name': 'La Liga'}
 }
 
-# --- FUNZIONI API ---
-def get_teams(league_id, season):
-    """Recupera squadre con gestione errori"""
-    headers = {'x-apisports-key': API_KEY}
-    try:
-        r = requests.get(
-            f"{BASE_URL}/teams?league={league_id}&season={season}", 
-            headers=headers, 
-            timeout=15
-        )
-        if r.status_code != 200:
-            return {"error": f"HTTP {r.status_code}", "teams": []}
-        
-        data = r.json()
-        if data.get('response'):
-            teams = [{'id': t['team']['id'], 'name': t['team']['name']} for t in data['response']]
-            return {"teams": teams, "error": None}
-        return {"teams": [], "error": "Nessun dato"}
-    except Exception as e:
-        return {"teams": [], "error": str(e)}
+# --- SESSION STATE PERSISTENTE ---
+if 'current_league' not in st.session_state:
+    st.session_state.current_league = 'SERIE_A'
+if 'api_cache' not in st.session_state:
+    st.session_state.api_cache = {}  # Cache persistente per tutta la sessione
+if 'last_load' not in st.session_state:
+    st.session_state.last_load = {}
 
-def get_team_stats(team_id, league_id, season):
-    """Recupera statistiche con gestione errori"""
+current_league = st.session_state.current_league
+
+# --- FUNZIONI API OTTIMIZZATE ---
+def make_api_call(url, headers, max_retries=3):
+    """Chiama API con retry e rate limiting"""
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            
+            # Gestione rate limit
+            if response.status_code == 429:
+                wait_time = (attempt + 1) * 3
+                time.sleep(wait_time)
+                continue
+                
+            return response
+        except Exception as e:
+            if attempt == max_retries - 1:
+                return None
+            time.sleep(2)
+    return None
+
+def get_teams_fast(league_id, season):
+    """Recupera squadre - 1 chiamata API"""
+    cache_key = f"teams_{league_id}_{season}"
+    
+    # Check cache
+    if cache_key in st.session_state.api_cache:
+        return st.session_state.api_cache[cache_key]
+    
+    headers = {'x-apisports-key': API_KEY}
+    url = f"{BASE_URL}/teams?league={league_id}&season={season}"
+    
+    response = make_api_call(url, headers)
+    if not response or response.status_code != 200:
+        return {"error": f"HTTP {response.status_code if response else 'ERROR'}", "teams": []}
+    
+    data = response.json()
+    if not data.get('response'):
+        return {"teams": [], "error": "Nessun dato"}
+    
+    teams = [{'id': t['team']['id'], 'name': t['team']['name']} for t in data['response']]
+    result = {"teams": teams, "error": None}
+    
+    # Salva in cache
+    st.session_state.api_cache[cache_key] = result
+    return result
+
+def get_all_fixtures_stats(league_id, season):
+    """Recupera TUTTE le partite giocate della lega - ottimizzato"""
+    cache_key = f"fixtures_{league_id}_{season}"
+    
+    if cache_key in st.session_state.api_cache:
+        return st.session_state.api_cache[cache_key]
+    
     headers = {'x-apisports-key': API_KEY}
     
+    # Prendi tutte le partite giocate della lega (massimo 100 per pagina)
+    all_fixtures = []
+    page = 1
+    
+    while True:
+        url = f"{BASE_URL}/fixtures?league={league_id}&season={season}&status=FT&per_page=100&page={page}"
+        response = make_api_call(url, headers)
+        
+        if not response or response.status_code != 200:
+            break
+            
+        data = response.json()
+        fixtures = data.get('response', [])
+        
+        if not fixtures:
+            break
+            
+        all_fixtures.extend(fixtures)
+        
+        if len(fixtures) < 100:
+            break
+            
+        page += 1
+        time.sleep(0.5)  # Rate limiting tra pagine
+    
+    # Ora recupera le statistiche per ogni partita
+    fixtures_stats = {}
+    total = len(all_fixtures)
+    
+    for i, fixture in enumerate(all_fixtures):
+        fid = fixture['fixture']['id']
+        home_id = fixture['teams']['home']['id']
+        away_id = fixture['teams']['away']['id']
+        
+        # Check se abbiamo già questa partita in cache
+        if fid in st.session_state.api_cache:
+            fixtures_stats[fid] = st.session_state.api_cache[fid]
+            continue
+        
+        url = f"{BASE_URL}/fixtures/statistics?fixture={fid}"
+        response = make_api_call(url, headers)
+        
+        if response and response.status_code == 200:
+            stat_data = response.json().get('response', [])
+            if len(stat_data) == 2:
+                fixtures_stats[fid] = {
+                    'home_id': home_id,
+                    'away_id': away_id,
+                    'home_stats': stat_data[0],
+                    'away_stats': stat_data[1]
+                }
+                # Cache individuale per partita
+                st.session_state.api_cache[fid] = fixtures_stats[fid]
+        
+        # Progress ogni 10 partite
+        if i % 10 == 0:
+            time.sleep(0.3)  # Rate limiting
+    
+    result = {"fixtures": fixtures_stats, "count": len(fixtures_stats)}
+    st.session_state.api_cache[cache_key] = result
+    return result
+
+def calculate_team_stats_from_fixtures(team_id, fixtures_data):
+    """Calcola statistiche squadra dai dati fixtures già recuperati"""
     stats = {
         'matches_home': 0, 'matches_away': 0,
         'shots_for_home': 0, 'shots_for_away': 0,
@@ -87,110 +187,110 @@ def get_team_stats(team_id, league_id, season):
         'reds_for_home': 0, 'reds_for_away': 0
     }
     
-    try:
-        fix_r = requests.get(
-            f"{BASE_URL}/fixtures?league={league_id}&season={season}&team={team_id}&status=FT", 
-            headers=headers, 
-            timeout=15
-        )
-        fixtures = fix_r.json().get('response', [])
-        
-        if not fixtures:
-            return None
-            
-        for f in fixtures:
-            fid = f['fixture']['id']
-            is_home = f['teams']['home']['id'] == team_id
-            
-            stat_r = requests.get(
-                f"{BASE_URL}/fixtures/statistics?fixture={fid}", 
-                headers=headers, 
-                timeout=10
-            )
-            stat_data = stat_r.json().get('response', [])
-            
-            if len(stat_data) == 2:
-                my_idx = 0 if stat_data[0]['team']['id'] == team_id else 1
-                opp_idx = 1 - my_idx
-                
-                def get_val(s_list, label):
-                    for s in s_list.get('statistics', []):
-                        if s['type'] == label:
-                            return s['value'] or 0
-                    return 0
-                
-                if is_home:
-                    stats['matches_home'] += 1
-                    stats['shots_for_home'] += get_val(stat_data[my_idx], "Total Shots")
-                    stats['shots_against_home'] += get_val(stat_data[opp_idx], "Total Shots")
-                    stats['shots_on_for_home'] += get_val(stat_data[my_idx], "Shots on Goal")
-                    stats['shots_on_against_home'] += get_val(stat_data[opp_idx], "Shots on Goal")
-                    stats['fouls_for_home'] += get_val(stat_data[my_idx], "Fouls")
-                    stats['fouls_against_home'] += get_val(stat_data[opp_idx], "Fouls")
-                    stats['yellows_for_home'] += get_val(stat_data[my_idx], "Yellow Cards")
-                    stats['reds_for_home'] += get_val(stat_data[my_idx], "Red Cards")
-                else:
-                    stats['matches_away'] += 1
-                    stats['shots_for_away'] += get_val(stat_data[my_idx], "Total Shots")
-                    stats['shots_against_away'] += get_val(stat_data[opp_idx], "Total Shots")
-                    stats['shots_on_for_away'] += get_val(stat_data[my_idx], "Shots on Goal")
-                    stats['shots_on_against_away'] += get_val(stat_data[opp_idx], "Shots on Goal")
-                    stats['fouls_for_away'] += get_val(stat_data[my_idx], "Fouls")
-                    stats['fouls_against_away'] += get_val(stat_data[opp_idx], "Fouls")
-                    stats['yellows_for_away'] += get_val(stat_data[my_idx], "Yellow Cards")
-                    stats['reds_for_away'] += get_val(stat_data[my_idx], "Red Cards")
-        
-        return stats
-        
-    except Exception as e:
-        print(f"Errore stats team {team_id}: {e}")
-        return None
-
-@st.cache_data(ttl=1800)
-def load_all_league_data(league_key):
-    """Carica tutti i dati di una lega"""
-    league = LEAGUES[league_key]
+    def get_val(s_list, label):
+        for s in s_list.get('statistics', []):
+            if s['type'] == label:
+                return s['value'] or 0
+        return 0
     
-    if not API_KEY or API_KEY == "INSERISCI_API_KEY_QUI":
+    for fid, fdata in fixtures_data.items():
+        is_home = fdata['home_id'] == team_id
+        is_away = fdata['away_id'] == team_id
+        
+        if not (is_home or is_away):
+            continue
+        
+        if is_home:
+            my_stats = fdata['home_stats']
+            opp_stats = fdata['away_stats']
+            stats['matches_home'] += 1
+            stats['shots_for_home'] += get_val(my_stats, "Total Shots")
+            stats['shots_against_home'] += get_val(opp_stats, "Total Shots")
+            stats['shots_on_for_home'] += get_val(my_stats, "Shots on Goal")
+            stats['shots_on_against_home'] += get_val(opp_stats, "Shots on Goal")
+            stats['fouls_for_home'] += get_val(my_stats, "Fouls")
+            stats['fouls_against_home'] += get_val(opp_stats, "Fouls")
+            stats['yellows_for_home'] += get_val(my_stats, "Yellow Cards")
+            stats['reds_for_home'] += get_val(my_stats, "Red Cards")
+        else:
+            my_stats = fdata['away_stats']
+            opp_stats = fdata['home_stats']
+            stats['matches_away'] += 1
+            stats['shots_for_away'] += get_val(my_stats, "Total Shots")
+            stats['shots_against_away'] += get_val(opp_stats, "Total Shots")
+            stats['shots_on_for_away'] += get_val(my_stats, "Shots on Goal")
+            stats['shots_on_against_away'] += get_val(opp_stats, "Shots on Goal")
+            stats['fouls_for_away'] += get_val(my_stats, "Fouls")
+            stats['fouls_against_away'] += get_val(opp_stats, "Fouls")
+            stats['yellows_for_away'] += get_val(my_stats, "Yellow Cards")
+            stats['reds_for_away'] += get_val(my_stats, "Red Cards")
+    
+    return stats
+
+def load_league_data_optimized(league_key):
+    """Carica dati lega in modo ottimizzato - meno chiamate API"""
+    league = LEAGUES[league_key]
+    league_id = league['id']
+    season = league['season']
+    
+    # Check se abbiamo già caricato questa lega recentemente
+    cache_key = f"league_data_{league_key}"
+    if cache_key in st.session_state.api_cache:
+        return st.session_state.api_cache[cache_key]
+    
+    if not API_KEY:
         return {"error": "API KEY MANCANTE", "teams": []}
     
-    teams_result = get_teams(league['id'], league['season'])
+    # 1. Recupera squadre (1 chiamata)
+    teams_result = get_teams_fast(league_id, season)
     if teams_result.get("error"):
         return {"error": teams_result["error"], "teams": []}
     
+    # 2. Recupera TUTTE le partite e statistiche (circa 20-30 chiamate per lega intera)
+    fixtures_data = get_all_fixtures_stats(league_id, season)
+    
+    if not fixtures_data or fixtures_data.get('count', 0) == 0:
+        return {"error": "Nessuna partita trovata", "teams": []}
+    
+    # 3. Calcola statistiche per ogni squadra (0 chiamate - usa dati già recuperati)
     teams_data = []
-    total = len(teams_result["teams"])
-    
-    for i, t in enumerate(teams_result["teams"]):
-        stats = get_team_stats(t['id'], league['id'], league['season'])
-        if stats and (stats['matches_home'] > 0 or stats['matches_away'] > 0):
+    for team in teams_result['teams']:
+        stats = calculate_team_stats_from_fixtures(team['id'], fixtures_data['fixtures'])
+        
+        # Solo squadre con almeno 3 partite giocate
+        total_matches = stats['matches_home'] + stats['matches_away']
+        if total_matches >= 3:
             teams_data.append({
-                'name': t['name'],
-                'id': t['id'],
-                'stats': stats
+                'name': team['name'],
+                'id': team['id'],
+                'stats': stats,
+                'total_matches': total_matches
             })
-        time.sleep(0.05)  # Rate limiting
     
-    return {"teams": teams_data, "error": None}
+    result = {
+        "teams": teams_data, 
+        "error": None,
+        "last_update": datetime.now().isoformat()
+    }
+    
+    # Salva in cache persistente
+    st.session_state.api_cache[cache_key] = result
+    return result
 
-# --- SESSION STATE ---
-if 'current_league' not in st.session_state:
-    st.session_state.current_league = 'SERIE_A'
-if 'data_cache' not in st.session_state:
-    st.session_state.data_cache = {}
+# --- CARICAMENTO DATI ---
+cache_key = f"league_data_{current_league}"
 
-current_league = st.session_state.current_league
-
-# Carica dati se non in cache
-if current_league not in st.session_state.data_cache:
+if cache_key not in st.session_state.api_cache:
     with st.spinner():
-        result = load_all_league_data(current_league)
-        st.session_state.data_cache[current_league] = result
+        league_data = load_league_data_optimized(current_league)
+else:
+    league_data = st.session_state.api_cache[cache_key]
 
-league_data = st.session_state.data_cache.get(current_league, {"teams": [], "error": "Nessun dato"})
 teams_list = league_data.get("teams", [])
 error_msg = league_data.get("error")
+last_update = league_data.get("last_update", "")
 
+# Prepara JSON per JavaScript
 teams_json = json.dumps(teams_list)
 error_json = json.dumps(error_msg if error_msg else "")
 
@@ -346,6 +446,16 @@ main {{
     margin-bottom: 20px;
     font-size: 14px;
 }}
+.cache-info {{
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 11px;
+}}
 .hidden {{ display: none !important; }}
 </style>
 </head>
@@ -363,6 +473,7 @@ main {{
 </header>
 
 <main>
+<div id="cache-info" class="cache-info hidden"></div>
 <div id="warning-box" class="warning-box hidden"></div>
 
 <div class="flex justify-center mb-6">
@@ -442,6 +553,7 @@ main {{
 const TEAMS_DATA = {teams_json};
 const ERROR_MSG = {error_json};
 const CURRENT_LEAGUE = "{current_league}";
+const LAST_UPDATE = "{last_update}";
 
 document.addEventListener('DOMContentLoaded', () => {{
     if(window.lucide) lucide.createIcons();
@@ -451,6 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {{
 function initApp() {{
     const pill = document.getElementById('status-pill');
     const warningBox = document.getElementById('warning-box');
+    const cacheInfo = document.getElementById('cache-info');
     
     if(ERROR_MSG && ERROR_MSG.includes("API KEY")) {{
         pill.className = 'api-status status-error';
@@ -464,7 +577,7 @@ function initApp() {{
     if(ERROR_MSG) {{
         pill.className = 'api-status status-error';
         pill.innerHTML = '<span>❌ ERRORE API</span>';
-        warningBox.innerHTML = '⚠️ Errore: ' + ERROR_MSG;
+        warningBox.innerHTML = '⚠️ Errore: ' + ERROR_MSG + '<br><small>Riprova tra qualche minuto (rate limit)</small>';
         warningBox.classList.remove('hidden');
         populateEmptySelectors();
         return;
@@ -477,9 +590,18 @@ function initApp() {{
         return;
     }}
     
+    // Successo
     pill.className = 'api-status status-ready';
     pill.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>API CONNESSA • ' + TEAMS_DATA.length + ' SQUADRE</span>';
     warningBox.classList.add('hidden');
+    
+    // Mostra info cache
+    if(LAST_UPDATE) {{
+        const date = new Date(LAST_UPDATE);
+        const timeStr = date.toLocaleTimeString('it-IT', {{hour: '2-digit', minute:'2-digit'}});
+        cacheInfo.innerHTML = '📊 Dati aggiornati alle ' + timeStr + ' • In cache per questa sessione';
+        cacheInfo.classList.remove('hidden');
+    }}
     
     populateSelectors();
     updateLeagueButtons(CURRENT_LEAGUE);
@@ -648,3 +770,8 @@ if 'league' in query_params:
     if new_league in LEAGUES and new_league != st.session_state.current_league:
         st.session_state.current_league = new_league
         st.rerun()
+
+# Pulsante per svuotare cache (utile se l'API si blocca)
+if st.sidebar.button("🗑️ Svuota Cache API"):
+    st.session_state.api_cache = {}
+    st.rerun()
