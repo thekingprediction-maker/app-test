@@ -1,200 +1,138 @@
 import streamlit as st
-import requests
-import pandas as pd
-import numpy as np
-from scipy.stats import poisson
-import time
+import streamlit.components.v1 as components
 
 # --- CONFIGURAZIONE ---
-API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"
-BASE_URL = "https://v3.football.api-sports.io"
-LEAGUE_ID = 135 
-SEASON = 2025
+st.set_page_config(page_title="ProBet AI V2 PRO", layout="wide", initial_sidebar_state="collapsed")
 
-st.set_page_config(page_title="PROBET AI V2 PRO", layout="wide", initial_sidebar_state="collapsed")
+# --- QUI METTI LA TUA CHIAVE API SE SERVE PER ALTRE FUNZIONI ---
+# Al momento l'app legge i CSV dai tuoi link GitHub per essere istantanea.
+API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3" 
 
-# --- CSS CLONE PERFETTO (Sfondo Blu Notte, Box Colorati e Font Professionali) ---
 st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #0b1120;
-        color: white;
-        font-family: 'Rajdhani', sans-serif;
-    }
-
-    .section-header {
-        color: #818cf8;
-        font-size: 0.9rem;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin: 25px 0 10px 0;
-        text-transform: uppercase;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .prediction-card {
-        border-radius: 6px;
-        padding: 15px;
-        text-align: center;
-        border: 1px solid rgba(255,255,255,0.05);
-        min-height: 150px;
-    }
-    
-    /* Colori Identici allo Screenshot Ufficiale */
-    .bg-green { background: linear-gradient(180deg, #064e3b 0%, #065f46 100%); border: 1px solid #10b981; }
-    .bg-orange { background: linear-gradient(180deg, #78350f 0%, #92400e 100%); border: 1px solid #f59e0b; }
-    .bg-gray { background: #1f2937; color: #9ca3af; border: 1px solid #374151; }
-
-    .card-title { font-size: 0.65rem; font-weight: 700; opacity: 0.8; text-transform: uppercase; margin-bottom: 5px; }
-    .card-main { font-size: 1.8rem; font-weight: 800; margin: 2px 0; }
-    .card-sub { font-size: 0.8rem; font-weight: 600; }
-    .card-prob { font-size: 0.75rem; font-weight: 700; margin-top: 10px; opacity: 0.9; color: #cbd5e1; }
-    
-    .badge-high {
-        background-color: white;
-        color: black;
-        font-size: 0.6rem;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-weight: 900;
-        margin-left: 5px;
-        vertical-align: middle;
-    }
-
-    .stSelectbox label, .stNumberInput label { color: #9ca3af !important; font-size: 0.8rem !important; }
-    .stButton>button {
-        background: linear-gradient(90deg, #4f46e5 0%, #3730a3 100%) !important;
-        color: white !important;
-        font-weight: 700 !important;
-        border: none !important;
-        width: 100%;
-        height: 50px;
-        border-radius: 8px !important;
-        text-transform: uppercase;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- FUNZIONE RECUPERO DATI AUTOMATICA ---
-@st.cache_data(ttl=3600) # Aggiorna i dati ogni ora automaticamente
-def fetch_database():
-    headers = {'x-apisports-key': API_KEY}
-    try:
-        r = requests.get(f"{BASE_URL}/teams?league={LEAGUE_ID}&season={SEASON}", headers=headers)
-        teams = r.json().get('response', [])
-        rows = []
-        for t in teams:
-            tid, tname = t['team']['id'], t['team']['name']
-            row = {"Squadra": tname, "P_C": 0, "TF_C": 0, "TS_C": 0, "TiP_C": 0, "P_F": 0, "TF_F": 0, "TS_F": 0, "TiP_F": 0}
-            fix_r = requests.get(f"{BASE_URL}/fixtures?league={LEAGUE_ID}&season={SEASON}&team={tid}", headers=headers)
-            for f in fix_r.json().get('response', []):
-                if f['fixture']['status']['short'] == 'FT':
-                    fid, is_home = f['fixture']['id'], f['teams']['home']['id'] == tid
-                    stats = requests.get(f"{BASE_URL}/fixtures/statistics?fixture={fid}", headers=headers).json().get('response', [])
-                    if len(stats) == 2:
-                        idx = 0 if stats[0]['team']['id'] == tid else 1
-                        opp = 1 - idx
-                        def get_v(s_list, label):
-                            for s in s_list['statistics']:
-                                if s['type'] == label: return s['value'] or 0
-                            return 0
-                        if is_home:
-                            row["P_C"] += 1; row["TF_C"] += get_v(stats[idx], "Total Shots"); row["TS_C"] += get_v(stats[opp], "Total Shots"); row["TiP_C"] += get_v(stats[idx], "Shots on Goal")
-                        else:
-                            row["P_F"] += 1; row["TF_F"] += get_v(stats[idx], "Total Shots"); row["TS_F"] += get_v(stats[opp], "Total Shots"); row["TiP_F"] += get_v(stats[idx], "Shots on Goal")
-            rows.append(row)
-        return pd.DataFrame(rows)
-    except: return pd.DataFrame()
-
-# --- FUNZIONI STATISTICHE ---
-def get_poisson_prob(mu, line):
-    return round((1 - poisson.cdf(line, mu)) * 100, 1)
-
-def get_ui_elements(mu, line, prob):
-    diff = mu - line
-    if diff > 1.3 and prob > 58: return "OVER", "SUPER VALORE", "bg-green", "HIGH CONFIDENCE"
-    elif diff > 0.3: return "OVER", "BUONO", "bg-orange", None
-    elif diff < -1.3 and prob < 42: return "UNDER", "SUPER VALORE", "bg-green", "HIGH CONFIDENCE"
-    else: return "PASS", "NO EDGE", "bg-gray", None
-
-def render_box(title, main_val, sub_ai, status_lbl, prob, bg_class, badge=None):
-    badge_html = f'<span class="badge-high">⚡ {badge}</span>' if badge else ""
-    st.markdown(f'''
-        <div class="prediction-card {bg_class}">
-            <div class="card-title">{title} {badge_html}</div>
-            <div class="card-main">{main_val}</div>
-            <div class="card-sub">AI: {sub_ai:.2f} | {status_lbl}</div>
-            <div class="card-prob">PROB. {prob}%</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-# --- UI PRINCIPALE ---
-st.markdown("""
-    <div style='display: flex; justify-content: space-between; align-items: center;'>
-        <h1 style='margin:0; font-weight:900;'>PROBET AI <span style='color:#6366f1;'>V2 PRO</span></h1>
-        <div style='background:#1e293b; padding:5px 15px; border-radius:20px; border:1px solid #10b981; color:#10b981; font-size:0.8rem; font-weight:700;'>
-            ● SYSTEM READY: PRO
-        </div>
-    </div>
-    <p style='color:#9ca3af; font-size:0.8rem; margin-top:-5px;'>SISTEMA DI ANALISI AUTOMATICA SEASON 2025/26</p>
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.block-container { padding: 0 !important; margin: 0 !important; }
+iframe { width: 100vw !important; height: 100vh !important; border: none !important; }
+</style>
 """, unsafe_allow_html=True)
 
-# Caricamento Silenzioso
-if 'data' not in st.session_state:
-    with st.spinner("⚡ Caricamento Database AI..."):
-        st.session_state['data'] = fetch_database()
+html_code = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;700&display=swap');
+        body { background-color: #0b1120; color: white; font-family: 'Inter', sans-serif; }
+        .teko { font-family: 'Teko', sans-serif; }
+        .input-dark { background:#1e293b; border:1px solid #334155; color:white; padding:10px; border-radius:8px; width:100%; text-align:center; font-weight:700; }
+        .value-box { padding:15px; border-radius:12px; margin-bottom:10px; text-align:center; border:1px solid; position:relative; }
+        .val-high { background: linear-gradient(180deg, #064e3b 0%, #065f46 100%); border-color: #10b981; }
+        .val-med { background: linear-gradient(180deg, #78350f 0%, #92400e 100%); border-color: #f59e0b; }
+        .val-low { background: #1f2937; border-color: #374151; color: #9ca3af; }
+        .res { font-size:24px; font-weight:900; font-family:'Teko',sans-serif; }
+    </style>
+</head>
+<body>
+    <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+        <div class="text-2xl font-bold teko tracking-widest">PROBET <span class="text-indigo-500">AI V2 PRO</span></div>
+        <div class="px-3 py-1 rounded-full border border-emerald-500 text-emerald-500 text-[10px] font-bold">● SYSTEM READY</div>
+    </header>
 
-if not st.session_state['data'].empty:
-    df = st.session_state['data']
-    
-    # BOX SELEZIONE
-    with st.container():
-        st.markdown("<br>", unsafe_allow_html=True)
-        c_h, c_a, c_l = st.columns([2,2,1])
-        home = c_h.selectbox("SQUADRA CASA", df['Squadra'].unique(), index=5)
-        away = c_a.selectbox("SQUADRA OSPITE", df['Squadra'].unique(), index=1)
-        linea_input = c_l.number_input("LINEA TIRI", value=23.5, step=1.0)
-        
-        if st.button("🚀 GENERA PREVISIONE PROFESSIONALE"):
-            h = df[df['Squadra'] == home].iloc[0]
-            a = df[df['Squadra'] == away].iloc[0]
+    <main class="p-4 max-w-2xl mx-auto">
+        <div class="flex gap-2 mb-6">
+            <button onclick="switchLeague('SERIE_A')" id="btn-sa" class="flex-1 py-3 rounded-lg bg-indigo-600 font-bold">SERIE A</button>
+            <button onclick="switchLeague('PREMIER')" id="btn-pl" class="flex-1 py-3 rounded-lg bg-slate-800 text-slate-400 font-bold">PREMIER</button>
+        </div>
 
-            # Calcoli Tiri Totali (Sincronizzati col tuo CSV)
-            m_h = ((h['TF_C']/h['P_C']) + (a['TS_F']/a['P_F'])) / 2
-            m_a = ((a['TF_F']/a['P_F']) + (h['TS_C']/h['P_C'])) / 2
-            tot = m_h + m_a
-
-            # Calcoli Tiri in Porta
-            mt_h = ((h['TiP_C']/h['P_C']) + (a['TS_F']*0.3/a['P_F'])) / 2 # Stima se manca dato preciso
-            mt_a = ((a['TiP_F']/a['P_F']) + (h['TS_C']*0.3/h['P_C'])) / 2
-            tot_tip = mt_h + mt_a
-
-            # --- SEZIONE TIRI TOTALI ---
-            st.markdown('<div class="section-header">⚽ TIRI TOTALI</div>', unsafe_allow_html=True)
-            col1, col2, col3 = st.columns(3)
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 mb-6">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <select id="home" class="input-dark"></select>
+                <select id="away" class="input-dark"></select>
+            </div>
+            <select id="referee" class="input-dark mb-6 text-yellow-400"></select>
             
-            p_tot = get_poisson_prob(tot, linea_input)
-            res, lbl, css, bdg = get_ui_elements(tot, linea_input, p_tot)
-            with col1: render_box("MATCH TOTALE", f"{res} {linea_input}", tot, lbl, p_tot, css, bdg)
-            
-            p_h = get_poisson_prob(m_h, 12.5)
-            res_h, lbl_h, css_h, bdg_h = get_ui_elements(m_h, 12.5, p_h)
-            with col2: render_box(home, f"{res_h} 12.5", m_h, lbl_h, p_h, css_h, bdg_h)
-            
-            with col3: render_box(away, "PASS", m_a, "NO EDGE", 50.0, "bg-gray")
+            <div class="grid grid-cols-3 gap-2 mb-6">
+                <div><label class="text-[9px] text-slate-500 block text-center">LINEA FALLI</label><input type="number" id="line-f-match" value="24.5" step="0.5" class="input-dark"></div>
+                <div><label class="text-[9px] text-slate-500 block text-center">LINEA TIRI</label><input type="number" id="line-t-match" value="23.5" step="0.5" class="input-dark"></div>
+                <div><label class="text-[9px] text-slate-500 block text-center">LINEA PORTA</label><input type="number" id="line-tp-match" value="8.5" step="0.5" class="input-dark"></div>
+            </div>
 
-            # --- SEZIONE TIRI IN PORTA ---
-            st.markdown('<div class="section-header">🎯 TIRI IN PORTA</div>', unsafe_allow_html=True)
-            t1, t2, t3 = st.columns(3)
+            <button onclick="calculate()" class="w-full py-4 bg-indigo-600 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">ANALIZZA MATCH</button>
+        </div>
+
+        <div id="results" class="hidden">
+            <div id="grid-falli" class="grid grid-cols-1 gap-3 mb-6"></div>
+            <div id="grid-tiri" class="grid grid-cols-1 gap-3 mb-6"></div>
+            <div id="grid-tp" class="grid grid-cols-1 gap-3"></div>
+        </div>
+    </main>
+
+    <script>
+        // I TUOI LINK GITHUB (Quelli che l'app legge velocemente)
+        const LINKS = {
+            SERIE_A: {
+                arb: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/ARBITRI_SERIE_A%20-%20Foglio1.csv",
+                tiri: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/TIRI_SERIE_A%20%20-%20DATI%20TIRI%20TOTALI%20E%20TIRI%20IN%20PORTA%20STAGIONE%202025_26.csv"
+            },
+            PREMIER: {
+                tiri: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/TIRI_PREMIER_LEAGUE%20-%20DATI%20TIRI%20TOTALI%20E%20TIRI%20IN%20PORTA%20STAGIONE%202025_26.csv"
+            }
+        };
+
+        let DB = { refs: [], tiri: [] };
+
+        async function switchLeague(l) {
+            const r = await fetch(LINKS[l].tiri);
+            const txt = await r.text();
+            const d = Papa.parse(txt, {header:false}).data;
+            let start = d.findIndex(row => row[0] && row[0].includes("Squadra")) + 1;
+            DB.tiri = d.slice(start).map(r => ({
+                Team: r[0], TFC: (r[2]/r[1]||0), TSC: (r[3]/r[1]||0), TFF: (r[7]/r[6]||0), TSF: (r[8]/r[6]||0),
+                TPC: (r[4]/r[1]||0), TPF: (r[9]/r[6]||0), TPSF: (r[10]/r[6]||0), TPSC: (r[5]/r[1]||0)
+            }));
             
-            p_tip = get_poisson_prob(tot_tip, 8.5)
-            res_t, lbl_t, css_t, bdg_t = get_ui_elements(tot_tip, 8.5, p_tip)
-            with t1: render_box("MATCH TOTALE", f"{res_t} 8.5", tot_tip, lbl_t, p_tip, css_t, bdg_t)
-            with t2: render_box(home, f"UNDER 4.5", mt_h, "BUONO", 62.4, "bg-orange")
-            with t3: render_box(away, "PASS", mt_a, "NO EDGE", 50.0, "bg-gray")
-else:
-    st.error("Errore nel collegamento API. Controlla la tua API KEY.")
+            const h = document.getElementById('home'), a = document.getElementById('away');
+            h.innerHTML = ''; a.innerHTML = '';
+            [...new Set(DB.tiri.map(x=>x.Team))].sort().forEach(t => { h.add(new Option(t,t)); a.add(new Option(t,t)); });
+        }
+
+        function calculate() {
+            const home = document.getElementById('home').value, away = document.getElementById('away').value;
+            const hS = DB.tiri.find(x=>x.Team === home), aS = DB.tiri.find(x=>x.Team === away);
+            
+            const expTiri = (hS.TFC + aS.TSF)/2 + (aS.TFF + hS.TSC)/2;
+            const expTP = (hS.TPC + aS.TPSF)/2 + (aS.TPF + hS.TPSC)/2;
+
+            renderBox('grid-tiri', "TIRI TOTALI", expTiri, 'line-t-match');
+            renderBox('grid-tp', "TIRI IN PORTA", expTP, 'line-tp-match');
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function renderBox(id, title, val, lineId) {
+            const line = parseFloat(document.getElementById(lineId).value);
+            const diff = val - line;
+            let css = "val-low", txt = "PASS";
+            if(diff >= 1.5) { css="val-high"; txt="OVER " + line; }
+            else if(diff >= 0.5) { css="val-med"; txt="OVER " + line; }
+            
+            document.getElementById(id).innerHTML = `
+                <div class="value-box ${css}">
+                    <div class="text-[10px] uppercase font-bold opacity-60">${title}</div>
+                    <div class="res">${txt}</div>
+                    <div class="text-xs font-bold">AI PREV: ${val.toFixed(2)}</div>
+                </div>`;
+        }
+
+        switchLeague('SERIE_A');
+    </script>
+</body>
+</html>
+"""
+
+components.html(html_code, height=1000)
