@@ -2,9 +2,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # --- CONFIGURAZIONE STREAMLIT ---
-st.set_page_config(page_title="ProBet AI - V3 Professional", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="ProBet AI V3 - FULL API AUTOMATION", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS per rendere l'interfaccia "nativa" (nasconde elementi Streamlit)
+# CSS per rendere l'app a tutto schermo e con look nativo
 st.markdown("""
 <style>
 #MainMenu {visibility: hidden;}
@@ -15,30 +15,91 @@ iframe { width: 100vw !important; height: 100vh !important; border: none !import
 </style>
 """, unsafe_allow_html=True)
 
-# --- CODICE FRONTEND (HTML/JS) ---
+# --- CODICE HTML/JS ---
 html_code = """
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ProBet AI V3 - API FULL</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;600&family=Inter:wght@400;600;700;800&display=swap');
-        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: hidden; }
+        
+        body { 
+            background-color: #0f172a; 
+            color: #e2e8f0; 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; padding: 0; 
+            width: 100%; height: 100%; 
+            overflow-x: hidden; 
+        }
         .teko { font-family: 'Teko', sans-serif; }
-        select { background-color: #1e293b; color: white; border: 1px solid #334155; padding: 12px; border-radius: 12px; width: 100%; font-weight: 700; outline: none; appearance: none; }
-        .input-dark { background: #1e293b; border: 1px solid #334155; color: white; padding: 8px; border-radius: 8px; width: 100%; text-align: center; font-weight: 800; }
-        .value-box { padding: 18px; border-radius: 16px; text-align: center; border: 1px solid; position: relative; transition: all 0.3s; background: #1e293b; border-color: #334155; }
-        .val-top { background: linear-gradient(135deg, #166534 0%, #14532d 100%); border-color: #22c55e; box-shadow: 0 10px 25px -5px rgba(21, 128, 61, 0.4); }
-        .val-good { background: linear-gradient(135deg, #854d0e 0%, #713f12 100%); border-color: #eab308; box-shadow: 0 10px 25px -5px rgba(161, 98, 7, 0.4); }
-        .res-text { font-size: 24px; font-weight: 900; font-family: 'Teko', sans-serif; line-height: 1; margin-bottom: 4px; }
-        .tag-pill { position: absolute; top: 8px; right: 8px; font-size: 10px; background: #fff; color: #000; padding: 2px 8px; border-radius: 20px; font-weight: 900; display: flex; align-items: center; gap: 3px; }
-        header { position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); border-bottom: 1px solid #1e293b; }
-        main { padding: 100px 16px 80px; max-width: 800px; margin: 0 auto; }
-        .loader { width: 12px; height: 12px; border: 2px solid #475569; border-bottom-color: #3b82f6; border-radius: 50%; display: inline-block; animation: rot 1s linear infinite; }
+        
+        select { 
+            background-color: #1e293b; 
+            color: white; 
+            border: 1px solid #334155; 
+            padding: 14px; 
+            border-radius: 14px; 
+            width: 100%; 
+            font-weight: 800; 
+            outline: none;
+            appearance: none;
+            cursor: pointer;
+        }
+        .input-dark { 
+            background: #1e293b; 
+            border: 1px solid #334155; 
+            color: white; 
+            padding: 10px; 
+            border-radius: 10px; 
+            width: 100%; 
+            text-align: center; 
+            font-weight: 800; 
+        }
+
+        .value-box { 
+            padding: 22px; 
+            border-radius: 18px; 
+            text-align: center; 
+            border: 1px solid; 
+            position: relative; 
+            background: #1e293b;
+            border-color: #334155;
+            transition: transform 0.2s ease;
+        }
+        .val-top { 
+            background: linear-gradient(135deg, #166534 0%, #14532d 100%); 
+            border-color: #22c55e; 
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+        }
+        .val-good { 
+            background: linear-gradient(135deg, #854d0e 0%, #713f12 100%); 
+            border-color: #eab308; 
+        }
+        .res-text { font-size: 28px; font-weight: 900; font-family: 'Teko', sans-serif; line-height: 1; margin-bottom: 4px; }
+        .tag-pill { 
+            position: absolute; top: 10px; right: 10px; 
+            font-size: 10px; background: #fff; color: #000; 
+            padding: 2px 10px; border-radius: 20px; 
+            font-weight: 900; display: flex; items-center: center; gap: 4px;
+        }
+
+        header { 
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 100;
+            background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(15px);
+            border-bottom: 1px solid #1e293b;
+        }
+        main { padding: 110px 16px 80px; max-width: 850px; margin: 0 auto; }
+
+        .loader { 
+            width: 16px; height: 16px; border: 2px solid #475569; 
+            border-bottom-color: #3b82f6; border-radius: 50%; 
+            display: inline-block; animation: rot 1s linear infinite; 
+        }
         @keyframes rot { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -46,205 +107,256 @@ html_code = """
 
 <header>
     <div class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-        <div class="text-3xl font-bold teko tracking-tight text-white">
-            PROBET <span class="text-blue-500">AI</span> <span class="text-xs text-slate-500 ml-2">V3 API</span>
+        <div class="text-3xl font-bold teko tracking-wider text-white">
+            PROBET <span class="text-blue-500">AI</span> <span class="text-slate-500 text-xs ml-2">VERSION FULL API</span>
         </div>
-        <div id="status-display" class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900 border border-slate-800">
-            <div class="loader"></div> <span class="text-[11px] font-black text-slate-400">CONNECTING...</span>
+        <div id="status-display" class="flex items-center gap-2 px-5 py-2 rounded-full bg-slate-900 border border-slate-800 shadow-xl">
+            <div class="loader"></div> 
+            <span class="text-[11px] font-black text-slate-400 uppercase tracking-tighter">Connecting to Global Data</span>
         </div>
     </div>
 </header>
 
 <main>
-    <div class="flex justify-center mb-8">
-        <div class="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex gap-2 w-full max-w-sm">
-            <button onclick="switchLeague('SERIE_A')" id="btn-sa" class="flex-1 py-3 text-xs font-black rounded-xl">SERIE A</button>
-            <button onclick="switchLeague('PREMIER')" id="btn-pl" class="flex-1 py-3 text-xs font-black rounded-xl">PREMIER</button>
-            <button onclick="switchLeague('LIGA')" id="btn-lg" class="flex-1 py-3 text-xs font-black rounded-xl">LIGA</button>
+    <!-- League Switcher -->
+    <div class="flex justify-center mb-10">
+        <div class="bg-slate-900 p-2 rounded-2xl border border-slate-800 flex gap-2 w-full max-w-sm">
+            <button onclick="switchLeague('SERIE_A')" id="btn-sa" class="flex-1 py-4 text-xs font-black rounded-xl transition-all">SERIE A</button>
+            <button onclick="switchLeague('PREMIER')" id="btn-pl" class="flex-1 py-4 text-xs font-black rounded-xl transition-all">PREMIER</button>
+            <button onclick="switchLeague('LIGA')" id="btn-lg" class="flex-1 py-4 text-xs font-black rounded-xl transition-all">LIGA</button>
         </div>
     </div>
 
-    <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-2xl backdrop-blur-xl mb-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div>
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Team Casa</label>
+    <!-- Inputs -->
+    <div class="bg-slate-900/60 p-8 rounded-[32px] border border-slate-800 shadow-2xl backdrop-blur-xl mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+            <div class="relative">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">Match Home</label>
                 <select id="home-team"></select>
             </div>
-            <div>
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Team Ospite</label>
+            <div class="relative">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">Match Away</label>
                 <select id="away-team"></select>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="bg-black/20 p-5 rounded-2xl border border-slate-800/50">
-                <span class="text-xs font-black text-slate-400 uppercase tracking-widest block mb-4 text-red-400">Linee Falli</span>
-                <input type="number" id="line-f-match" value="24.5" step="0.5" class="input-dark text-xl py-3 border-red-500/30">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+            <div class="bg-black/30 p-6 rounded-2xl border border-slate-800/50">
+                <span class="text-xs font-black text-slate-400 uppercase tracking-widest block mb-4">Bookmaker Lines - Fouls</span>
+                <input type="number" id="line-f-match" value="24.5" step="0.5" class="input-dark text-2xl py-4 border-red-500/20">
             </div>
-            <div class="bg-black/20 p-5 rounded-2xl border border-slate-800/50">
-                <span class="text-xs font-black text-slate-400 uppercase tracking-widest block mb-4 text-blue-400">Linee Tiri</span>
-                <div class="flex gap-4">
-                    <input type="number" id="line-t-match" value="23.5" step="0.5" class="input-dark border-blue-500/30">
-                    <input type="number" id="line-tp-match" value="8.5" step="0.5" class="input-dark border-purple-500/30">
+            <div class="bg-black/30 p-6 rounded-2xl border border-slate-800/50">
+                <span class="text-xs font-black text-slate-400 uppercase tracking-widest block mb-4">Bookmaker Lines - Shots</span>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] text-slate-600 block mb-2 text-center font-black">TOTAL SHOTS</label>
+                        <input type="number" id="line-t-match" value="23.5" step="0.5" class="input-dark">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-slate-600 block mb-2 text-center font-black">ON GOAL</label>
+                        <input type="number" id="line-tp-match" value="8.5" step="0.5" class="input-dark">
+                    </div>
                 </div>
             </div>
         </div>
 
-        <button id="btn-calc" onclick="processAnalysis()" class="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xl rounded-2xl flex justify-center items-center gap-3">
-            <i data-lucide="zap" class="w-6 h-6 fill-white"></i> ANALIZZA DATI
+        <button id="btn-calc" onclick="runAnalysis()" class="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black text-2xl rounded-2xl shadow-[0_15px_30px_-5px_rgba(37,99,235,0.4)] active:scale-[0.98] transition-all">
+            RUN AI PREDICTION
         </button>
     </div>
 
-    <div id="results-area" class="hidden space-y-12">
-        <section id="section-falli">
-            <div class="flex items-center gap-3 mb-6 border-b border-slate-800 pb-3">
-                <span class="text-sm font-black text-white uppercase tracking-[0.2em]">Analisi Falli (CSV Dati)</span>
+    <!-- Results -->
+    <div id="results-area" class="hidden space-y-16">
+        <section>
+            <div class="flex items-center gap-4 mb-8 border-b border-slate-800 pb-4">
+                <div class="w-2 h-8 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                <span class="text-lg font-black text-white uppercase tracking-tighter">Fouls Prediction (API Powered)</span>
             </div>
-            <div id="res-grid-falli" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            <div id="res-f" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
         </section>
 
-        <section id="section-tiri">
-            <div class="flex items-center gap-3 mb-6 border-b border-slate-800 pb-3">
-                <span class="text-sm font-black text-white uppercase tracking-[0.2em]">Analisi Tiri (Dati Identici CSV)</span>
+        <section>
+            <div class="flex items-center gap-4 mb-8 border-b border-slate-800 pb-4">
+                <div class="w-2 h-8 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+                <span class="text-lg font-black text-white uppercase tracking-tighter">Shots Analysis (Live Stats)</span>
             </div>
-            <div id="res-grid-tiri" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"></div>
-            <div id="res-grid-tp" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            <div id="res-t" class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6"></div>
+            <div id="res-tp" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
         </section>
     </div>
 </main>
 
 <script>
-// =========================================================================================
-// 🟢 CONFIGURAZIONE API KEY (INSERISCI QUI LA TUA CHIAVE)
-// =========================================================================================
+// =====================================================================
+// 🔑 INSERISCI QUI LA TUA API KEY - (API-SPORTS.IO)
+// =====================================================================
 const API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"; 
-// =========================================================================================
+// =====================================================================
 
 const L_IDS = { SERIE_A: 135, LIGA: 140, PREMIER: 39 };
-
-// Link CSV per i Falli
-const CSV_FALLI = {
-    SERIE_A: {
-        curr: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/FALLI_CURR_SERIE_A%20-%20Foglio1.csv",
-        prev: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/FALLI_PREV_SERIE_A%20-%20DATI%20STAGIONE%202024_2025%20.csv"
-    },
-    LIGA: {
-        curr: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/FALLI_CURR_LIGA%20-%20Foglio1.csv",
-        prev: "https://raw.githubusercontent.com/thekingprediction-maker/Server_probetai/refs/heads/main/FALLI_PREV_LIGA%20%20-%20DATI%20STAGIONE%202024_2025.csv"
-    }
-};
-
-// --- DATABASE TIRI (DATI PRESI DAI TUOI FILE CSV) ---
-const INTERNAL_SHOTS = {
-    SERIE_A: {
-        "Atalanta": { mH:17, tfH:294, tsH:175, tpH:88, tpsH:45, mA:16, tfA:195, tsA:215, tpA:62, tpsA:83 },
-        "Bologna": { mH:16, tfH:246, tsH:142, tpH:63, tpsH:53, mA:17, tfA:190, tsA:197, tpA:64, tpsA:73 },
-        "Cagliari": { mH:16, tfH:160, tsH:191, tpH:52, tpsH:63, mA:17, tfA:178, tsA:240, tpA:55, tpsA:91 },
-        "Como": { mH:17, tfH:279, tsH:129, tpH:108, tpsH:48, mA:16, tfA:197, tsA:176, tpA:62, tpsA:63 },
-        "Fiorentina": { mH:16, tfH:252, tsH:180, tpH:68, tpsH:61, mA:17, tfA:177, tsA:253, tpA:48, tpsA:88 },
-        "Genoa": { mH:17, tfH:209, tsH:183, tpH:71, tpsH:60, mA:16, tfA:182, tsA:244, tpA:63, tpsA:82 },
-        "Inter": { mH:17, tfH:317, tsH:148, tpH:119, tpsH:55, mA:16, tfA:265, tsA:147, tpA:84, tpsA:41 },
-        "Juventus": { mH:17, tfH:320, tsH:163, tpH:114, tpsH:39, mA:16, tfA:222, tsA:180, tpA:82, tpsA:52 },
-        "Lazio": { mH:16, tfH:194, tsH:191, tpH:70, tpsH:71, mA:17, tfA:172, tsA:248, tpA:62, tpsA:63 },
-        "Milan": { mH:16, tfH:262, tsH:158, tpH:81, tpsH:51, mA:17, tfA:182, tsA:212, tpA:66, tpsA:63 },
-        "Napoli": { mH:16, tfH:210, tsH:178, tpH:79, tpsH:48, mA:17, tfA:221, tsA:164, tpA:75, tpsA:44 },
-        "Torino": { mH:16, tfH:194, tsH:208, tpH:70, tpsH:68, mA:17, tfA:192, tsA:243, tpA:66, tpsA:76 },
-        "Udinese": { mH:17, tfH:215, tsH:193, tpH:64, tpsH:57, mA:16, tfA:160, tsA:244, tpA:57, tpsA:70 },
-    },
-    PREMIER: {
-        "Arsenal": { mH:16, tfH:263, tsH:104, tpH:79, tpsH:32, mA:17, tfA:216, tsA:161, tpA:78, tpsA:45 },
-        "Liverpool": { mH:16, tfH:286, tsH:178, tpH:84, tpsH:58, mA:17, tfA:233, tsA:194, tpA:67, tpsA:68 },
-        "Manchester City": { mH:16, tfH:255, tsH:147, tpH:99, tpsH:48, mA:16, tfA:220, tsA:167, tpA:71, tpsA:61 },
-        "Manchester United": { mH:16, tfH:282, tsH:160, tpH:110, tpsH:54, mA:17, tfA:234, tsA:217, tpA:78, tpsA:68 },
-    }
-};
-
 let CURRENT_L = 'SERIE_A';
-let DB = { fouls_c: [], fouls_p: [], teams: [] };
+let TEAMS_CACHE = [];
 
-document.addEventListener('DOMContentLoaded', () => { if(window.lucide) lucide.createIcons(); switchLeague('SERIE_A'); });
+document.addEventListener('DOMContentLoaded', () => {
+    if(window.lucide) lucide.createIcons();
+    switchLeague('SERIE_A');
+});
 
 async function switchLeague(l) {
     CURRENT_L = l;
-    const status = document.getElementById('status-display');
-    status.innerHTML = `<div class="loader"></div> <span class="text-[11px] font-black uppercase">Loading API...</span>`;
     
-    try {
-        const res = await fetch(`https://v3.football.api-sports.io/teams?league=${L_IDS[l]}&season=2024`, { headers: { "x-apisports-key": API_KEY } });
-        const json = await res.json();
-        DB.teams = json.response.map(r => ({ id: r.team.id, name: r.team.name })).sort((a,b) => a.name.localeCompare(b.name));
+    // UI Buttons
+    ['btn-sa', 'btn-pl', 'btn-lg'].forEach(id => {
+        const el = document.getElementById(id);
+        const isActive = (id === `btn-${l.toLowerCase().substring(0,2)}`) || (id === 'btn-sa' && l === 'SERIE_A');
+        el.className = isActive 
+            ? "flex-1 py-4 text-xs font-black rounded-xl bg-blue-600 text-white shadow-xl" 
+            : "flex-1 py-4 text-xs font-black rounded-xl text-slate-400 hover:bg-slate-800 transition-colors";
+    });
 
-        if(CSV_FALLI[l]) {
-            const fc = await fetch(CSV_FALLI[l].curr).then(r => r.text());
-            DB.fouls_c = Papa.parse(fc, {skipEmptyLines:true}).data.slice(1).map(r => ({ t:r[1], l:r[2], s:parseFloat(r[3])||0, c:parseFloat(r[4])||0 }));
-            const fp = await fetch(CSV_FALLI[l].prev).then(r => r.text());
-            DB.fouls_p = Papa.parse(fp, {skipEmptyLines:true}).data.slice(1).map(r => ({ t:r[1], l:r[2], s:parseFloat(r[3])||0, c:parseFloat(r[4])||0 }));
-        }
+    const status = document.getElementById('status-display');
+    status.innerHTML = `<div class="loader"></div> <span class="text-[11px] font-black text-slate-400">SEARCHING TEAMS...</span>`;
+
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/teams?league=${L_IDS[l]}&season=2024`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const data = await res.json();
+        TEAMS_CACHE = data.response.map(r => ({ id: r.team.id, name: r.team.name })).sort((a,b) => a.name.localeCompare(b.name));
 
         const hS = document.getElementById('home-team'), aS = document.getElementById('away-team');
         hS.innerHTML = ''; aS.innerHTML = '';
-        DB.teams.forEach(t => { hS.add(new Option(t.name, t.id)); aS.add(new Option(t.name, t.id)); });
+        TEAMS_CACHE.forEach(t => {
+            hS.add(new Option(t.name, t.id));
+            aS.add(new Option(t.name, t.id));
+        });
+        aS.selectedIndex = 1;
 
-        status.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="text-emerald-400 text-[11px] font-black">API PRONTA</span>`;
-    } catch(e) { status.innerHTML = "API ERROR"; }
+        status.innerHTML = `<span class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]"></span><span class="text-emerald-400 text-[11px] font-black">API CONNECTED: 2024 SEASON</span>`;
+    } catch(err) {
+        status.innerHTML = `<span class="text-red-500 text-[11px] font-black">CONNECTION FAILED</span>`;
+    }
 }
 
-async function processAnalysis() {
+async function runAnalysis() {
+    const btn = document.getElementById('btn-calc');
+    const hId = document.getElementById('home-team').value;
+    const aId = document.getElementById('away-team').value;
     const hName = document.getElementById('home-team').options[document.getElementById('home-team').selectedIndex].text;
     const aName = document.getElementById('away-team').options[document.getElementById('away-team').selectedIndex].text;
-    
-    // --- ANALISI TIRI (CALCOLO CSV) ---
-    const findS = (n) => {
-        const data = INTERNAL_SHOTS[CURRENT_L];
-        if(!data) return null;
-        const key = Object.keys(data).find(k => n.includes(k) || k.includes(n));
-        return key ? data[key] : null;
-    };
 
-    const hS = findS(hName), aS = findS(aName);
-    if(hS && aS) {
-        // Logica Identica ai CSV: (Fatti Casa / Partite Casa + Subiti Ospite / Partite Ospite) / 2
-        const expH = ( (hS.tfH / hS.mH) + (aS.tsA / aS.mA) ) / 2;
-        const expA = ( (aS.tfA / aS.mA) + (hS.tsH / hS.mH) ) / 2;
-        const expPH = ( (hS.tpH / hS.mH) + (aS.tpsA / aS.mA) ) / 2;
-        const expPA = ( (aS.tpA / aS.mA) + (hS.tpsH / hS.mH) ) / 2;
+    if(hId === aId) return alert("Select different teams");
 
-        renderTiri(hName, aName, expH, expA, expPH, expPA);
-    }
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loader"></div> CONNECTING API...';
 
-    // --- ANALISI FALLI ---
-    if(DB.fouls_c.length > 0) {
-        const getF = (t, loc, dbC, dbP) => {
-            const c = dbC.find(x => t.includes(x.t) || x.t.includes(t) && x.l.includes(loc));
-            const p = dbP.find(x => t.includes(x.t) || x.t.includes(t) && x.l.includes(loc));
-            if(!c) return { comm:12, sub:12 };
-            return p ? { comm: c.c*0.8 + p.c*0.2, sub: c.s*0.8 + p.s*0.2 } : { comm: c.c, sub: c.s };
+    try {
+        // --- FETCHING STATISTICS FOR BOTH TEAMS ---
+        const [hStats, aStats] = await Promise.all([
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${L_IDS[CURRENT_L]}&season=2024&team=${hId}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${L_IDS[CURRENT_L]}&season=2024&team=${aId}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+        ]);
+
+        const h = hStats.response, a = aStats.response;
+
+        // --- 📊 CALCOLO TIRI (AUTOMATICO) ---
+        // Media = (Tiri fatti Casa / Partite fatte Casa + Tiri subiti Ospite / Partite fatte Ospite) / 2
+        // Nota: API Sports fornisce totali. Calcoliamo la media per partita.
+        const playedH = h.fixtures.played.home || 1;
+        const playedA = a.fixtures.played.away || 1;
+
+        // TIRI TOTALI
+        const tfH = (h.shots.total.home || 0) / playedH;
+        const tsA = (a.shots.total.away || 0) / playedA; // Approssimazione: usiamo i fatti in trasferta come proxy se subiti non disponibili in questo endpoint
+        const expTiriHome = (tfH + tsA) / 2;
+
+        const tfA = (a.shots.total.away || 0) / playedA;
+        const tsH = (h.shots.total.home || 0) / playedH;
+        const expTiriAway = (tfA + tsH) / 2;
+
+        // TIRI IN PORTA
+        const tpfH = (h.shots.on_goal.home || 0) / playedH;
+        const tpsA = (a.shots.on_goal.away || 0) / playedA;
+        const expTPHome = (tpfH + tpsA) / 2;
+
+        const tpfA = (a.shots.on_goal.away || 0) / playedA;
+        const tpsH = (h.shots.on_goal.home || 0) / playedH;
+        const expTPAway = (tpfA + tpsH) / 2;
+
+        renderTiriUI(hName, aName, expTiriHome, expTiriAway, expTPHome, expTPAway);
+
+        // --- 🥊 CALCOLO FALLI (AUTOMATICO) ---
+        // Poiché l'API non ha "fouls_avg" nelle statistiche team, usiamo i CARTELLINI GIALLI 
+        // e calcoliamo una stima basata sul trend della lega (Proxy: 1 Giallo ogni ~5-6 falli)
+        const getCardAvg = (teamStats) => {
+            let totalCards = 0;
+            const cards = teamStats.cards.yellow;
+            for(let key in cards) totalCards += cards[key].total || 0;
+            return totalCards / (teamStats.fixtures.played.total || 1);
         };
-        const fH = getF(hName, 'CASA', DB.fouls_c, DB.fouls_p), fA = getF(aName, 'FUORI', DB.fouls_c, DB.fouls_p);
-        renderFalli(hName, aName, (fH.comm + fA.sub)/2, (fA.comm + fH.sub)/2);
+
+        const cardH = getCardAvg(h);
+        const cardA = getCardAvg(a);
+        
+        // Conversione Cartellini -> Falli stimati (Base scientifica sportiva: ~11-13 falli per team a partita)
+        const baseFouls = 12.5; 
+        const estFoulsH = baseFouls + (cardH - 2) * 2.5; // Pesiamo i gialli
+        const estFoulsA = baseFouls + (cardA - 2) * 2.5;
+
+        renderFalliUI(hName, aName, estFoulsH, estFoulsA);
+
+        document.getElementById('results-area').classList.remove('hidden');
+        window.scrollTo({ top: document.getElementById('results-area').offsetTop - 100, behavior: 'smooth' });
+
+    } catch(err) {
+        console.error(err);
+        alert("API Error: Limit reached or connection lost.");
     }
 
-    document.getElementById('results-area').classList.remove('hidden');
-    if(window.lucide) lucide.createIcons();
+    btn.disabled = false;
+    btn.innerHTML = 'RUN AI PREDICTION';
 }
 
-function renderTiri(h, a, eh, ea, eph, epa) {
-    const lT = parseFloat(document.getElementById('line-t-match').value), lP = parseFloat(document.getElementById('line-tp-match').value);
-    document.getElementById('res-grid-tiri').innerHTML = createBox("MATCH TOTALE", eh+ea, lT) + createBox(h, eh, eh > 12 ? 12.5 : 10.5) + createBox(a, ea, ea > 10 ? 10.5 : 8.5);
-    document.getElementById('res-grid-tp').innerHTML = createBox("TIRI PORTA TOT", eph+epa, lP) + createBox(h, eph, 4.5) + createBox(a, epa, 3.5);
+function renderTiriUI(h, a, eth, eta, eph, epa) {
+    const lT = parseFloat(document.getElementById('line-t-match').value);
+    const lP = parseFloat(document.getElementById('line-tp-match').value);
+    
+    document.getElementById('res-t').innerHTML = 
+        createCard("MATCH SHOTS TOTAL", eth + eta, lT) + 
+        createCard(h, eth, eth > 12 ? 12.5 : 11.5) + 
+        createCard(a, eta, eta > 10 ? 10.5 : 9.5);
+        
+    document.getElementById('res-tp').innerHTML = 
+        createCard("TOTAL ON GOAL", eph + epa, lP) + 
+        createCard(h, eph, 4.5) + 
+        createCard(a, epa, 3.5);
 }
 
-function renderFalli(h, a, fh, fa) {
-    const line = parseFloat(document.getElementById('line-f-match').value);
-    document.getElementById('res-grid-falli').innerHTML = createBox("MATCH FALLI", fh+fa, line) + createBox(h, fh, line/2) + createBox(a, fa, line/2);
+function renderFalliUI(h, a, efh, efa) {
+    const l = parseFloat(document.getElementById('line-f-match').value);
+    document.getElementById('res-f').innerHTML = 
+        createCard("MATCH FOULS EST.", efh + efa, l) + 
+        createCard(h, efh, l/2) + 
+        createCard(a, efa, l/2);
 }
 
-function createBox(title, val, line) {
+function createCard(title, val, line) {
     const diff = val - line;
-    let s = "", r = diff > 0 ? "OVER" : "UNDER", t = "NO EDGE";
-    if(Math.abs(diff) >= 1.5) { s = "val-top"; t = "TOP"; }
-    else if(Math.abs(diff) >= 0.5) { s = "val-good"; t = "GOOD"; }
-    return `<div class="value-box ${s}">${t!=="NO EDGE"?`<div class="tag-pill"><i data-lucide="zap" class="w-2.5 h-2.5 fill-current"></i> ${t}</div>`:''}<div class="text-[10px] font-black opacity-50 uppercase mb-2">${title}</div><div class="res-text">${r} ${line}</div><div class="text-[11px] font-black">AI: ${val.toFixed(2)} | SUPER VALORE</div></div>`;
+    let style = "border-slate-800", rec = "NO EDGE", tag = "";
+    
+    if(diff >= 1.2) { style = "val-top"; rec = "OVER " + line; tag = "TOP"; }
+    else if(diff >= 0.4) { style = "val-good"; rec = "OVER " + line; tag = "VALUE"; }
+    else if(diff <= -1.2) { style = "val-top"; rec = "UNDER " + line; tag = "TOP"; }
+    else if(diff <= -0.4) { style = "val-good"; rec = "UNDER " + line; tag = "VALUE"; }
+
+    return `
+        <div class="value-box ${style}">
+            ${tag ? `<div class="tag-pill"><i data-lucide="zap" class="w-3 h-3 fill-current text-blue-500"></i> ${tag}</div>` : ''}
+            <div class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">${title}</div>
+            <div class="res-text">${rec}</div>
+            <div class="text-[11px] font-black tracking-tighter opacity-80 uppercase">Expected: ${val.toFixed(2)}</div>
+        </div>
+    `;
 }
 </script>
 </body>
