@@ -1,10 +1,10 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- CONFIGURAZIONE ---
-st.set_page_config(page_title="ProBet AI - Test API", layout="wide", initial_sidebar_state="collapsed")
+# --- CONFIGURAZIONE PAGINA ---
+st.set_page_config(page_title="ProBet AI - API Test", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS Streamlit per nascondere l'interfaccia standard
+# CSS per rendere l'app a tutto schermo su Streamlit
 st.markdown("""
 <style>
 #MainMenu {visibility: hidden;}
@@ -15,7 +15,7 @@ iframe { width: 100vw !important; height: 100vh !important; border: none !import
 </style>
 """, unsafe_allow_html=True)
 
-# --- CODICE HTML/JS AGGIORNATO CON API ---
+# --- CODICE HTML/JS ---
 html_code = """
 <!DOCTYPE html>
 <html lang="it">
@@ -30,12 +30,12 @@ html_code = """
 @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;600&family=Inter:wght@400;600;700;800&display=swap');
 html, body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: hidden; }
 .teko { font-family: 'Teko', sans-serif; }
-select { background-color: #1e293b; color: white; border: 1px solid #334155; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; outline: none; }
+select { background-color: #1e293b; color: white; border: 1px solid #334155; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; outline: none; appearance: none; }
 .input-dark { background:#1e293b; border:1px solid #334155; color:white; padding:8px; border-radius:6px; width:100%; text-align:center; font-weight:700; }
-.value-box { padding:12px; border-radius:10px; margin-bottom:8px; text-align:center; border:1px solid; position:relative; }
+.value-box { padding:12px; border-radius:10px; margin-bottom:8px; text-align:center; border:1px solid; position:relative; overflow:hidden; }
 .val-high { background: linear-gradient(135deg,#15803d 0%,#166534 100%); color:white; border-color:#22c55e; }
 .val-med { background: linear-gradient(135deg,#ca8a04 0%,#a16207 100%); color:#fff; border-color:#facc15; }
-.res { font-size:22px; font-weight:900; font-family:'Teko',sans-serif; }
+.res { font-size:22px; font-weight:900; font-family:'Teko',sans-serif; line-height:1; }
 .confidence-pill { position:absolute; top:6px; right:6px; font-size:10px; background:#fff; color:#000; padding:3px 7px; border-radius:12px; font-weight:800; }
 .loader { width:14px; height:14px; border:2px solid #475569; border-bottom-color:#3b82f6; border-radius:50%; display:inline-block; animation:rotation 1s linear infinite; }
 @keyframes rotation { 0% { transform:rotate(0deg);} 100% { transform:rotate(360deg);} }
@@ -46,70 +46,80 @@ main { padding: 80px 16px 40px; max-width: 800px; margin: 0 auto; }
 <body>
 <header>
 <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-    <div class="text-2xl font-bold teko text-white">PROBET <span class="text-blue-500">AI</span> <span class="text-[10px] text-slate-500 ml-2">V3 API TEST</span></div>
-    <div id="status-pill" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800"><div class="loader"></div> <span class="text-[10px] font-bold text-slate-400">LOADING</span></div>
+    <div class="text-2xl font-bold teko text-white tracking-widest">PROBET <span class="text-blue-500">AI</span> <span class="text-[10px] text-slate-500 ml-2 tracking-normal">V3 API TEST</span></div>
+    <div id="status-pill" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800"><div class="loader"></div> <span class="text-[10px] font-bold text-slate-400">LOADING API</span></div>
 </div>
 </header>
+
 <main>
 <div class="flex justify-center mb-6">
-    <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex gap-2 w-full max-w-sm">
-        <button onclick="switchLeague('SERIE_A')" id="btn-sa" class="flex-1 py-3 text-xs font-bold rounded-lg bg-blue-600 text-white shadow-lg">SERIE A</button>
+    <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex gap-2 w-full max-w-sm shadow-lg">
+        <button onclick="switchLeague('SERIE_A')" id="btn-sa" class="flex-1 py-3 text-xs font-bold rounded-lg bg-blue-600 text-white shadow-lg transition-all">SERIE A</button>
         <button onclick="switchLeague('PREMIER')" id="btn-pl" class="flex-1 py-3 text-xs font-bold rounded-lg text-slate-400">PREMIER</button>
         <button onclick="switchLeague('LIGA')" id="btn-lg" class="flex-1 py-3 text-xs font-bold rounded-lg text-slate-400">LIGA</button>
     </div>
 </div>
+
 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl mb-8">
     <div class="grid grid-cols-1 gap-4 mb-5">
-        <div><label class="text-[10px] font-bold text-slate-500 uppercase ml-1">CASA</label><select id="home"><option>Caricamento API...</option></select></div>
-        <div><label class="text-[10px] font-bold text-slate-500 uppercase ml-1">OSPITE</label><select id="away"><option>Caricamento API...</option></select></div>
-        <div id="ref-box"><label class="text-[10px] font-bold text-slate-500 uppercase ml-1">ARBITRO</label><select id="referee" class="text-yellow-400"></select></div>
+        <div><label class="text-[10px] font-bold text-slate-500 uppercase ml-1">CASA</label><select id="home"><option>Attendere...</option></select></div>
+        <div><label class="text-[10px] font-bold text-slate-500 uppercase ml-1">OSPITE</label><select id="away"><option>Attendere...</option></select></div>
+        <div id="ref-box"><label class="text-[10px] font-bold text-slate-500 uppercase ml-1">ARBITRO</label><select id="referee" class="text-yellow-400"><option value="">Scegli Arbitro...</option></select></div>
     </div>
     <hr class="border-slate-800 mb-5 opacity-50">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <div class="text-[9px] font-bold text-red-400 uppercase mb-2 text-center">LINEE FALLI</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <div id="box-falli-lines" class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <div class="text-[9px] font-bold text-red-400 uppercase mb-2 text-center border-b border-slate-800 pb-1">LINEE FALLI</div>
             <input type="number" id="line-f-match" value="24.5" step="0.5" class="input-dark mb-2 text-lg">
             <div class="grid grid-cols-2 gap-2">
-                <input type="number" id="line-f-h" value="11.5" class="input-dark text-xs">
-                <input type="number" id="line-f-a" value="11.5" class="input-dark text-xs">
+                <input type="number" id="line-f-h" value="11.5" class="input-dark text-xs" placeholder="Casa">
+                <input type="number" id="line-f-a" value="11.5" class="input-dark text-xs" placeholder="Ospite">
             </div>
         </div>
-        <div id="box-tiri-lines" class="bg-slate-950 p-3 rounded-lg border border-slate-800 md:col-span-2">
+        <div id="box-tiri-lines" class="bg-slate-950 p-3 rounded-lg border border-slate-800">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <div class="text-[9px] font-bold text-blue-400 uppercase mb-2 text-center">TIRI TOTALI</div>
+                    <div class="text-[9px] font-bold text-blue-400 uppercase mb-2 text-center border-b border-slate-800 pb-1">TIRI TOTALI</div>
                     <input type="number" id="line-t-match" value="23.5" step="0.5" class="input-dark mb-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="line-t-h" value="12.5" class="input-dark text-xs">
+                        <input type="number" id="line-t-a" value="10.5" class="input-dark text-xs">
+                    </div>
                 </div>
-                <div>
-                    <div class="text-[9px] font-bold text-purple-400 uppercase mb-2 text-center">TIRI IN PORTA</div>
+                <div class="border-l border-slate-800 pl-4">
+                    <div class="text-[9px] font-bold text-purple-400 uppercase mb-2 text-center border-b border-slate-800 pb-1">IN PORTA</div>
                     <input type="number" id="line-tp-match" value="8.5" step="0.5" class="input-dark mb-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="line-tp-h" value="4.5" class="input-dark text-xs">
+                        <input type="number" id="line-tp-a" value="3.5" class="input-dark text-xs">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <button id="btn-analyze" onclick="calculate()" class="w-full py-4 bg-blue-600 text-white font-black text-xl rounded-xl shadow-lg transition-all flex justify-center items-center gap-2">
+    <button id="btn-analyze" onclick="calculate()" class="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xl rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 active:scale-95">
         <i data-lucide="zap" class="w-5 h-5 fill-white"></i> ANALIZZA DATI
     </button>
 </div>
+
 <div id="results" class="hidden pb-20">
-    <div id="sec-falli" class="mb-8">
-        <div class="flex items-center gap-2 mb-3 mt-8 border-b border-slate-800 pb-2"><span class="text-sm font-bold text-red-400 uppercase tracking-widest" id="title-falli">Analisi Falli</span></div>
-        <div id="grid-falli" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+    <div id="sec-falli">
+        <div class="flex items-center gap-2 mb-3 mt-8 border-b border-slate-800 pb-2"><i data-lucide="alert-circle" class="text-red-400 w-4 h-4"></i><span class="text-sm font-bold text-red-400 uppercase tracking-widest" id="title-falli">Analisi Falli (CSV)</span></div>
+        <div id="grid-falli" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8"></div>
     </div>
     <div id="sec-tiri">
-        <div class="flex items-center gap-2 mb-3 mt-8 border-b border-slate-800 pb-2"><span class="text-sm font-bold text-blue-400 uppercase tracking-widest">Analisi Tiri (API)</span></div>
-        <div id="grid-tiri" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4"></div>
-        <div id="grid-tp" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+         <div class="flex items-center gap-2 mb-3 mt-8 border-b border-slate-800 pb-2"><i data-lucide="crosshair" class="text-blue-400 w-4 h-4"></i><span class="text-sm font-bold text-blue-400 uppercase tracking-widest">Analisi Tiri (API Sports)</span></div>
+         <div id="grid-tiri" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8"></div>
+         <div id="grid-tp" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8"></div>
     </div>
 </div>
 </main>
 
 <script>
-// ==========================================
-// 028b02ea1d97fdd09cf5f4a89f6860b3
-// ==========================================
-const 028b02ea1d97fdd09cf5f4a89f6860b3"; 
-// ==========================================
+// ============================================================
+// INSERISCI LA TUA API KEY QUI SOTTO
+const API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"; 
+// ============================================================
 
 const LEAGUE_IDS = { SERIE_A: 135, LIGA: 140, PREMIER: 39 };
 
@@ -137,58 +147,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function switchLeague(l) {
     CURRENT_LEAGUE = l;
-    document.getElementById('btn-sa').className = `flex-1 py-3 text-xs font-bold rounded-lg ${l==='SERIE_A'?'bg-blue-600 text-white':'text-slate-400'}`;
+    document.getElementById('btn-sa').className = `flex-1 py-3 text-xs font-bold rounded-lg ${l==='SERIE_A'?'bg-blue-600 text-white shadow-lg':'text-slate-400'}`;
     document.getElementById('btn-pl').className = `flex-1 py-3 text-xs font-bold rounded-lg ${l==='PREMIER'?'bg-blue-600 text-white':'text-slate-400'}`;
     document.getElementById('btn-lg').className = `flex-1 py-3 text-xs font-bold rounded-lg ${l==='LIGA'?'bg-blue-600 text-white':'text-slate-400'}`;
     
     document.getElementById('home').innerHTML = '<option>Caricamento API...</option>';
     document.getElementById('away').innerHTML = '<option>Caricamento API...</option>';
+    document.getElementById('box-falli-lines').style.display = (l === 'PREMIER') ? 'none' : 'block';
+    document.getElementById('sec-falli').style.display = (l === 'PREMIER') ? 'none' : 'block';
+    
     loadData();
 }
 
 async function loadData() {
+    const pill = document.getElementById('status-pill');
+    pill.innerHTML = `<div class="loader"></div> <span class="text-[10px] font-bold text-slate-400">SYNC API...</span>`;
+    
     try {
-        const pill = document.getElementById('status-pill');
-        pill.innerHTML = `<div class="loader"></div> <span class="text-[10px] font-bold text-slate-400">LOADING API</span>`;
-        
-        // 1. Carica Squadre da API
+        // 1. Squadre da API
         const teamsRes = await fetch(`https://v3.football.api-sports.io/teams?league=${LEAGUE_IDS[CURRENT_LEAGUE]}&season=2024`, {
             headers: { "x-apisports-key": API_KEY }
         });
         const teamsData = await teamsRes.json();
         DB.teams = teamsData.response.map(t => ({ id: t.team.id, name: t.team.name })).sort((a,b) => a.name.localeCompare(b.name));
 
-        // 2. Carica Falli da CSV
+        // 2. Falli da CSV (se presenti)
         const L = CSV_LINKS[CURRENT_LEAGUE];
         if(L.arb) {
-            const rawArb = await fetch(L.arb).then(r => r.text());
-            const parsedArb = Papa.parse(rawArb, {skipEmptyLines:true}).data;
-            DB.refs = parsedArb.slice(1).map(r => ({name:r[0], avg:parseFloat(r[2])||0}));
+            const txt = await fetch(L.arb).then(r => r.text());
+            DB.refs = Papa.parse(txt, {skipEmptyLines:true}).data.slice(1).map(r => ({name:r[0], avg:parseFloat(r[2])||0}));
         }
         if(L.curr) {
-            const rawFc = await fetch(L.curr).then(r => r.text());
-            DB.fc = Papa.parse(rawFc, {skipEmptyLines:true}).data.slice(1).map(r => ({Team:r[1], Loc:r[2], Sub:parseFloat(r[3])||0, Comm:parseFloat(r[4])||0}));
+            const txt = await fetch(L.curr).then(r => r.text());
+            DB.fc = Papa.parse(txt, {skipEmptyLines:true}).data.slice(1).map(r => ({Team:r[1], Loc:r[2], Sub:parseFloat(r[3])||0, Comm:parseFloat(r[4])||0}));
         }
         if(L.prev) {
-            const rawFp = await fetch(L.prev).then(r => r.text());
-            DB.fp = Papa.parse(rawFp, {skipEmptyLines:true}).data.slice(1).map(r => ({Team:r[1], Loc:r[2], Sub:parseFloat(r[3])||0, Comm:parseFloat(r[4])||0}));
+            const txt = await fetch(L.prev).then(r => r.text());
+            DB.fp = Papa.parse(txt, {skipEmptyLines:true}).data.slice(1).map(r => ({Team:r[1], Loc:r[2], Sub:parseFloat(r[3])||0, Comm:parseFloat(r[4])||0}));
         }
 
         updateSelectors();
-        pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-400 text-[10px] font-bold">API CONNESSA</span>`;
+        pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-400 text-[10px] font-bold">API READY</span>`;
     } catch(e) {
-        console.error(e);
-        document.getElementById('status-pill').innerHTML = `<span class="text-red-500 text-[10px]">ERRORE API</span>`;
+        pill.innerHTML = `<span class="text-red-500 font-bold text-[10px]">API OFF</span>`;
     }
 }
 
 function updateSelectors() {
     const h = document.getElementById('home'), a = document.getElementById('away'), r = document.getElementById('referee');
     h.innerHTML = ''; a.innerHTML = ''; r.innerHTML = '<option value="">Seleziona Arbitro</option>';
-    DB.teams.forEach(t => {
-        h.add(new Option(t.name, t.id));
-        a.add(new Option(t.name, t.id));
-    });
+    DB.teams.forEach(t => { h.add(new Option(t.name, t.id)); a.add(new Option(t.name, t.id)); });
     DB.refs.forEach(ref => r.add(new Option(ref.name, ref.name)));
 }
 
@@ -200,84 +208,85 @@ async function calculate() {
     const aName = document.getElementById('away').options[document.getElementById('away').selectedIndex].text;
     
     btn.disabled = true;
-    btn.innerHTML = "CALCOLO API...";
+    btn.innerHTML = "CALCOLO IN CORSO...";
 
     try {
-        // --- 1. STATISTICHE TIRI DA API ---
-        const [hStatsRes, aStatsRes] = await Promise.all([
+        // --- CHIAMATA API PER STATISTICHE SQUADRA ---
+        const [hSRes, aSRes] = await Promise.all([
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${LEAGUE_IDS[CURRENT_LEAGUE]}&season=2024&team=${hId}`, { headers: { "x-apisports-key": API_KEY } }),
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${LEAGUE_IDS[CURRENT_LEAGUE]}&season=2024&team=${aId}`, { headers: { "x-apisports-key": API_KEY } })
         ]);
-        const hS = await hStatsRes.json();
-        const aS = await aStatsRes.json();
+        const hS = await hSRes.json();
+        const aS = await aSRes.json();
 
-        // Estrazione dati (Media Tiri)
-        const getAvg = (s, path) => {
-            const parts = path.split('.');
-            let val = s.response;
-            for(let p of parts) val = val ? val[p] : 0;
+        const stats = {
+            h: hS.response,
+            a: aS.response
+        };
+
+        // Calcolo medie Tiri (Medie ottenute da API)
+        const gAvg = (s, path) => {
+            const val = path.split('.').reduce((o,i)=> o ? o[i] : 0, s);
             return parseFloat(val) || 0;
         };
 
-        // Calcoli basati su API
-        const hFattiCasa = getAvg(hS, 'shots.total.home') / (hS.response.fixtures.played.home || 1);
-        const aSubitiFuori = getAvg(aS, 'shots.total.away') / (aS.response.fixtures.played.away || 1); // Nota: API potrebbe non dare subiti direttamente
-        
-        // Per il test, usiamo i totali medi forniti dall'API
-        const expTiriHome = getAvg(hS, 'shots.total.home') / (hS.response.fixtures.played.home || 1);
-        const expTiriAway = getAvg(aS, 'shots.total.away') / (aS.response.fixtures.played.away || 1);
-        const expTPHome = getAvg(hS, 'shots.on_goal.home') / (hS.response.fixtures.played.home || 1);
-        const expTPAway = getAvg(aS, 'shots.on_goal.away') / (aS.response.fixtures.played.away || 1);
+        const ph = stats.h.fixtures.played.home || 1;
+        const pa = stats.a.fixtures.played.away || 1;
 
-        renderResultsTiri(hName, aName, expTiriHome, expTiriAway, expTPHome, expTPAway);
+        const eth = gAvg(stats.h, 'shots.total.home') / ph;
+        const eta = gAvg(stats.a, 'shots.total.away') / pa;
+        const eph = gAvg(stats.h, 'shots.on_goal.home') / ph;
+        const epa = gAvg(stats.a, 'shots.on_goal.away') / pa;
 
-        // --- 2. FALLI (CSV) ---
+        // Render Tiri
+        renderTiri(hName, aName, eth, eta, eph, epa);
+
+        // Render Falli (da CSV)
         if(CURRENT_LEAGUE !== 'PREMIER') {
-            const findF = (n, loc, db) => db.find(x => x.Team.toUpperCase().includes(n.toUpperCase().slice(0,5)) && x.Loc.includes(loc)) || {Comm:12, Sub:12};
-            const fH = findF(hName, 'CASA', DB.fc);
-            const fA = findF(aName, 'FUORI', DB.fc);
-            const predF = (fH.Comm + fA.Sub)/2 + (fA.Comm + fH.Sub)/2;
-            renderResultsFalli(hName, aName, predF);
+            renderFalli(hName, aName);
         }
 
         document.getElementById('results').classList.remove('hidden');
-    } catch(e) { console.error(e); }
-    
+        document.getElementById('results').scrollIntoView({behavior:'smooth'});
+    } catch(e) { alert("Errore durante il calcolo API"); }
+
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="zap" class="w-5 h-5 fill-white"></i> ANALIZZA DATI';
 }
 
-function renderResultsTiri(h, a, eth, eta, eph, epa) {
-    const gT = document.getElementById('grid-tiri');
-    const gP = document.getElementById('grid-tp');
+function renderTiri(h, a, eth, eta, eph, epa) {
     const lT = parseFloat(document.getElementById('line-t-match').value);
     const lP = parseFloat(document.getElementById('line-tp-match').value);
+    
+    document.getElementById('grid-tiri').innerHTML = createBox("MATCH TOTALE", eth+eta, lT);
+    document.getElementById('grid-tiri').innerHTML += createBox(h, eth, parseFloat(document.getElementById('line-t-h').value));
+    document.getElementById('grid-tiri').innerHTML += createBox(a, eta, parseFloat(document.getElementById('line-t-a').value));
 
-    gT.innerHTML = createBox("MATCH TOTALE", eth + eta, lT);
-    gT.innerHTML += createBox(h, eth, eth > 12 ? 12.5 : 10.5);
-    gT.innerHTML += createBox(a, eta, eta > 10 ? 10.5 : 8.5);
-
-    gP.innerHTML = createBox("PORTA TOTALE", eph + epa, lP);
-    gP.innerHTML += createBox(h, eph, 4.5);
-    gP.innerHTML += createBox(a, epa, 3.5);
+    document.getElementById('grid-tp').innerHTML = createBox("TIRI PORTA TOT", eph+epa, lP);
+    document.getElementById('grid-tp').innerHTML += createBox(h, eph, parseFloat(document.getElementById('line-tp-h').value));
+    document.getElementById('grid-tp').innerHTML += createBox(a, epa, parseFloat(document.getElementById('line-tp-a').value));
 }
 
-function renderResultsFalli(h, a, val) {
-    const g = document.getElementById('grid-falli');
-    const line = parseFloat(document.getElementById('line-f-match').value);
-    g.innerHTML = createBox("MATCH FALLI", val, line);
-    g.innerHTML += createBox(h, val/2, line/2);
-    g.innerHTML += createBox(a, val/2, line/2);
+function renderFalli(h, a) {
+    const fH = DB.fc.find(x => x.Team.toUpperCase().includes(h.toUpperCase().slice(0,5))) || {Comm:12, Sub:12};
+    const fA = DB.fc.find(x => x.Team.toUpperCase().includes(a.toUpperCase().slice(0,5))) || {Comm:12, Sub:12};
+    const pred = (fH.Comm + fA.Sub)/2 + (fA.Comm + fH.Sub)/2;
+    const lF = parseFloat(document.getElementById('line-f-match').value);
+    
+    document.getElementById('grid-falli').innerHTML = createBox("MATCH FALLI", pred, lF);
+    document.getElementById('grid-falli').innerHTML += createBox(h, pred/2, lF/2);
+    document.getElementById('grid-falli').innerHTML += createBox(a, pred/2, lF/2);
 }
 
 function createBox(title, val, line) {
     const diff = val - line;
-    let c = "bg-slate-800 border-slate-700", r = "PASS", t = "NO EDGE";
+    let c = "bg-slate-800 border-slate-700", r = "PASS", t = "NO VALUE";
     if(diff >= 1.5) { c = "val-high"; r = "OVER " + line; t = "SUPER VALORE"; }
-    else if(diff >= 0.5) { c = "val-med"; r = "OVER " + line; t = "BUONO"; }
+    else if(diff >= 0.5) { c = "val-med"; r = "OVER " + line; t = "INTERESSANTE"; }
     else if(diff <= -1.5) { c = "val-high"; r = "UNDER " + line; t = "SUPER VALORE"; }
     
-    return `<div class="value-box ${c}"><div class="text-[10px] opacity-70">${title}</div><div class="res">${r}</div><div class="text-xs font-bold">AI: ${val.toFixed(2)} | ${t}</div></div>`;
+    const confidence = (Math.abs(diff) > 1.2) ? '<span class="confidence-pill">⚡ TOP</span>' : '';
+    return `<div class="value-box ${c}">${confidence}<div class="text-[10px] uppercase font-bold opacity-70">${title}</div><div class="res">${r}</div><div class="text-[11px] font-bold">AI: ${val.toFixed(2)} | ${t}</div></div>`;
 }
 </script>
 </body>
