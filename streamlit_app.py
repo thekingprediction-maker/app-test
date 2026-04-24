@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # --- CONFIGURAZIONE STREAMLIT ---
-st.set_page_config(page_title="ProBet AI V3 - FULL API", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="ProBet AI V3 - Full API", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -14,291 +14,431 @@ iframe { width: 100vw !important; height: 100vh !important; border: none !import
 </style>
 """, unsafe_allow_html=True)
 
-# --- CODICE HTML/JS ---
 html_code = """
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>ProBet AI V3 - Pro</title>
+    <title>ProBet AI V3 - FULL API</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;600&family=Inter:wght@400;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;600;700&family=Inter:wght@400;600;700;900&display=swap');
         
-        body { background-color: #0c111d; color: #e2e8f0; font-family: 'Inter', sans-serif; margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: hidden; }
+        body { 
+            background-color: #020617; 
+            color: #f1f5f9; 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; padding: 0; 
+            overflow-x: hidden; 
+        }
         .teko { font-family: 'Teko', sans-serif; }
         
-        select { background-color: #1e293b; color: white; border: 1px solid #334155; padding: 12px; border-radius: 12px; width: 100%; font-weight: 700; outline: none; appearance: none; }
-        .input-dark { background: #1e293b; border: 1px solid #334155; color: white; padding: 10px; border-radius: 10px; width: 100%; text-align: center; font-weight: 800; font-size: 1.1rem; }
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
 
-        .value-box { padding: 20px; border-radius: 18px; text-align: center; border: 1px solid; position: relative; background: #1a2236; border-color: #2d3748; transition: all 0.3s ease; }
-        .val-top { background: linear-gradient(135deg, #064e3b 0%, #064e3b 100%); border-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
-        .val-good { background: linear-gradient(135deg, #78350f 0%, #78350f 100%); border-color: #f59e0b; }
-        .res-text { font-size: 28px; font-weight: 900; font-family: 'Teko', sans-serif; line-height: 1; margin-bottom: 2px; }
-        .tag-pill { position: absolute; top: 10px; right: 10px; font-size: 10px; background: #fff; color: #000; padding: 2px 8px; border-radius: 20px; font-weight: 900; }
+        select { 
+            background: #0f172a; 
+            color: white; 
+            border: 1px solid #1e293b; 
+            padding: 14px; 
+            border-radius: 14px; 
+            width: 100%; 
+            font-weight: 700; 
+            outline: none;
+            appearance: none;
+        }
+        .input-dark { 
+            background: #0f172a; 
+            border: 1px solid #1e293b; 
+            color: white; 
+            padding: 12px; 
+            border-radius: 12px; 
+            width: 100%; 
+            text-align: center; 
+            font-weight: 800; 
+            font-size: 1.25rem;
+        }
 
-        header { position: fixed; top: 0; left: 0; width: 100%; z-index: 100; background: rgba(12, 17, 29, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #1e293b; }
-        main { padding: 100px 16px 80px; max-width: 850px; margin: 0 auto; }
+        /* Value Cards */
+        .card-result {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            border-radius: 24px;
+            padding: 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-result:hover {
+            transform: translateY(-5px);
+            background: rgba(30, 41, 59, 0.6);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+        .top-tag {
+            position: absolute; top: 12px; right: 12px;
+            background: #3b82f6; color: white;
+            font-size: 10px; font-weight: 900;
+            padding: 4px 10px; border-radius: 100px;
+            letter-spacing: 0.05em;
+        }
 
-        .btn-main { background: #2563eb; color: white; font-weight: 900; width: 100%; padding: 18px; border-radius: 15px; font-size: 1.25rem; transition: all 0.2s; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4); }
-        .btn-main:active { scale: 0.97; }
-        
-        .loader { width: 18px; height: 18px; border: 3px solid #475569; border-bottom-color: #3b82f6; border-radius: 50%; display: inline-block; animation: rot 1s linear infinite; }
-        @keyframes rot { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        header { 
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 100;
+            background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        main { padding: 110px 20px 80px; max-width: 900px; margin: 0 auto; }
+
+        .loader { 
+            width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.1); 
+            border-top-color: #3b82f6; border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .prog-bar {
+            height: 4px; background: #1e293b; border-radius: 10px; overflow: hidden;
+            margin-top: 10px;
+        }
+        .prog-inner {
+            height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
 
 <header>
     <div class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-        <div class="text-3xl font-bold teko tracking-wider text-white">PROBET <span class="text-blue-500">AI</span> <span class="text-[12px] opacity-50 ml-2">V3.5 FULL AUTO</span></div>
-        <div id="status-display" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800">
-            <div class="loader"></div> 
-            <span class="text-[11px] font-black text-slate-400 uppercase">Connecting API...</span>
+        <div class="flex items-center gap-4">
+            <div class="text-3xl font-bold teko tracking-tight text-white">PROBET <span class="text-blue-500">AI</span></div>
+            <div class="h-4 w-[1px] bg-white/20"></div>
+            <div class="text-[10px] uppercase font-black text-white/40 tracking-widest pt-1">Version Full API Automata</div>
+        </div>
+        <div id="api-status" class="flex items-center gap-3 px-5 py-2 rounded-2xl bg-white/5 border border-white/10">
+            <div class="loader-small"></div>
+            <span class="text-[11px] font-black uppercase text-blue-400">Connecting...</span>
         </div>
     </div>
 </header>
 
 <main>
-    <!-- Selettore Lega -->
-    <div class="flex justify-center mb-8 bg-slate-900/50 p-1 rounded-2xl border border-slate-800 w-full max-w-sm mx-auto shadow-xl">
-        <button onclick="switchLeague('SERIE_A')" id="btn-sa" class="flex-1 py-3 text-xs font-black rounded-xl transition-all">SERIE A</button>
-        <button onclick="switchLeague('PREMIER')" id="btn-pl" class="flex-1 py-3 text-xs font-black rounded-xl transition-all">PREMIER</button>
-        <button onclick="switchLeague('LIGA')" id="btn-lg" class="flex-1 py-3 text-xs font-black rounded-xl transition-all">LIGA</button>
+    <!-- League Selection -->
+    <div class="flex justify-center gap-3 mb-10 overflow-x-auto pb-4 no-scrollbar">
+        <button onclick="switchLeague('SERIE_A')" id="l-sa" class="px-8 py-3 rounded-2xl font-black text-xs transition-all uppercase tracking-widest border border-white/5 glass-panel">Serie A</button>
+        <button onclick="switchLeague('PREMIER')" id="l-pl" class="px-8 py-3 rounded-2xl font-black text-xs transition-all uppercase tracking-widest border border-white/5 glass-panel">Premier</button>
+        <button onclick="switchLeague('LIGA')" id="l-lg" class="px-8 py-3 rounded-2xl font-black text-xs transition-all uppercase tracking-widest border border-white/5 glass-panel">La Liga</button>
     </div>
 
-    <!-- Pannello Input -->
-    <div class="bg-slate-900/40 p-8 rounded-[2rem] border border-slate-800/80 shadow-2xl backdrop-blur-md mb-10">
+    <!-- Match Config -->
+    <div class="glass-panel p-8 rounded-[32px] mb-12">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
             <div>
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">Match Casa</label>
-                <select id="home-team"></select>
+                <label class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3 block">Match Home</label>
+                <select id="h-select"></select>
             </div>
             <div>
-                <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">Match Ospite</label>
-                <select id="away-team"></select>
+                <label class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3 block">Match Away</label>
+                <select id="a-select"></select>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-            <div class="bg-black/30 p-6 rounded-2xl border border-red-500/10">
-                <span class="text-[11px] font-black text-red-400 uppercase tracking-widest block mb-4">Bookmaker Lines - Fouls</span>
-                <input type="number" id="line-f-match" value="24.5" step="0.5" class="input-dark border-red-500/20">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="p-5 bg-white/5 rounded-2xl border border-white/5">
+                <label class="text-[10px] font-bold text-white/40 text-center block mb-3 uppercase tracking-tighter">Bookmaker Lines - Fouls</label>
+                <input type="number" id="line-f" value="24.5" step="0.5" class="input-dark">
             </div>
-            <div class="bg-black/30 p-6 rounded-2xl border border-blue-500/10">
-                <span class="text-[11px] font-black text-blue-400 uppercase tracking-widest block mb-4">Bookmaker Lines - Shots</span>
+            <div class="col-span-1 md:col-span-2 p-5 bg-white/5 rounded-2xl border border-white/5">
+                <label class="text-[10px] font-bold text-white/40 text-center block mb-3 uppercase tracking-tighter">Bookmaker Lines - Shots</label>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] text-slate-600 block mb-1 font-bold text-center">TOTAL SHOTS</label>
-                        <input type="number" id="line-t-match" value="23.5" step="0.5" class="input-dark border-blue-500/20">
+                    <div class="relative">
+                        <span class="absolute top-[-15px] left-1/2 -translate-x-1/2 text-[8px] font-bold text-white/20">TOTAL SHOTS</span>
+                        <input type="number" id="line-t" value="23.5" step="0.5" class="input-dark">
                     </div>
-                    <div>
-                        <label class="text-[9px] text-slate-600 block mb-1 font-bold text-center">ON GOAL</label>
-                        <input type="number" id="line-tp-match" value="8.5" step="0.5" class="input-dark border-blue-500/20">
+                    <div class="relative">
+                        <span class="absolute top-[-15px] left-1/2 -translate-x-1/2 text-[8px] font-bold text-white/20">ON GOAL</span>
+                        <input type="number" id="line-p" value="8.5" step="0.5" class="input-dark">
                     </div>
                 </div>
             </div>
         </div>
 
-        <button id="btn-calc" onclick="processAnalysis()" class="btn-main">ANALIZZA DATI</button>
+        <button id="calc-btn" onclick="startAnalysis()" class="w-full relative group">
+            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+            <div id="btn-content" class="relative w-full py-6 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-xl text-white tracking-widest flex justify-center items-center gap-3 transition-all">
+                <i data-lucide="zap" class="w-6 h-6"></i> ANALIZZA DATI
+            </div>
+        </button>
+        
+        <div id="analysis-progress" class="hidden mt-6">
+            <div class="flex justify-between items-center mb-2">
+                <span id="prog-text" class="text-[10px] font-black text-blue-400 uppercase">Fetching Match Data...</span>
+                <span id="prog-val" class="text-[10px] font-black text-white">0%</span>
+            </div>
+            <div class="prog-bar"><div id="prog-inner" class="prog-inner"></div></div>
+        </div>
     </div>
 
-    <!-- Risultati -->
-    <div id="results-area" class="hidden space-y-12">
-        <section id="s-fouls">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-1.5 h-6 bg-red-500 rounded-full"></div>
-                <span class="text-base font-black text-white uppercase tracking-widest">ANALISI FALLI</span>
-            </div>
-            <div id="res-grid-falli" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    <!-- Results -->
+    <div id="results-wrap" class="hidden animate-in fade-in slide-in-from-bottom-10 block pb-20">
+        <div class="flex items-center gap-4 mb-10">
+            <div class="h-px flex-1 bg-gradient-to-r from-transparent to-white/10"></div>
+            <span id="match-header" class="text-3xl font-bold teko tracking-widest uppercase"></span>
+            <div class="h-px flex-1 bg-gradient-to-l from-transparent to-white/10"></div>
+        </div>
+
+        <section class="mb-12">
+            <h3 class="text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <div class="w-4 h-[2px] bg-blue-500"></div> PREVISIONI FALLI
+            </h3>
+            <div id="grid-falli" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
         </section>
 
-        <section id="s-shots">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-1.5 h-6 bg-blue-500 rounded-full"></div>
-                <span class="text-base font-black text-white uppercase tracking-widest">ANALISI TIRI</span>
-            </div>
-            <div id="res-grid-tiri" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"></div>
-            <div id="res-grid-tp" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        <section class="mb-12">
+            <h3 class="text-xs font-black text-indigo-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <div class="w-4 h-[2px] bg-indigo-500"></div> PREVISIONI TIRI
+            </h3>
+            <div id="grid-tiri" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
+        </section>
+
+        <section>
+            <h3 class="text-xs font-black text-purple-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <div class="w-4 h-[2px] bg-purple-500"></div> PREVISIONI IN PORTA
+            </h3>
+            <div id="grid-porta" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
         </section>
     </div>
 </main>
 
 <script>
-// --- CONFIGURAZIONE ---
+// ==========================================
+// 🟢 API CONFIG (USER PAID KEY)
+// ==========================================
 const API_KEY = "028b02ea1d97fdd09cf5f4a89f6860b3"; 
-const LEAGUE_IDS = { SERIE_A: 135, LIGA: 140, PREMIER: 39 };
+const SEASON = 2025; // Stagione Attuale
+// ==========================================
 
-let DB = { teams: [], cache: {} };
-let CUR_L = 'SERIE_A';
+const LEAGUES = {
+    SERIE_A: 135,
+    PREMIER: 39,
+    LIGA: 140
+};
 
-document.addEventListener('DOMContentLoaded', () => switchLeague('SERIE_A'));
+let CUR_LEAGUE = 'SERIE_A';
+let TEAMS = [];
+let CACHE = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    switchLeague('SERIE_A');
+});
 
 async function switchLeague(l) {
-    CUR_L = l;
-    const status = document.getElementById('status-display');
+    CUR_LEAGUE = l;
     
-    // UI Bottoni
-    ['btn-sa', 'btn-pl', 'btn-lg'].forEach(b => {
-        const el = document.getElementById(b);
-        if(b === `btn-${l.substring(0,2).toLowerCase()}` || (b === 'btn-sa' && l === 'SERIE_A')) {
-            el.className = "flex-1 py-3 text-xs font-black rounded-xl bg-blue-600 text-white shadow-lg";
+    // UI selection
+    ['l-sa', 'l-pl', 'l-lg'].forEach(id => {
+        const el = document.getElementById(id);
+        if(id === 'l-'+l.toLowerCase().substring(0,2) || (id==='l-sa' && l==='SERIE_A')) {
+            el.className = "px-8 py-3 rounded-2xl font-black text-xs transition-all uppercase tracking-widest border border-blue-500/50 bg-blue-500/20 text-blue-500";
         } else {
-            el.className = "flex-1 py-3 text-xs font-black rounded-xl text-slate-500 hover:text-slate-300";
+            el.className = "px-8 py-3 rounded-2xl font-black text-xs transition-all uppercase tracking-widest border border-white/5 glass-panel text-white/40";
         }
     });
 
-    status.innerHTML = `<div class="loader"></div> <span class="text-[11px] font-black text-slate-400 uppercase">Updating League...</span>`;
-    
+    const apiStatus = document.getElementById('api-status');
+    apiStatus.innerHTML = `<div class="loader-small w-3 h-3 border-2 border-white/10 border-t-blue-500 rounded-full animate-spin"></div><span class="text-[11px] font-black uppercase text-white/40 tracking-widest">Loading Teams...</span>`;
+
     try {
-        const teamsRes = await fetch(`https://v3.football.api-sports.io/teams?league=${LEAGUE_IDS[l]}&season=2024`, {
+        const res = await fetch(`https://v3.football.api-sports.io/teams?league=$\{LEAGUES[l]\}&season=$\{SEASON\}`, {
             headers: { "x-apisports-key": API_KEY }
         });
-        const data = await teamsRes.json();
+        const data = await res.json();
         
-        if (data.errors && Object.keys(data.errors).length > 0) throw new Error(JSON.stringify(data.errors));
-
-        DB.teams = data.response.map(r => ({ id: r.team.id, name: r.team.name })).sort((a,b) => a.name.localeCompare(b.name));
-
-        const h = document.getElementById('home-team'), a = document.getElementById('away-team');
-        h.innerHTML = ''; a.innerHTML = '';
-        DB.teams.forEach(t => { 
-            h.add(new Option(t.name, t.id)); 
-            a.add(new Option(t.name, t.id)); 
+        TEAMS = data.response.map(r => ({ id: r.team.id, name: r.team.name })).sort((a,b) => a.name.localeCompare(b.name));
+        
+        const hS = document.getElementById('h-select');
+        const aS = document.getElementById('a-select');
+        hS.innerHTML = ''; aS.innerHTML = '';
+        
+        TEAMS.forEach(t => {
+            hS.add(new Option(t.name, t.id));
+            aS.add(new Option(t.name, t.id));
         });
-        if(DB.teams.length > 1) a.selectedIndex = 1;
+        aS.selectedIndex = 1;
 
-        status.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span><span class="text-emerald-400 text-[11px] font-black uppercase">API CONNECTED: 2024 SEASON</span>`;
+        apiStatus.innerHTML = `<div class="w-2 h-2 rounded-full bg-emerald-500"></div><span class="text-[11px] font-black uppercase text-emerald-500/80 tracking-widest">API CONNECTED: 2025 SEASON</span>`;
     } catch(err) {
-        console.error(err);
-        status.innerHTML = `<span class="text-red-500 text-[11px] font-black uppercase tracking-tighter">API Error: Check Console</span>`;
+        apiStatus.innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-[11px] font-black uppercase text-red-500 tracking-widest">API ERROR</span>`;
     }
 }
 
-async function fetchStats(teamId) {
-    const key = `${CUR_L}_24_${teamId}`;
-    if (DB.cache[key]) return DB.cache[key];
+async function fetchMatchStats(teamId) {
+    const cacheKey = `$\{CUR_LEAGUE\}_$\{SEASON\}_$\{teamId\}`;
+    if(CACHE[cacheKey]) return CACHE[cacheKey];
 
-    const res = await fetch(`https://v3.football.api-sports.io/teams/statistics?league=${LEAGUE_IDS[CUR_L]}&season=2024&team=${teamId}`, {
+    // 1. Get last 15 fixtures
+    const resFix = await fetch(`https://v3.football.api-sports.io/fixtures?league=$\{LEAGUES[CUR_LEAGUE]\}&season=$\{SEASON\}&team=$\{teamId\}&last=15`, {
         headers: { "x-apisports-key": API_KEY }
     });
-    const data = await res.json();
-    
-    if (data.errors && Object.keys(data.errors).length > 0) throw new Error("API Limit reached");
+    const fixData = await resFix.json();
+    const fixtures = fixData.response || [];
 
-    DB.cache[key] = data.response;
-    return data.response;
+    let stats = {
+        home: { p:0, t:0, s:0, p_on:0, p_off:0, f_c:0, f_s:0 },
+        away: { p:0, t:0, s:0, p_on:0, p_off:0, f_c:0, f_s:0 }
+    };
+
+    // Process parallelly to avoid long waits, but handle rate limits
+    const tasks = fixtures.map(async (f, idx) => {
+        // Simple delay to respect rate limit if necessary (10req/min is tight, 100 is fine)
+        await new Promise(r => setTimeout(r, idx * 50)); 
+        
+        const resSt = await fetch(`https://v3.football.api-sports.io/fixtures/statistics?fixture=$\{f.fixture.id\}`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const stData = await resSt.json();
+        const fStats = stData.response;
+        
+        if(!fStats || fStats.length < 2) return;
+
+        const isHome = f.teams.home.id === teamId;
+        const myIdx = fStats[0].team.id === teamId ? 0 : 1;
+        const opIdx = 1 - myIdx;
+
+        const getVal = (list, type) => {
+            const item = list.statistics.find(s => s.type === type);
+            return item ? parseInt(item.value) || 0 : 0;
+        };
+
+        const side = isHome ? 'home' : 'away';
+        stats[side].p++;
+        stats[side].t += getVal(fStats[myIdx], "Total Shots");
+        stats[side].s += getVal(fStats[opIdx], "Total Shots");
+        stats[side].p_on += getVal(fStats[myIdx], "Shots on Goal");
+        stats[side].p_off += getVal(fStats[opIdx], "Shots on Goal");
+        stats[side].f_c += getVal(fStats[myIdx], "Fouls");
+        stats[side].f_s += getVal(fStats[opIdx], "Fouls");
+    });
+
+    await Promise.all(tasks);
+    CACHE[cacheKey] = stats;
+    return stats;
 }
 
-// Funzione Helper per estrarre valori annidati in sicurezza
-const getSafe = (obj, path, def = 0) => {
-    return path.split('.').reduce((o, key) => (o && o[key] !== undefined) ? o[key] : null, obj) || def;
-};
+async function startAnalysis() {
+    const btn = document.getElementById('calc-btn');
+    const bContent = document.getElementById('btn-content');
+    const progress = document.getElementById('analysis-progress');
+    const pInner = document.getElementById('prog-inner');
+    const pText = document.getElementById('prog-text');
+    const pVal = document.getElementById('prog-val');
 
-async function processAnalysis() {
-    const btn = document.getElementById('btn-calc');
-    const hId = document.getElementById('home-team').value, aId = document.getElementById('away-team').value;
-    const hName = document.getElementById('home-team').options[document.getElementById('home-team').selectedIndex].text;
-    const aName = document.getElementById('away-team').options[document.getElementById('away-team').selectedIndex].text;
-
-    if(hId === aId) { alert("Scegli squadre diverse"); return; }
+    const hId = parseInt(document.getElementById('h-select').value);
+    const aId = parseInt(document.getElementById('a-select').value);
+    const hName = document.getElementById('h-select').options[document.getElementById('h-select').selectedIndex].text;
+    const aName = document.getElementById('a-select').options[document.getElementById('a-select').selectedIndex].text;
 
     btn.disabled = true;
-    btn.innerHTML = `<div class="loader"></div> CONNECTING API...`;
+    bContent.innerHTML = `<div class="loader border-t-white"></div> CONNECTING API...`;
+    progress.classList.remove('hidden');
+    pInner.style.width = "10%"; pVal.innerText = "10%";
 
     try {
-        const [hS, aS] = await Promise.all([fetchStats(hId), fetchStats(aId)]);
-
-        // 1. Partite giocate
-        const mH = getSafe(hS, 'fixtures.played.home', 1);
-        const mA = getSafe(aS, 'fixtures.played.away', 1);
-
-        // 2. Calcolo Falli
-        // Exp Falli Casa = (Falli Commessi Casa TeamH + Falli Subiti Trasferta TeamA) / 2
-        const fCommH = getSafe(hS, 'fouls.committed.total.home', 12) / mH;
-        const fSubA = getSafe(aS, 'fouls.drawn.total.away', 12) / mA;
-        const expFalliH = (fCommH + fSubA) / 2;
-
-        const fCommA = getSafe(aS, 'fouls.committed.total.away', 12) / mA;
-        const fSubH = getSafe(hS, 'fouls.drawn.total.home', 12) / mH;
-        const expFalliA = (fCommA + fSubH) / 2;
-
-        // 3. Calcolo Tiri (Stessa logica del CSV)
-        // Poichè l'API non fornisce tiri subiti casa/trasferta, usiamo medie di lega se non disponibili
-        const tFattiH = getSafe(hS, 'shots.total.home', 12) / mH;
-        const tFattiA = getSafe(aS, 'shots.total.away', 11) / mA;
+        pText.innerText = "Analyzing " + hName + "...";
+        const hStats = await fetchMatchStats(hId);
+        pInner.style.width = "50%"; pVal.innerText = "50%";
         
-        // Approssimazione tiri subiti basata sulla media team se il valore è mancante
-        const tSubA = 11.5; // Media standard league
-        const tSubH = 11.5; 
+        pText.innerText = "Analyzing " + aName + "...";
+        const aStats = await fetchMatchStats(aId);
+        pInner.style.width = "90%"; pVal.innerText = "90%";
+
+        const getAvg = (sH, sA, key, type) => {
+            const mFH = sH.home.p > 0 ? sH.home[key] / sH.home.p : 12;
+            const mSA = sA.away.p > 0 ? sA.away[type] / sA.away.p : 12;
+            const mFA = sA.away.p > 0 ? sA.away[key] / sA.away.p : 12;
+            const mSH = sH.home.p > 0 ? sH.home[type] / sH.home.p : 12;
+            
+            return { h: (mFH + mSA) / 2, a: (mFA + mSH) / 2 };
+        };
+
+        const fRes = getAvg(hStats, aStats, 'f_c', 'f_s');
+        const tRes = getAvg(hStats, aStats, 't', 's');
+        const pRes = getAvg(hStats, aStats, 'p_on', 'p_off');
+
+        displayResults(hName, aName, fRes, tRes, pRes);
+
+        pInner.style.width = "100%"; pVal.innerText = "100%";
+        pText.innerText = "Analysis Complete!";
         
-        const expTiriH = (tFattiH + tSubA) / 2;
-        const expTiriA = (tFattiA + tSubH) / 2;
-
-        // 4. Porta
-        const tpFattiH = getSafe(hS, 'shots.on_goal.home', 4) / mH;
-        const tpFattiA = getSafe(aS, 'shots.on_goal.away', 3.5) / mA;
-        const tpSubA = 4.0;
-        const tpSubH = 4.0;
-
-        const expTpH = (tpFattiH + tpSubA) / 2;
-        const expTpA = (tpFattiA + tpSubH) / 2;
-
-        renderResults(hName, aName, expFalliH, expFalliA, expTiriH, expTiriA, expTpH, expTpA);
-        
-        document.getElementById('results-area').classList.remove('hidden');
-        window.scrollTo({ top: document.getElementById('results-area').offsetTop - 80, behavior: 'smooth' });
+        setTimeout(() => {
+            progress.classList.add('hidden');
+            bContent.innerHTML = `<i data-lucide="zap" class="w-6 h-6"></i> ANALIZZA DATI`;
+            btn.disabled = false;
+        }, 1000);
 
     } catch(err) {
         console.error(err);
-        alert("API Error: Limit reached or connection lost.");
+        alert("Errore API: Limite raggiunto (10 req/min) o connessione persa.");
+        bContent.innerHTML = `<i data-lucide="zap" class="w-6 h-6"></i> ANALIZZA DATI`;
+        btn.disabled = false;
+        progress.classList.add('hidden');
     }
-
-    btn.disabled = false;
-    btn.innerHTML = "ANALIZZA DATI";
 }
 
-function renderResults(h, a, efh, efa, eth, eta, eph, epa) {
-    const lF = parseFloat(document.getElementById('line-f-match').value);
-    const lT = parseFloat(document.getElementById('line-t-match').value);
-    const lP = parseFloat(document.getElementById('line-tp-match').value);
+function displayResults(h, a, f, t, p) {
+    document.getElementById('results-wrap').classList.remove('hidden');
+    document.getElementById('match-header').innerText = h + " - " + a;
 
-    // Griglie
-    document.getElementById('res-grid-falli').innerHTML = 
-        createCard("MATCH TOTALE", efh + efa, lF) + createCard(h, efh, lF/2) + createCard(a, efa, lF/2);
+    const lineF = parseFloat(document.getElementById('line-f').value);
+    const lineT = parseFloat(document.getElementById('line-t').value);
+    const lineP = parseFloat(document.getElementById('line-p').value);
 
-    document.getElementById('res-grid-tiri').innerHTML = 
-        createCard("TIRI TOTALI", eth + eta, lT) + createCard(h, eth, eth>12?12.5:10.5) + createCard(a, eta, eta>10?10.5:8.5);
+    const render = (container, labelH, valH, valA, lineM) => {
+        const tot = valH + valA;
+        const diff = tot - lineM;
+        let style = "", rec = "UNDER " + lineM, tag = "VALORE";
+        
+        if(diff >= 1.5) { style = "border-blue-500/50 bg-blue-500/10"; rec = "OVER " + lineM; tag = "TOP"; }
+        else if(diff >= 0.5) { style = "border-emerald-500/30 bg-emerald-500/5"; rec = "OVER " + lineM; }
+        else if(diff <= -1.5) { style = "border-red-500/50 bg-red-500/10"; rec = "UNDER " + lineM; tag = "TOP"; }
+        
+        document.getElementById(container).innerHTML = `
+            <div class="card-result $\{style\}">
+                $\{tag === 'TOP' ? `<div class="top-tag">$\{tag\}</div>` : ''\}
+                <div class="text-[10px] uppercase font-black text-white/30 mb-2">Match Prediction</div>
+                <div class="res-text text-4xl teko tracking-widest uppercase font-bold">$\{rec\}</div>
+                <div class="text-[11px] font-black text-blue-400 mt-2 tracking-tighter">AI: $\{tot.toFixed(2)\} | SUPER VALORE</div>
+            </div>
+            <div class="card-result">
+                <div class="text-[10px] uppercase font-black text-white/30 mb-2">$\{h\} (Exp)</div>
+                <div class="res-text text-3xl teko tracking-widest font-bold">$\{valH.toFixed(2)\}</div>
+            </div>
+            <div class="card-result">
+                <div class="text-[10px] uppercase font-black text-white/30 mb-2">$\{a\} (Exp)</div>
+                <div class="res-text text-3xl teko tracking-widest font-bold">$\{valA.toFixed(2)\}</div>
+            </div>
+        `;
+    };
 
-    document.getElementById('res-grid-tp').innerHTML = 
-        createCard("TIRI IN PORTA", eph + epa, lP) + createCard(h, eph, 4.5) + createCard(a, epa, 3.5);
-}
-
-function createCard(title, val, line) {
-    const diff = val - line;
-    let style = "border-slate-800", rec = "UNDER " + line, tag = "";
+    render('grid-falli', h, f.h, f.a, lineF);
+    render('grid-tiri', h, t.h, t.a, lineT);
+    render('grid-porta', h, p.h, p.a, lineP);
     
-    // Logica Under/Over
-    if(diff >= 1.5) { style = "val-top"; rec = "OVER " + line; tag = "TOP"; }
-    else if(diff >= 0.5) { style = "val-good"; rec = "OVER " + line; tag = "SUPER VALORE"; }
-    else if(diff <= -1.5) { style = "val-top"; rec = "UNDER " + line; tag = "TOP"; }
-    else if(diff <= -0.5) { style = "val-good"; rec = "UNDER " + line; tag = "SUPER VALORE"; }
-    else { rec = (val > line ? "OVER " : "UNDER ") + line; }
-
-    return `
-        <div class="value-box ${style}">
-            ${tag ? `<div class="tag-pill">${tag}</div>` : ''}
-            <div class="text-[11px] font-black text-slate-500 uppercase mb-3 tracking-widest">${title}</div>
-            <div class="res-text">${rec}</div>
-            <div class="text-[12px] font-bold opacity-75">AI SUGGERISCE: ${val.toFixed(2)}</div>
-        </div>
-    `;
+    window.scrollTo({ top: document.getElementById('results-wrap').offsetTop - 100, behavior: 'smooth' });
+    lucide.createIcons();
 }
 </script>
+
 </body>
 </html>
 """
 
-components.html(html_code, height=1400, scrolling=True)
+components.html(html_code, height=1800, scrolling=True)
