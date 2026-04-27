@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V3 - MANUAL SPREAD", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 - FULL LEAGUE", layout="wide")
 
 html_code = """
 <!DOCTYPE html>
@@ -15,187 +15,160 @@ html_code = """
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
         .teko { font-family: 'Teko', sans-serif; }
         .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
-        
-        /* Stile Input e Select */
-        select, input { 
-            background: #0f172a; 
-            border: 1px solid #475569; 
-            color: white; 
-            padding: 12px; 
-            width: 100%; 
-            border-radius: 12px; 
-            font-weight: bold; 
-            font-size: 14px;
-            outline: none;
-        }
-        input:focus { border-color: #3b82f6; background: #1e293b; }
-
-        .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
-        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; position: relative; }
-        
-        /* Badge Advice */
-        .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; vertical-align: middle; }
+        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 10px; width: 100%; border-radius: 12px; font-weight: bold; outline: none; }
+        .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; border: none; color: white; margin-top: 20px; }
+        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; margin-bottom: 20px; }
+        .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; }
         .over-tag { background: #10b981; color: #020617; }
         .under-tag { background: #ef4444; color: white; }
-        
         .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .league-grid { display: grid; grid-template-cols: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 12px; }
+        .active { background: #3b82f6; border-color: #3b82f6; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
-        <div class="text-center mb-10">
-            <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V3</span></h1>
-            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Manual Spread Entry • Smart Advice</p>
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-5xl font-black teko tracking-widest uppercase italic">PROBET <span class="text-blue-500">AI V4 GOLD</span></h1>
         </div>
 
-        <div class="card-premium mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div>
-                    <label class="label-spread text-blue-400">Home Team</label>
-                    <select id="homeTeam"></select>
-                </div>
-                <div>
-                    <label class="label-spread text-blue-400">Away Team</label>
-                    <select id="awayTeam"></select>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div>
-                    <label class="label-spread text-emerald-400">Inserisci Spread Match Totali</label>
-                    <input type="number" id="sprTotalMatch" step="0.5" value="23.5">
-                </div>
-                <div>
-                    <label class="label-spread text-emerald-400">Spread Casa Totali</label>
-                    <input type="number" id="sprTotalH" step="0.5" value="12.5">
-                </div>
-                <div>
-                    <label class="label-spread text-emerald-400">Spread Ospite Totali</label>
-                    <input type="number" id="sprTotalA" step="0.5" value="10.5">
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                    <label class="label-spread text-purple-400">Inserisci Spread Match In Porta</label>
-                    <input type="number" id="sprOTMatch" step="0.5" value="8.5">
-                </div>
-                <div>
-                    <label class="label-spread text-purple-400">Spread Casa In Porta</label>
-                    <input type="number" id="sprOTH" step="0.5" value="4.5">
-                </div>
-                <div>
-                    <label class="label-spread text-purple-400">Spread Ospite In Porta</label>
-                    <input type="number" id="sprOTA" step="0.5" value="3.5">
-                </div>
-            </div>
-
-            <button onclick="runDeepAnalysis()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA CONSIGLIO AI</button>
+        <div class="league-grid">
+            <div id="l135" class="league-btn active" onclick="switchL(135)">SERIE A</div>
+            <div id="l39" class="league-btn" onclick="switchL(39)">PREMIER</div>
+            <div id="l78" class="league-btn" onclick="switchL(78)">BUNDES</div>
+            <div id="l140" class="league-btn" onclick="switchL(140)">LA LIGA</div>
         </div>
 
-        <div id="results" class="space-y-6 hidden pb-20"></div>
+        <div class="card-premium">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div><label class="label-spread text-blue-400">Home Team</label><select id="hTeam"></select></div>
+                <div><label class="label-spread text-blue-400">Away Team</label><select id="aTeam"></select></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 border-t border-slate-700 pt-4">
+                <div><label class="label-spread text-emerald-400">Spread Tiri Match</label><input type="number" id="sTm" step="0.5" value="24.5"></div>
+                <div><label class="label-spread text-purple-400">Spread In Porta Match</label><input type="number" id="sOm" step="0.5" value="8.5"></div>
+                <div id="f-box"><label class="label-spread text-orange-400">Spread Falli (A)</label><input type="number" id="sFm" step="0.5" value="25.5"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div><label class="label-spread text-yellow-400">Spread Angoli Match</label><input type="number" id="sAm" step="0.5" value="9.5"></div>
+                <div><label class="label-spread text-red-400">Spread Cartellini Match</label><input type="number" id="sCm" step="0.5" value="4.5"></div>
+            </div>
+
+            <button onclick="analyze()" class="btn-analizza teko text-2xl tracking-widest">ANALIZZA MATCH</button>
+        </div>
+
+        <div id="results" class="mt-8 space-y-4 hidden pb-20"></div>
     </div>
 
 <script>
-const API_KEY = "aa5e53f893088010cc7c47af17f306e9";
-const DB_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/DATABASE_AVANZATO_2025.csv";
+const K = "aa5e53f893088010cc7c47af17f306e9";
+const URL_BASE = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
+let curL = 135;
+let db = [];
 
-let dbXG = [];
+const files = {
+    135: "DATABASE_AVANZATO_SERIEA_2025.csv",
+    39: "DATABASE_AVANZATO_PREMIER_2025.csv",
+    78: "DATABASE_AVANZATO_BUNDES_2025.csv",
+    140: "DATABASE_AVANZATO_LALIGA_2025.csv"
+};
 
-Papa.parse(DB_URL, {
-    download: true, header: true, skipEmptyLines: true,
-    complete: function(r) { dbXG = r.data; loadTeams(); }
-});
-
-async function loadTeams() {
-    try {
-        const res = await fetch("https://v3.football.api-sports.io/teams?league=135&season=2025", { headers: { "x-apisports-key": API_KEY } });
-        const data = await res.json();
-        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-        data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
-        });
-    } catch(e) { console.error(e); }
+function switchL(id) {
+    curL = id;
+    document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('l'+id).classList.add('active');
+    document.getElementById('f-box').style.opacity = (id === 135) ? "1" : "0.3";
+    load();
 }
 
-function calcProb(pred, spr) {
-    let diff = pred - spr;
-    let p = 50 + (diff * 8.5);
-    return Math.min(Math.max(p, 5), 98).toFixed(1);
+function load() {
+    Papa.parse(URL_BASE + files[curL], {
+        download: true, header: true, skipEmptyLines: true,
+        complete: function(r) { db = r.data; fetchTeams(); }
+    });
 }
 
-function getAdviceHtml(pred, spr) {
-    const valSpr = parseFloat(spr);
-    if(isNaN(valSpr)) return "";
-    const p = parseFloat(calcProb(pred, valSpr));
+async function fetchTeams() {
+    const r = await fetch(`https://v3.football.api-sports.io/teams?league=${curL}&season=2025`, {headers:{"x-apisports-key":K}});
+    const d = await r.json();
+    const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
+    h.innerHTML = ""; a.innerHTML = "";
+    d.response.sort((x,y)=>x.team.name.localeCompare(y.team.name)).forEach(t => {
+        h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
+    });
+}
+
+function getBadge(pred, spr) {
+    let p = 50 + ((pred - spr) * 8.5);
+    p = Math.min(Math.max(p, 5), 98);
     const label = p >= 50 ? "OVER" : "UNDER";
     const css = p >= 50 ? "over-tag" : "under-tag";
-    const finalProb = p >= 50 ? p : (100 - p).toFixed(1);
-    return `<span class="advice-tag ${css}">${label} ${valSpr} (${finalProb}%)</span>`;
+    const val = p >= 50 ? p : (100-p);
+    return `<span class="advice-tag ${css}">${label} ${spr} (${val.toFixed(1)}%)</span>`;
 }
 
-async function runDeepAnalysis() {
-    const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
-    const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>Generating Advice...</div>";
-    resDiv.classList.remove('hidden');
+async function analyze() {
+    const idH = document.getElementById('hTeam').value, idA = document.getElementById('aTeam').value;
+    const res = document.getElementById('results');
+    res.innerHTML = "<p class='text-center teko text-2xl animate-pulse'>ELABORAZIONE AI...</p>";
+    res.classList.remove('hidden');
 
-    try {
-        const [rH, rA] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=135&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=135&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
-        ]);
+    const [rH, rA] = await Promise.all([
+        fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2025&team=${idH}`, {headers:{"x-apisports-key":K}}).then(r=>r.json()),
+        fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2025&team=${idA}`, {headers:{"x-apisports-key":K}}).then(r=>r.json())
+    ]);
 
-        const xGH = parseFloat(dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || 0.11);
-        const xGA = parseFloat(dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || 0.11);
+    const xH = parseFloat(db.find(x => x.TeamID == idH)?.xG_Per_Shot || 0.11);
+    const xA = parseFloat(db.find(x => x.TeamID == idA)?.xG_Per_Shot || 0.11);
 
-        const cH = (rH.response?.shots?.total?.average || 12.0) * (xGH / 0.11) * 1.05;
-        const cA = (rA.response?.shots?.total?.average || 10.5) * (xGA / 0.11);
-        const totalM = cH + cA;
+    // Tiri & Porta
+    const tH = (rH.response.shots.total.average || 12) * (xH/0.11);
+    const tA = (rA.response.shots.total.average || 11) * (xA/0.11);
+    const oH = (rH.response.shots.on_goal.average || 4) * (xH/0.11);
+    const oA = (rA.response.shots.on_goal.average || 3.5) * (xA/0.11);
+    
+    // Angoli & Cartellini
+    const angH = rH.response.corners.average || 5;
+    const angA = rA.response.corners.average || 4.5;
+    const cardH = (rH.response.cards.yellow.average || 2) + (rH.response.cards.red.average || 0.1);
+    const cardA = (rA.response.cards.yellow.average || 2) + (rA.response.cards.red.average || 0.1);
 
-        const oH = (rH.response?.shots?.on_goal?.average || 4.0) * (xGH / 0.11) * 1.05;
-        const oA = (rA.response?.shots?.on_goal?.average || 3.5) * (xGA / 0.11);
-        const totalOTM = oH + oA;
+    let html = `
+        <div class="res-box border-l-emerald-500">
+            <p class="label-spread">Tiri Totali Match: ${(tH+tA).toFixed(2)}</p>
+            ${getBadge(tH+tA, document.getElementById('sTm').value)}
+        </div>
+        <div class="res-box border-l-purple-500">
+            <p class="label-spread">Tiri In Porta Match: ${(oH+oA).toFixed(2)}</p>
+            ${getBadge(oH+oA, document.getElementById('sOm').value)}
+        </div>
+        <div class="res-box border-l-yellow-500">
+            <p class="label-spread">Angoli Totali Match: ${(angH+angA).toFixed(2)}</p>
+            ${getBadge(angH+angA, document.getElementById('sAm').value)}
+        </div>
+        <div class="res-box border-l-red-500">
+            <p class="label-spread">Cartellini Totali Match: ${(cardH+cardA).toFixed(2)}</p>
+            ${getBadge(cardH+cardA, document.getElementById('sCm').value)}
+        </div>
+    `;
 
-        resDiv.innerHTML = `
-            <div class="res-box border-l-blue-500">
-                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Tiri Totali Match</p>
-                <h2 class="text-6xl font-black teko text-white inline-block">${totalM.toFixed(2)}</h2>
-                ${getAdviceHtml(totalM, document.getElementById('sprTotalMatch').value)}
-                
-                <div class="grid grid-cols-2 gap-4 mt-4 border-t border-slate-800 pt-4">
-                    <div>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase">Casa (${document.getElementById('sprTotalH').value})</p>
-                        <p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdviceHtml(cH, document.getElementById('sprTotalH').value)}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase">Ospite (${document.getElementById('sprTotalA').value})</p>
-                        <p class="text-xl font-bold teko text-blue-400">${getAdviceHtml(cA, document.getElementById('sprTotalA').value)} ${cA.toFixed(2)}</p>
-                    </div>
-                </div>
-            </div>
+    if(curL === 135) {
+        const fH = rH.response.fouls.committed.average || 12;
+        const fA = rA.response.fouls.committed.average || 12;
+        html += `<div class="res-box border-l-orange-500">
+            <p class="label-spread">Falli Commessi Match: ${(fH+fA).toFixed(2)}</p>
+            ${getBadge(fH+fA, document.getElementById('sFm').value)}
+        </div>`;
+    }
 
-            <div class="res-box border-l-purple-500">
-                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Tiri In Porta Match</p>
-                <h2 class="text-6xl font-black teko text-white inline-block">${totalOTM.toFixed(2)}</h2>
-                ${getAdviceHtml(totalOTM, document.getElementById('sprOTMatch').value)}
-
-                <div class="grid grid-cols-2 gap-4 mt-4 border-t border-slate-800 pt-4">
-                    <div>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase">Casa (${document.getElementById('sprOTH').value})</p>
-                        <p class="text-xl font-bold teko text-purple-400">${oH.toFixed(2)} ${getAdviceHtml(oH, document.getElementById('sprOTH').value)}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase">Ospite (${document.getElementById('sprOTA').value})</p>
-                        <p class="text-xl font-bold teko text-purple-400">${getAdviceHtml(oA, document.getElementById('sprOTA').value)} ${oA.toFixed(2)}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch(e) { console.error(e); }
+    res.innerHTML = html;
 }
+switchL(135);
 </script>
 </body>
 </html>
 """
-components.html(html_code, height=1100, scrolling=True)
+components.html(html_code, height=1000, scrolling=True)
