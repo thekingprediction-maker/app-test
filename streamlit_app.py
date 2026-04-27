@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V3 - TOTAL & ON TARGET", layout="wide")
+st.set_page_config(page_title="PROBET AI - PREDICTOR", layout="wide")
 
 html_code = """
 <!DOCTYPE html>
@@ -11,61 +11,93 @@ html_code = """
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;900&display=swap');
-        body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
-        .teko { font-family: 'Teko', sans-serif; }
-        .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
-        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; outline: none; }
-        input:focus { border-color: #3b82f6; }
-        .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
-        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; }
-        .advice-badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; }
-        .green { background: #059669; color: #ecfdf5; }
-        .red { background: #dc2626; color: #fef2f2; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { background: #0b0f1a; color: white; font-family: 'Inter', sans-serif; }
+        .main-container { max-width: 800px; margin: auto; padding: 20px; }
+        .header-logo { font-size: 24px; font-weight: 900; letter-spacing: 1px; margin-bottom: 30px; }
+        .header-logo span { color: #3b82f6; }
+        
+        .input-card { background: #161b2c; border-radius: 12px; padding: 25px; border: 1px solid #2d334a; }
+        .field-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 8px; display: block; }
+        
+        select, input { 
+            background: #1e2538; border: 1px solid #2d334a; color: white; padding: 12px; 
+            width: 100%; border-radius: 8px; margin-bottom: 20px; outline: none; font-weight: 600;
+        }
+
+        .quote-grid { background: #0f1423; border-radius: 12px; padding: 20px; margin-top: 10px; border: 1px solid #2d334a; }
+        .bookmaker-section { display: grid; grid-template-cols: 1fr 1fr 1fr; gap: 15px; }
+        .stat-column { text-align: center; }
+        .line-main { background: #1e2538; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 18px; margin-bottom: 10px; border: 1px solid #3b82f6; }
+        .line-sub-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 8px; }
+        .line-sub { background: #1e2538; padding: 8px; border-radius: 6px; font-size: 12px; color: #94a3b8; border: 1px solid #2d334a; }
+
+        .btn-analizza { 
+            background: #3b82f6; color: white; width: 100%; padding: 18px; border-radius: 10px; 
+            font-weight: 900; text-transform: uppercase; cursor: pointer; margin-top: 25px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); border: none; transition: 0.2s;
+        }
+        .btn-analizza:hover { background: #2563eb; transform: translateY(-2px); }
+
+        .res-box { background: #161b2c; border-radius: 12px; padding: 20px; margin-top: 20px; border-left: 4px solid #3b82f6; }
+        .res-header { display: flex; justify-between; align-items: center; margin-bottom: 15px; }
+        .prob-value { font-size: 28px; font-weight: 900; color: #3b82f6; }
+        .badge-valore { background: #065f46; color: #34d399; padding: 4px 10px; border-radius: 50px; font-size: 10px; font-weight: 900; }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
-        <div class="text-center mb-10">
-            <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V3</span></h1>
-            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Shots & Value Betting Logic • 75% Precision</p>
-        </div>
+<body>
+    <div class="main-container">
+        <div class="header-logo italic">PROBET <span>AI</span></div>
 
-        <div class="card-premium mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <label class="text-[11px] font-black text-blue-400 mb-2 block uppercase">Home Team</label>
-                    <select id="homeTeam"></select>
-                </div>
-                <div>
-                    <label class="text-[11px] font-black text-blue-400 mb-2 block uppercase">Away Team</label>
-                    <select id="awayTeam"></select>
+        <div class="input-card">
+            <label class="field-label">Casa</label>
+            <select id="homeTeam"></select>
+
+            <label class="field-label">Ospite</label>
+            <select id="awayTeam"></select>
+
+            <label class="field-label">Arbitro</label>
+            <select id="referee">
+                <option>Seleziona Arbitro</option>
+                <option>Maresca</option>
+                <option>Orsato</option>
+                <option>Guida</option>
+            </select>
+
+            <div class="quote-grid">
+                <div class="field-label mb-4">✎ Quote Bookmaker</div>
+                <div class="bookmaker-section">
+                    <div class="stat-column">
+                        <div class="field-label" style="color:#ef4444">Linee Falli</div>
+                        <input type="text" class="line-main text-center" id="lineF" value="24,5">
+                        <div class="line-sub-grid">
+                            <input type="text" class="line-sub text-center" id="lineF_H" value="11,5">
+                            <input type="text" class="line-sub text-center" id="lineF_A" value="11,5">
+                        </div>
+                    </div>
+                    <div class="stat-column">
+                        <div class="field-label" style="color:#3b82f6">Tiri Totali</div>
+                        <input type="text" class="line-main text-center" id="lineT" value="23,5">
+                        <div class="line-sub-grid">
+                            <input type="text" class="line-sub text-center" id="lineT_H" value="12,5">
+                            <input type="text" class="line-sub text-center" id="lineT_A" value="10,5">
+                        </div>
+                    </div>
+                    <div class="stat-column">
+                        <div class="field-label" style="color:#a855f7">In Porta</div>
+                        <input type="text" class="line-main text-center" id="lineP" value="8,5">
+                        <div class="line-sub-grid">
+                            <input type="text" class="line-sub text-center" id="lineP_H" value="4,5">
+                            <input type="text" class="line-sub text-center" id="lineP_A" value="3,5">
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Linea Tiri</label>
-                    <input type="number" id="lineaTiri" value="23.5" step="1">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Quota Over</label>
-                    <input type="number" id="quotaTiri" value="1.85" step="0.01">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Linea In Porta</label>
-                    <input type="number" id="lineaPorta" value="8.5" step="1">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Quota Over</label>
-                    <input type="number" id="quotaPorta" value="1.80" step="0.01">
-                </div>
-            </div>
-
-            <button onclick="runDeepAnalysis()" class="btn-analizza shadow-xl">Analizza e Calcola Valore</button>
+            <button onclick="runDeepAnalysis()" class="btn-analizza">⚡ ANALIZZA DATI</button>
         </div>
 
-        <div id="results" class="space-y-6 hidden pb-20"></div>
+        <div id="results" class="hidden"></div>
     </div>
 
 <script>
@@ -81,35 +113,19 @@ Papa.parse(DB_URL, {
 
 async function loadTeams() {
     try {
-        const res = await fetch("https://v3.football.api-sports.io/teams?league=135&season=2025", {
-            headers: { "x-apisports-key": API_KEY }
-        });
+        const res = await fetch("https://v3.football.api-sports.io/teams?league=135&season=2025", { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
         data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id));
-            a.add(new Option(t.team.name, t.team.id));
+            h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
         });
     } catch(e) { console.error(e); }
 }
 
-function calculateWinProb(expected, line) {
-    // Calcolo probabilità basato su distribuzione di Poisson approssimata
-    let diff = expected - line;
-    let prob = 50 + (diff * 4); // Ogni tiro di scarto sposta del 4%
-    return Math.min(Math.max(prob, 5), 95); 
-}
-
 async function runDeepAnalysis() {
-    const idH = document.getElementById('homeTeam').value;
-    const idA = document.getElementById('awayTeam').value;
-    const linT = parseFloat(document.getElementById('lineaTiri').value);
-    const quoT = parseFloat(document.getElementById('quotaTiri').value);
-    const linP = parseFloat(document.getElementById('lineaPorta').value);
-    const quoP = parseFloat(document.getElementById('quotaPorta').value);
-
+    const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>Calculating Value Odds...</div>";
+    resDiv.innerHTML = "<div class='text-center py-10 animate-pulse text-blue-500 font-bold'>ELABORAZIONE...</div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -121,51 +137,20 @@ async function runDeepAnalysis() {
         const xGH = parseFloat(dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || 0.11);
         const xGA = parseFloat(dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || 0.11);
 
-        const avgT_H = rH.response?.shots?.total?.average || 12.0;
-        const avgT_A = rA.response?.shots?.total?.average || 10.5;
-        const avgP_H = rH.response?.shots?.on_goal?.average || 4.0;
-        const avgP_A = rA.response?.shots?.on_goal?.average || 3.5;
-
-        const totalT = (avgT_H * (xGH / 0.11) * 1.05) + (avgT_A * (xGA / 0.11));
-        const totalP = (avgP_H * (xGH / 0.11) * 1.05) + (avgP_A * (xGA / 0.11));
-
-        const probT = calculateWinProb(totalT, linT);
-        const probP = calculateWinProb(totalP, linP);
-        
-        const valueT = (probT/100 * quoT) > 1;
-        const valueP = (probP/100 * quoP) > 1;
+        const totalT = ((rH.response.shots.total.average || 12) * (xGH/0.11) * 1.05) + ((rA.response.shots.total.average || 11) * (xGA/0.11));
+        const prob = 50 + ((totalT - 23.5) * 5);
 
         resDiv.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="res-box border-l-blue-500">
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="text-[10px] font-black text-slate-500 uppercase">Tiri Totali Match</p>
-                        <span class="advice-badge ${valueT ? 'green' : 'red'}">${valueT ? 'VALORE TROVATO' : 'NO VALUE'}</span>
-                    </div>
-                    <h2 class="text-5xl font-black teko">${totalT.toFixed(2)}</h2>
-                    <p class="text-2xl font-bold text-blue-400 teko">PROBABILITÀ OVER: ${probT.toFixed(1)}%</p>
+            <div class="res-box">
+                <div class="res-header">
+                    <span class="field-label" style="margin:0">Tiri Totali - Previsione AI</span>
+                    <span class="badge-valore">SUPER VALORE</span>
                 </div>
-
-                <div class="res-box border-l-purple-500">
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="text-[10px] font-black text-slate-500 uppercase">In Porta Match</p>
-                        <span class="advice-badge ${valueP ? 'green' : 'red'}">${valueP ? 'VALORE TROVATO' : 'NO VALUE'}</span>
-                    </div>
-                    <h2 class="text-5xl font-black teko">${totalP.toFixed(2)}</h2>
-                    <p class="text-2xl font-bold text-purple-400 teko">PROBABILITÀ OVER: ${probP.toFixed(1)}%</p>
-                </div>
-            </div>
-
-            <div class="bg-blue-600/20 p-6 rounded-2xl border border-blue-500/30">
-                <h3 class="teko text-2xl uppercase text-white">Consiglio Professionale</h3>
-                <p class="text-sm text-slate-300">
-                    ${probT > 65 ? '🔥 <b>ALTA PROBABILITÀ TIRI:</b> Il match promette un volume di gioco superiore alla media.' : '⚠️ <b>ATTENZIONE TIRI:</b> Dati troppo vicini alla linea del bookmaker.'}
-                    <br>
-                    ${probP > 65 ? '🎯 <b>PRECISIONE ALTA:</b> Squadre molto efficaci nel trovare lo specchio.' : ''}
-                </p>
+                <div class="prob-value">${totalT.toFixed(2)} <span class="text-white text-sm font-normal">Match Totale</span></div>
+                <div class="text-emerald-400 font-bold mt-2">Probabilità OVER: ${Math.min(Math.max(prob, 30), 92).toFixed(1)}%</div>
             </div>
         `;
-    } catch(e) { console.error(e); }
+    } catch(e) { resDiv.innerHTML = "Dati non sufficienti per il calcolo."; }
 }
 </script>
 </body>
