@@ -2,15 +2,15 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 
-st.set_page_config(page_title="PROBET AI V4 - FINAL FIX", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 - SERIE A HYBRID", layout="wide")
 
-# Caricamento dati dai tuoi file CSV
+# Caricamento file CSV dell'utente
 try:
     df_arbitri = pd.read_csv('ARBITRI_SERIE_A - Foglio1.csv', sep=';')
     df_falli_curr = pd.read_csv('FALLI_CURR_SERIE_A - Foglio1.csv', sep=';')
     df_falli_prev = pd.read_csv('FALLI_PREV_SERIE_A - DATI STAGIONE 2024_2025 .csv', sep=',')
 except Exception as e:
-    st.error(f"Errore caricamento CSV: {e}")
+    st.error(f"Errore nel caricamento dei file: {e}")
 
 html_code = """
 <!DOCTYPE html>
@@ -36,14 +36,14 @@ html_code = """
 <body class="p-4">
     <div class="max-w-6xl mx-auto">
         <div class="text-center mb-8">
-            <h1 class="text-5xl font-black teko italic uppercase text-white tracking-widest">PROBET <span class="text-blue-500">AI V4 STABLE</span></h1>
+            <h1 class="text-5xl font-black teko italic uppercase tracking-widest">PROBET <span class="text-blue-500">AI V4 HYBRID</span></h1>
         </div>
 
         <div class="card-premium">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div><label class="label-sm text-blue-400">Home Team</label><select id="hT"></select></div>
-                <div><label class="label-sm text-blue-400">Away Team</label><select id="aT"></select></div>
-                <div><label class="label-sm text-red-400">Arbitro</label><select id="refS"></select></div>
+                <div><label class="label-sm text-blue-400">Home Team (API)</label><select id="hT"></select></div>
+                <div><label class="label-sm text-blue-400">Away Team (API)</label><select id="aT"></select></div>
+                <div><label class="label-sm text-red-400">Arbitro (CSV)</label><select id="refS"></select></div>
             </div>
 
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -54,7 +54,7 @@ html_code = """
                 <div><label class="label-sm text-emerald-400">Spread Angoli</label><input type="number" id="sCorners" step="0.5" value="9.5"></div>
             </div>
             
-            <button onclick="runAnalysis()" class="btn-analizza teko text-2xl tracking-widest mt-6 italic">AVVIA ANALISI</button>
+            <button onclick="runAnalysis()" class="btn-analizza teko text-2xl tracking-widest mt-6 italic">ANALIZZA CON DATI INCROCIATI</button>
         </div>
 
         <div id="results" class="hidden"></div>
@@ -68,17 +68,36 @@ const dataRef = """ + df_arbitri.to_json(orient='records') + """;
 const dataFcurr = """ + df_falli_curr.to_json(orient='records') + """;
 const dataFprev = """ + df_falli_prev.to_json(orient='records') + """;
 
-let dbXG = [];
-
-// Funzione di pulizia numeri robusta
-const cleanN = (val) => {
-    if (val === undefined || val === null) return 12;
-    let s = val.toString().replace(',', '.').replace(/[^-0-9.]/g, '');
-    return parseFloat(s) || 12;
+// DIZIONARIO DI MAPPING (Traduce nome API in nome tuo CSV)
+const teamMapping = {
+    "Hellas Verona": "Hellas Verona",
+    "AS Roma": "Roma",
+    "Inter": "Inter",
+    "AC Milan": "Milan",
+    "Lazio": "Lazio",
+    "Napoli": "Napoli",
+    "Juventus": "Juventus",
+    "Atalanta": "Atalanta",
+    "Fiorentina": "Fiorentina",
+    "Bologna": "Bologna",
+    "Torino": "Torino",
+    "Udinese": "Udinese",
+    "Genoa": "Genoa",
+    "Lecce": "Lecce",
+    "Empoli": "Empoli",
+    "Cagliari": "Cagliari",
+    "Monza": "Monza",
+    "Como": "Como",
+    "Parma": "Parma",
+    "Venezia": "Venezia"
 };
 
-// Normalizzazione nomi squadre per il confronto
-const norm = (s) => s.toLowerCase().trim().replace('hellas ', '');
+let dbXG = [];
+
+const cleanN = (val) => {
+    if (val === undefined || val === null) return 0;
+    return parseFloat(val.toString().replace(',', '.')) || 0;
+};
 
 async function init() {
     Papa.parse(CSV_XG, { download: true, header: true, complete: r => dbXG = r.data });
@@ -93,18 +112,23 @@ async function init() {
 }
 
 function getTag(pred, spr) {
-    const p = Math.min(Math.max(50 + ((pred - spr) * 8), 5), 98);
+    const diff = pred - spr;
+    const p = Math.min(Math.max(50 + (diff * 8), 5), 98);
     return `<span class="tag ${p>=50?'over':'under'}">${p>=50?'OVER':'UNDER'} ${spr} (${(p>=50?p:100-p).toFixed(1)}%)</span>`;
 }
 
 async function runAnalysis() {
     const idH = document.getElementById('hT').value, idA = document.getElementById('aT').value;
-    const nH = norm(document.getElementById('hT').options[document.getElementById('hT').selectedIndex].text);
-    const nA = norm(document.getElementById('aT').options[document.getElementById('aT').selectedIndex].text);
+    const apiNameH = document.getElementById('hT').options[document.getElementById('hT').selectedIndex].text;
+    const apiNameA = document.getElementById('aT').options[document.getElementById('aT').selectedIndex].text;
     const refN = document.getElementById('refS').value;
-    const resDiv = document.getElementById('results');
 
-    resDiv.innerHTML = "<p class='text-center py-10 teko text-2xl animate-pulse'>ELABORAZIONE DATI...</p>";
+    // Recupero nomi corretti per i tuoi CSV
+    const csvNameH = teamMapping[apiNameH] || apiNameH;
+    const csvNameA = teamMapping[apiNameA] || apiNameA;
+
+    const resDiv = document.getElementById('results');
+    resDiv.innerHTML = "<p class='text-center py-10 teko text-2xl animate-pulse'>INCROCIANDO DATABASE...</p>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -113,22 +137,17 @@ async function runAnalysis() {
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=135&season=2025&team=${idA}`, {headers:{"x-apisports-key":K}}).then(r=>r.json())
         ]);
 
-        // 1. TIRI
-        const xGH = cleanN(dbXG.find(x => norm(x.TeamName || "") === nH)?.xG_Per_Shot || 0.11);
-        const xGA = cleanN(dbXG.find(x => norm(x.TeamName || "") === nA)?.xG_Per_Shot || 0.11);
+        // 1. TIRI (API + xG CSV)
+        const xGH = cleanN(dbXG.find(x => x.TeamName === csvNameH)?.xG_Per_Shot || 0.11);
+        const xGA = cleanN(dbXG.find(x => x.TeamName === csvNameA)?.xG_Per_Shot || 0.11);
         const pT = ((rH.response.shots.total.average || 12) + (rA.response.shots.total.average || 11)) * ((xGH+xGA)/0.22);
         const pP = ((rH.response.shots.on_goal.average || 4) + (rA.response.shots.on_goal.average || 3.5)) * ((xGH+xGA)/0.22);
 
-        // 2. FALLI (Logica per gestire colonne senza nome)
-        const findData = (db, name, pos) => {
-            return db.find(x => norm(x.Squadra || "") === norm(name) && 
-                   Object.values(x).some(v => v === pos)) || {};
-        };
-
-        const fCH = findData(JSON.parse(dataFcurr), nH, "Casa");
-        const fCA = findData(JSON.parse(dataFcurr), nA, "Fuori");
-        const fPH = findData(JSON.parse(dataFprev), nH, "Casa");
-        const fPA = findData(JSON.parse(dataFprev), nA, "Fuori");
+        // 2. FALLI (Logica Manuale CSV)
+        const fCH = JSON.parse(dataFcurr).find(x => x.Squadra === csvNameH && (x[""] === "Casa" || x.Unnamed_2 === "Casa")) || {};
+        const fCA = JSON.parse(dataFcurr).find(x => x.Squadra === csvNameA && (x[""] === "Fuori" || x.Unnamed_2 === "Fuori")) || {};
+        const fPH = JSON.parse(dataFprev).find(x => x.Squadra === csvNameH && (x[""] === "Casa" || x.Unnamed_2 === "Casa")) || {};
+        const fPA = JSON.parse(dataFprev).find(x => x.Squadra === csvNameA && (x[""] === "Fuori" || x.Unnamed_2 === "Fuori")) || {};
         const rO = JSON.parse(dataRef).find(x => x.Arbitro === refN);
 
         const commH = (cleanN(fCH["Falli Commessi"]) * 0.7) + (cleanN(fPH["Falli Commessi"]) * 0.3);
@@ -139,7 +158,7 @@ async function runAnalysis() {
         const mFalliRef = cleanN(rO["Media Totale"]);
         const pFalli = ((commH + subA + commA + subH) / 2 * 0.6) + (mFalliRef * 0.4);
 
-        // 3. API
+        // 3. CARTELLINI E ANGOLI (API)
         const pGialli = (parseFloat(rH.response.cards.yellow.average) || 2.2) + (parseFloat(rA.response.cards.yellow.average) || 2.2);
         const pCorners = (parseFloat(rH.response.goals.for.average) + parseFloat(rA.response.goals.for.average)) * 2.8 + 1.5;
 
@@ -147,11 +166,11 @@ async function runAnalysis() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="res-box">
                     <p class="label-sm">Tiri Totali & Porta (API+xG)</p>
-                    <div class="text-3xl font-bold teko">MATCH: ${pT.toFixed(2)} ${getTag(pT, document.getElementById('sTiri').value)}</div>
+                    <div class="text-3xl font-bold teko">TIRI: ${pT.toFixed(2)} ${getTag(pT, document.getElementById('sTiri').value)}</div>
                     <div class="text-3xl font-bold teko text-blue-400">PORTA: ${pP.toFixed(2)} ${getTag(pP, document.getElementById('sPorta').value)}</div>
                 </div>
                 <div class="res-box border-l-red-500">
-                    <p class="label-sm">Falli (Manuale - Arbitro: ${refN})</p>
+                    <p class="label-sm">Falli (100% CSV Manuale - Arbitro: ${refN})</p>
                     <div class="text-5xl font-bold teko text-red-500">${pFalli.toFixed(2)}</div>
                     <div class="mt-1">${getTag(pFalli, document.getElementById('sFalli').value)}</div>
                 </div>
@@ -166,7 +185,7 @@ async function runAnalysis() {
             </div>
         `;
     } catch(e) { 
-        resDiv.innerHTML = "<div class='p-4 bg-red-900 text-white rounded-lg'>Errore Critico: " + e.message + "</div>"; 
+        resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-lg'>Errore Mapping/Dati: " + e.message + "</div>"; 
     }
 }
 init();
