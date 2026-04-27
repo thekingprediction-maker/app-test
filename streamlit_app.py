@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V3 - SMART ADVICE", layout="wide")
+st.set_page_config(page_title="PROBET AI V3 - MANUAL SPREAD", layout="wide")
 
 html_code = """
 <!DOCTYPE html>
@@ -15,12 +15,25 @@ html_code = """
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
         .teko { font-family: 'Teko', sans-serif; }
         .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
-        select { background: #0f172a; border: 1px solid #475569; color: white; padding: 14px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 14px; }
+        
+        /* Stile Input e Select */
+        select, input { 
+            background: #0f172a; 
+            border: 1px solid #475569; 
+            color: white; 
+            padding: 12px; 
+            width: 100%; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus { border-color: #3b82f6; background: #1e293b; }
+
         .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
         .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; position: relative; }
         
-        /* Badge Stili */
-        .prob-badge { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 900; float: right; border: 1px solid #10b981; }
+        /* Badge Advice */
         .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; vertical-align: middle; }
         .over-tag { background: #10b981; color: #020617; }
         .under-tag { background: #ef4444; color: white; }
@@ -32,67 +45,48 @@ html_code = """
     <div class="max-w-4xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V3</span></h1>
-            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Shots & On Target Logic • Smart Advice</p>
+            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Manual Spread Entry • Smart Advice</p>
         </div>
 
         <div class="card-premium mb-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div>
-                    <label class="text-[11px] font-black text-blue-400 mb-2 block uppercase">Home Team</label>
+                    <label class="label-spread text-blue-400">Home Team</label>
                     <select id="homeTeam"></select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-black text-blue-400 mb-2 block uppercase">Away Team</label>
+                    <label class="label-spread text-blue-400">Away Team</label>
                     <select id="awayTeam"></select>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
                 <div>
-                    <label class="label-spread text-emerald-400">Spread Match Totali</label>
-                    <select id="sprTotalMatch">
-                        <option value="21.5">Over 21.5</option><option value="22.5">Over 22.5</option>
-                        <option value="23.5" selected>Over 23.5</option><option value="24.5">Over 24.5</option>
-                        <option value="25.5">Over 25.5</option>
-                    </select>
+                    <label class="label-spread text-emerald-400">Inserisci Spread Match Totali</label>
+                    <input type="number" id="sprTotalMatch" step="0.5" value="23.5">
                 </div>
                 <div>
                     <label class="label-spread text-emerald-400">Spread Casa Totali</label>
-                    <select id="sprTotalH">
-                        <option value="10.5">Over 10.5</option><option value="11.5">Over 11.5</option>
-                        <option value="12.5" selected>Over 12.5</option><option value="13.5">Over 13.5</option>
-                    </select>
+                    <input type="number" id="sprTotalH" step="0.5" value="12.5">
                 </div>
                 <div>
                     <label class="label-spread text-emerald-400">Spread Ospite Totali</label>
-                    <select id="sprTotalA">
-                        <option value="8.5">Over 8.5</option><option value="9.5">Over 9.5</option>
-                        <option value="10.5" selected>Over 10.5</option><option value="11.5">Over 11.5</option>
-                    </select>
+                    <input type="number" id="sprTotalA" step="0.5" value="10.5">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div>
-                    <label class="label-spread text-purple-400">Spread Match In Porta</label>
-                    <select id="sprOTMatch">
-                        <option value="6.5">Over 6.5</option><option value="7.5">Over 7.5</option>
-                        <option value="8.5" selected>Over 8.5</option><option value="9.5">Over 9.5</option>
-                    </select>
+                    <label class="label-spread text-purple-400">Inserisci Spread Match In Porta</label>
+                    <input type="number" id="sprOTMatch" step="0.5" value="8.5">
                 </div>
                 <div>
                     <label class="label-spread text-purple-400">Spread Casa In Porta</label>
-                    <select id="sprOTH">
-                        <option value="3.5">Over 3.5</option><option value="4.5" selected>Over 4.5</option>
-                        <option value="5.5">Over 5.5</option>
-                    </select>
+                    <input type="number" id="sprOTH" step="0.5" value="4.5">
                 </div>
                 <div>
                     <label class="label-spread text-purple-400">Spread Ospite In Porta</label>
-                    <select id="sprOTA">
-                        <option value="2.5">Over 2.5</option><option value="3.5" selected>Over 3.5</option>
-                        <option value="4.5">Over 4.5</option>
-                    </select>
+                    <input type="number" id="sprOTA" step="0.5" value="3.5">
                 </div>
             </div>
 
@@ -131,11 +125,13 @@ function calcProb(pred, spr) {
 }
 
 function getAdviceHtml(pred, spr) {
-    const p = parseFloat(calcProb(pred, spr));
+    const valSpr = parseFloat(spr);
+    if(isNaN(valSpr)) return "";
+    const p = parseFloat(calcProb(pred, valSpr));
     const label = p >= 50 ? "OVER" : "UNDER";
     const css = p >= 50 ? "over-tag" : "under-tag";
     const finalProb = p >= 50 ? p : (100 - p).toFixed(1);
-    return `<span class="advice-tag ${css}">${label} ${spr} (${finalProb}%)</span>`;
+    return `<span class="advice-tag ${css}">${label} ${valSpr} (${finalProb}%)</span>`;
 }
 
 async function runDeepAnalysis() {
