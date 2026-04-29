@@ -43,7 +43,7 @@ html_code = """
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div><label class="label-spread text-blue-400">Home Team</label><select id="homeTeam"></select></div>
                 <div><label class="label-spread text-blue-400">Away Team</label><select id="awayTeam"></select></div>
-                <div><label class="label-spread text-yellow-500">Arbitro (Solo Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli Arbitro...</option></select></div>
+                <div><label class="label-spread text-yellow-500 italic">Arbitro (Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli...</option></select></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
@@ -85,6 +85,7 @@ function switchLeague(id) {
 function loadData() {
     const files = { 135: "DATABASE_AVANZATO_SERIEA_2025.csv", 39: "DATABASE_AVANZATO_PREMIER_2025.csv", 78: "DATABASE_AVANZATO_BUNDES_2025.csv", 140: "DATABASE_AVANZATO_LALIGA_2025.csv" };
     Papa.parse(BASE_CSV_URL + files[currentLeague], { download: true, header: true, skipEmptyLines: true, complete: (r) => { dbXG = r.data; loadTeams(); } });
+    
     if(currentLeague === 135) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { download: true, header: true, skipEmptyLines: true, delimiter: ";", complete: (r) => {
             const sel = document.getElementById('arbitroSelect'); sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
@@ -94,6 +95,8 @@ function loadData() {
                 if(name && val) sel.add(new Option(name, val.toString().replace(',', '.')));
             });
         }});
+    } else {
+        document.getElementById('arbitroSelect').innerHTML = '<option value="24.5">N/A</option>';
     }
 }
 
@@ -117,7 +120,7 @@ function getAdvice(pred, spr) {
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>CALCOLO IN CORSO...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>CALCOLO ELITE IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -129,55 +132,69 @@ async function runDeepAnalysis() {
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
         ]);
 
-        const sH = rH.response, sA = rA.response;
-        const xGH = parseFloat(dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || 0.11);
-        const xGA = parseFloat(dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || 0.11);
+        // ESTRAZIONE SICURA DATI (Se manca l'oggetto tiri, usa valori fallback)
+        const statsH = rH.response || {};
+        const statsA = rA.response || {};
+
+        const shotsAvgH = statsH.shots?.total?.average || 12.0;
+        const shotsAvgA = statsA.shots?.total?.average || 10.5;
+        const onGoalAvgH = statsH.shots?.on_goal?.average || 4.0;
+        const onGoalAvgA = statsA.shots?.on_goal?.average || 3.5;
+
+        // Recupero xG dal Database locale
+        const rowH = dbXG.find(x => x.TeamID == idH) || { xG_Per_Shot: 0.11 };
+        const rowA = dbXG.find(x => x.TeamID == idA) || { xG_Per_Shot: 0.11 };
+        const xGH = parseFloat(rowH.xG_Per_Shot.toString().replace(',', '.'));
+        const xGA = parseFloat(rowA.xG_Per_Shot.toString().replace(',', '.'));
+        
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // LOGICA CALCOLO TIRI
-        const cH = (sH.shots.total.average || 12) * (xGH / bench) * 1.05;
-        const cA = (sA.shots.total.average || 10) * (xGA / bench);
-        const oH = (sH.shots.on_goal.average || 4) * (xGH / bench) * 1.05;
-        const oA = (sA.shots.on_goal.average || 3.5) * (xGA / bench);
+        // CALCOLO TIRI (Con correzione xG)
+        const cH = shotsAvgH * (xGH / bench) * 1.05;
+        const cA = shotsAvgA * (xGA / bench);
+        const oH = onGoalAvgH * (xGH / bench) * 1.05;
+        const oA = onGoalAvgA * (xGA / bench);
 
-        // LOGICA CALCOLO FALLI (PESO ARBITRO 40%)
-        const fCommH = sH.fouls?.for?.average || 12.5;
-        const fSubH = sH.fouls?.against?.average || 12.0;
-        const fCommA = sA.fouls?.for?.average || 13.0;
-        const fSubA = sA.fouls?.against?.average || 11.5;
+        // CALCOLO FALLI (Con correzione Arbitro)
+        const fCommH = statsH.fouls?.for?.average || 12.5;
+        const fSubA = statsA.fouls?.against?.average || 11.5;
+        const fCommA = statsA.fouls?.for?.average || 13.0;
+        const fSubH = statsH.fouls?.against?.average || 12.0;
 
         const predFoulsH = ((fCommH + fSubA) / 2 * 0.6) + ((refVal / 2) * 0.4);
         const predFoulsA = ((fCommA + fSubH) / 2 * 0.6) + ((refVal / 2) * 0.4);
-        const totalFouls = predFoulsH + predFoulsA;
 
         resDiv.innerHTML = `
             <div class="res-box border-l-red-500">
-                <p class="label-spread">Falli Totali</p>
-                <h2 class="text-6xl font-black teko">${totalFouls.toFixed(2)} ${getAdvice(totalFouls, document.getElementById('sprFoulsMatch').value)}</h2>
+                <p class="label-spread">Previsione Falli Totali</p>
+                <h2 class="text-6xl font-black teko">${(predFoulsH + predFoulsA).toFixed(2)} ${getAdvice(predFoulsH + predFoulsA, document.getElementById('sprFoulsMatch').value)}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
                     <div><p class="label-spread">Casa Commessi</p><p class="text-xl font-bold teko text-red-400">${predFoulsH.toFixed(2)} ${getAdvice(predFoulsH, document.getElementById('sprFoulsH').value)}</p></div>
                     <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl font-bold teko text-red-400">${getAdvice(predFoulsA, document.getElementById('sprFoulsA').value)} ${predFoulsA.toFixed(2)}</p></div>
                 </div>
             </div>
+
             <div class="res-box border-l-blue-500">
-                <p class="label-spread">Tiri Totali</p>
-                <h2 class="text-6xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, document.getElementById('sprTotalMatch').value)}</h2>
+                <p class="label-spread">Previsione Tiri Totali</p>
+                <h2 class="text-6xl font-black teko">${(cH + cA).toFixed(2)} ${getAdvice(cH + cA, document.getElementById('sprTotalMatch').value)}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
                     <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdvice(cH, document.getElementById('sprTotalH').value)}</p></div>
                     <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-blue-400">${getAdvice(cA, document.getElementById('sprTotalA').value)} ${cA.toFixed(2)}</p></div>
                 </div>
             </div>
+
             <div class="res-box border-l-purple-500">
-                <p class="label-spread">Tiri In Porta</p>
-                <h2 class="text-6xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, document.getElementById('sprOTMatch').value)}</h2>
+                <p class="label-spread">Previsione Tiri In Porta</p>
+                <h2 class="text-6xl font-black teko">${(oH + oA).toFixed(2)} ${getAdvice(oH + oA, document.getElementById('sprOTMatch').value)}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
                     <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, document.getElementById('sprOTH').value)}</p></div>
                     <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-purple-400">${getAdvice(oA, document.getElementById('sprOTA').value)} ${oA.toFixed(2)}</p></div>
                 </div>
             </div>
         `;
-    } catch(e) { 
-        resDiv.innerHTML = `<div class="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl">Errore nel calcolo. Verifica la connessione API.</div>`;
+    } catch(e) {
+        console.error(e);
+        resDiv.innerHTML = "<div class='p-6 bg-red-900 text-white rounded-xl'>ERRORE CRITICO: Controlla la console del browser.</div>";
     }
 }
 loadData();
@@ -185,4 +202,4 @@ loadData();
 </body>
 </html>
 """
-components.html(html_code, height=1300, scrolling=True)
+components.html(html_code, height=1400, scrolling=True)
