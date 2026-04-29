@@ -46,13 +46,13 @@ html_code = """
 
         <div class="card">
             <div class="grid grid-cols-1 gap-2">
-                <div><label class="label-sm">Home Team</label><select id="hTeam"></select></div>
-                <div><label class="label-sm">Away Team</label><select id="aTeam"></select></div>
+                <div><label class="label-sm">Home Team</label><select id="hTeam"><option>Seleziona Lega...</option></select></div>
+                <div><label class="label-sm">Away Team</label><select id="aTeam"><option>Seleziona Lega...</option></select></div>
                 <div id="refBox"><label class="label-sm text-yellow-500 italic">Arbitro (Serie A)</label><select id="refSel"></select></div>
             </div>
 
             <div class="grid-3">
-                <div><label class="label-sm text-emerald-400">Tiri Tot</label><input type="number" id="s_tt" step="0.5" value="23.5"></div>
+                <div><label class="label-sm">Tiri Tot</label><input type="number" id="s_tt" step="0.5" value="23.5"></div>
                 <div><label class="label-sm text-emerald-400">Casa</label><input type="number" id="s_th" step="0.5" value="12.5"></div>
                 <div><label class="label-sm text-emerald-400">Ospite</label><input type="number" id="s_ta" step="0.5" value="10.5"></div>
             </div>
@@ -81,7 +81,7 @@ html_code = """
                 <div><label class="label-sm text-yellow-400">Ospite</label><input type="number" id="s_ga" step="0.5" value="2.5"></div>
             </div>
 
-            <button onclick="run()" class="btn teko text-2xl italic mt-4 tracking-widest">GENERA ANALISI ELITE</button>
+            <button id="mainBtn" onclick="run()" class="btn teko text-2xl italic mt-4 tracking-widest">GENERA ANALISI ELITE</button>
         </div>
 
         <div id="results" class="pb-20"></div>
@@ -92,18 +92,27 @@ const K = "75e4107623c05bb4bca2ac8b78b28dca";
 const B = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 let curL = 135, dbX = [];
 
-function setL(id) {
+async function setL(id) {
     curL = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('l'+id).classList.add('active');
     document.getElementById('refBox').style.display = (id==135)?'block':'none';
     document.getElementById('foulGrid').style.display = (id==135)?'grid':'none';
-    load();
+    await load();
 }
 
-function load() {
+async function load() {
     const f = {135:"DATABASE_AVANZATO_SERIEA_2025.csv", 39:"DATABASE_AVANZATO_PREMIER_2025.csv", 78:"DATABASE_AVANZATO_BUNDES_2025.csv", 140:"DATABASE_AVANZATO_LALIGA_2025.csv"};
-    Papa.parse(B + f[curL], { download: true, header: true, complete: (r) => { dbX = r.data; fetchTeams(); } });
+    
+    Papa.parse(B + f[curL], { 
+        download: true, 
+        header: true, 
+        complete: async (r) => { 
+            dbX = r.data; 
+            await fetchTeams(); 
+        } 
+    });
+
     if(curL==135) Papa.parse(B + "ARBITRI_SERIE_A%20-%20Foglio1.csv", { download: true, header: true, delimiter: ";", complete: (r) => {
         const s = document.getElementById('refSel'); s.innerHTML = "";
         r.data.forEach(x => { let n = x.Arbitro || Object.values(x)[0]; if(n) s.add(new Option(n, (x["Media Totale"]||"24.5").toString().replace(',','.'))); });
@@ -111,24 +120,29 @@ function load() {
 }
 
 async function fetchTeams() {
-    const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":K}});
-    const d = await r.json();
-    const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
-    h.innerHTML = ""; a.innerHTML = "";
-    if(d.response && d.response[0]) {
-        const teams = d.response[0].league.standings[0];
-        teams.sort((x,y)=>x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
-        });
-    }
+    // FILTRO SQUADRE: Usiamo Standings per avere solo le 20 squadre attuali
+    try {
+        const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":K}});
+        const d = await r.json();
+        const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
+        h.innerHTML = ""; a.innerHTML = "";
+        
+        if(d.response && d.response[0] && d.response[0].league.standings[0]) {
+            const list = d.response[0].league.standings[0];
+            list.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(i => {
+                h.add(new Option(i.team.name, i.team.id));
+                a.add(new Option(i.team.name, i.team.id));
+            });
+        }
+    } catch(e) { console.error("Errore caricamento squadre"); }
 }
 
 function getB(val, id) {
     const el = document.getElementById(id);
     if (!el || el.offsetParent === null) return ""; 
     const s = parseFloat(el.value);
-    const p = Math.min(Math.max(50 + (val-s)*9, 5), 98);
-    return `<br><span class="text-[10px] px-2 py-1 rounded font-black ${val>=s?'bg-emerald-500 text-black':'bg-red-500 text-white'}">${val>=s?'OVER':'UNDER'} ${s} (${(val>=s?p:100-p).toFixed(1)}%)</span>`;
+    const p = Math.min(Math.max(50 + (val-s)*10, 5), 98);
+    return `<br><span class="text-[10px] px-2 py-1 rounded font-black ${val>=s?'bg-emerald-500 text-black':'bg-red-500 text-white'} uppercase">${val>=s?'OVER':'UNDER'} ${s} (${(val>=s?p:100-p).toFixed(1)}%)</span>`;
 }
 
 async function run() {
@@ -137,45 +151,60 @@ async function run() {
     
     try {
         const idH = document.getElementById('hTeam').value, idA = document.getElementById('aTeam').value;
+        
+        // Chiamate API Team Statistics Stagione 2024
         const [rH, rA] = await Promise.all([
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idH}`, {headers:{"x-apisports-key":K}}).then(r=>r.json()),
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idA}`, {headers:{"x-apisports-key":K}}).then(r=>r.json())
         ]);
 
-        if(!rH.response || !rA.response) throw new Error("Dati mancanti");
-
         const sH = rH.response, sA = rA.response;
-        const xGH = parseFloat((dbX.find(x=>x.TeamID==idH)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
-        const xGA = parseFloat((dbX.find(x=>x.TeamID==idA)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
-        const mH = xGH/0.11, mA = xGA/0.11;
+        
+        // Calcolo xG da database
+        const rowH = dbX.find(x => x.TeamID == idH);
+        const rowA = dbX.find(x => x.TeamID == idA);
+        const mH = (rowH ? parseFloat(rowH.xG_Per_Shot.replace(',','.')) : 0.11) / 0.11;
+        const mA = (rowA ? parseFloat(rowA.xG_Per_Shot.replace(',','.')) : 0.11) / 0.11;
 
+        // Tiri
         const ttH = (sH.shots.total.average || 12) * mH;
         const ttA = (sA.shots.total.average || 10) * mA;
         const ptH = (sH.shots.on_goal.average || 4) * mH;
         const ptA = (sA.shots.on_goal.average || 3) * mA;
-        const cor = (sH.corners.for.average || 5) + (sA.corners.for.average || 4.5);
-        const gia = (sH.cards.yellow.average || 2) + (sA.cards.yellow.average || 2);
+        
+        // Angoli e Gialli
+        const crn = (sH.corners.for.average || 5) + (sA.corners.for.average || 4.5);
+        const yel = (sH.cards.yellow.average || 2.2) + (sA.cards.yellow.average || 2.3);
 
-        let h = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-4xl font-black teko">${(ttH+ttA).toFixed(2)} ${getB(ttH+ttA, 's_tt')}</div></div>`;
-        h += `<div class="res-box border-l-emerald-500"><div>CASA: ${ttH.toFixed(2)} ${getB(ttH, 's_th')}</div><div>OSPITE: ${ttA.toFixed(2)} ${getB(ttA, 's_ta')}</div></div>`;
-        h += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-4xl font-black teko">${(ptH+ptA).toFixed(2)} ${getB(ptH+ptA, 's_pt')}</div></div>`;
+        let out = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-4xl font-black teko">${(ttH+ttA).toFixed(2)} ${getB(ttH+ttA, 's_tt')}</div></div>`;
+        out += `<div class="grid grid-cols-2 gap-2 mt-2">
+            <div class="res-box border-l-emerald-500 m-0">CASA: ${ttH.toFixed(2)}${getB(ttH, 's_th')}</div>
+            <div class="res-box border-l-emerald-500 m-0">OSPITE: ${ttA.toFixed(2)}${getB(ttA, 's_ta')}</div>
+        </div>`;
+        out += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-4xl font-black teko">${(ptH+ptA).toFixed(2)} ${getB(ptH+ptA, 's_pt')}</div></div>`;
         
         if(curL==135) {
-            const rf = parseFloat(document.getElementById('refSel').value) || 24.5;
-            const ft = (sH.fouls.for.average + sA.fouls.for.average) * 0.7 + (rf * 0.3);
-            h += `<div class="res-box border-l-red-500"><div>FALLI</div><div class="text-4xl font-black teko">${ft.toFixed(2)} ${getB(ft, 's_ft')}</div></div>`;
+            const ref = parseFloat(document.getElementById('refSel').value) || 24.5;
+            const fComm = (sH.fouls.for.average + sA.fouls.for.average) * 0.7 + (ref * 0.3);
+            out += `<div class="res-box border-l-red-500"><div>FALLI</div><div class="text-4xl font-black teko">${fComm.toFixed(2)} ${getB(fComm, 's_ft')}</div></div>`;
         }
 
-        h += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-4xl font-black teko">${cor.toFixed(2)} ${getB(cor, 's_ct')}</div></div>`;
-        h += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-4xl font-black teko">${gia.toFixed(2)} ${getB(gia, 's_gt')}</div></div>`;
+        out += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-4xl font-black teko">${crn.toFixed(2)} ${getB(crn, 's_ct')}</div></div>`;
+        out += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-4xl font-black teko">${yel.toFixed(2)} ${getB(yel, 's_gt')}</div></div>`;
 
-        res.innerHTML = h;
-    } catch(e) { res.innerHTML = "<p class='text-red-500 text-center font-bold p-4 bg-red-900/20 rounded-lg'>API NON TROVATA O DATI MANCANTI PER QUESTA STAGIONE.</p>"; }
+        res.innerHTML = out;
+    } catch(e) { 
+        res.innerHTML = `<div class='p-4 bg-red-900/40 rounded-lg text-center'>
+            <p class='font-bold'>ERRORE CRITICO DATI</p>
+            <p class='text-xs'>L'API non ha risposto correttamente. Riprova tra 10 secondi o cambia squadre.</p>
+        </div>`;
+    }
 }
-load();
+
+setL(135);
 </script>
 </body>
 </html>
 """
 
-components.html(html_code, height=1400, scrolling=True)
+components.html(html_code, height=1300, scrolling=True)
