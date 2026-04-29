@@ -79,24 +79,14 @@ function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
-    
-    const fInput = document.getElementById('foulsInputs');
-    const aSelect = document.getElementById('arbitroSelect');
-    
-    if(id === 135) {
-        fInput.style.display = "grid";
-        aSelect.disabled = false;
-    } else {
-        fInput.style.display = "none";
-        aSelect.disabled = true;
-    }
+    document.getElementById('foulsInputs').style.display = (id === 135) ? "grid" : "none";
+    document.getElementById('arbitroSelect').disabled = (id !== 135);
     loadData();
 }
 
 function loadData() {
     const files = { 135: "DATABASE_AVANZATO_SERIEA_2025.csv", 39: "DATABASE_AVANZATO_PREMIER_2025.csv", 78: "DATABASE_AVANZATO_BUNDES_2025.csv", 140: "DATABASE_AVANZATO_LALIGA_2025.csv" };
     Papa.parse(BASE_CSV_URL + files[currentLeague], { download: true, header: true, skipEmptyLines: true, complete: (r) => { dbXG = r.data; loadTeams(); } });
-    
     if(currentLeague === 135) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { download: true, header: true, skipEmptyLines: true, delimiter: ";", complete: (r) => {
             const sel = document.getElementById('arbitroSelect'); sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
@@ -119,85 +109,86 @@ async function loadTeams() {
     });
 }
 
-function getAdvice(pred, spr) {
-    const s = parseFloat(spr);
-    if (isNaN(s)) return "";
+function getAdvice(pred, elementId) {
+    const el = document.getElementById(elementId);
+    if(!el || el.offsetParent === null) return "";
+    const s = parseFloat(el.value);
     const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
-    return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
+    const label = p >= 50 ? "OVER" : "UNDER";
+    return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${label} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
 }
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>CALCOLO IN CORSO...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
         const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
-        const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-
         const [rH, rA] = await Promise.all([
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
         ]);
 
-        const sH = rH.response, sA = rA.response;
+        const sH = rH.response || {}, sA = rA.response || {};
+        
+        // ESTRAZIONE SICURA TIRI (Fallback se l'API non risponde correttamente)
+        const avgShotsH = (sH.shots && sH.shots.total && sH.shots.total.average) ? sH.shots.total.average : 12.0;
+        const avgShotsA = (sA.shots && sA.shots.total && sA.shots.total.average) ? sA.shots.total.average : 10.5;
+        const avgOT_H = (sH.shots && sH.shots.on_goal && sH.shots.on_goal.average) ? sH.shots.on_goal.average : 4.0;
+        const avgOT_A = (sA.shots && sA.shots.on_goal && sA.shots.on_goal.average) ? sA.shots.on_goal.average : 3.5;
+
+        // XG DATABASE
         const rowH = dbXG.find(x => x.TeamID == idH) || { xG_Per_Shot: 0.11 };
         const rowA = dbXG.find(x => x.TeamID == idA) || { xG_Per_Shot: 0.11 };
         const xGH = parseFloat(rowH.xG_Per_Shot.toString().replace(',', '.'));
         const xGA = parseFloat(rowA.xG_Per_Shot.toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        const cH = (sH.shots.total.average || 12) * (xGH / bench) * 1.05;
-        const cA = (sA.shots.total.average || 10) * (xGA / bench);
-        const oH = (sH.shots.on_goal.average || 4) * (xGH / bench) * 1.05;
-        const oA = (sA.shots.on_goal.average || 3.5) * (xGA / bench);
+        // CALCOLI FINALI
+        const cH = avgShotsH * (xGH / bench) * 1.05;
+        const cA = avgShotsA * (xGA / bench);
+        const oH = avgOT_H * (xGH / bench) * 1.05;
+        const oA = avgOT_A * (xGA / bench);
 
-        let outputHtml = "";
-
-        // CALCOLO FALLI SOLO SE SERIE A
+        let html = "";
         if(currentLeague === 135) {
-            const fCommH = sH.fouls?.for?.average || 12.5;
-            const fSubA = sA.fouls?.against?.average || 11.5;
-            const fCommA = sA.fouls?.for?.average || 13.0;
-            const fSubH = sH.fouls?.against?.average || 12.0;
-            const pFH = ((fCommH + fSubA) / 2 * 0.6) + ((refVal / 2) * 0.4);
-            const pFA = ((fCommA + fSubH) / 2 * 0.6) + ((refVal / 2) * 0.4);
+            const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
+            const fCH = (sH.fouls && sH.fouls.for) ? sH.fouls.for.average : 12.5;
+            const fSA = (sA.fouls && sA.fouls.against) ? sA.fouls.against.average : 11.5;
+            const fCA = (sA.fouls && sA.fouls.for) ? sA.fouls.for.average : 13.0;
+            const fSH = (sH.fouls && sH.fouls.against) ? sH.fouls.against.average : 12.0;
+            const pFH = ((fCH + fSA) / 2 * 0.6) + ((refVal / 2) * 0.4);
+            const pFA = ((fCA + fSH) / 2 * 0.6) + ((refVal / 2) * 0.4);
 
-            outputHtml += `
-                <div class="res-box border-l-red-500">
-                    <p class="label-spread text-red-400">Previsione Falli Totali</p>
-                    <h2 class="text-6xl font-black teko">${(pFH + pFA).toFixed(2)} ${getAdvice(pFH + pFA, document.getElementById('sprFoulsMatch').value)}</h2>
-                    <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                        <div><p class="label-spread">Casa Commessi</p><p class="text-xl font-bold teko text-red-400">${pFH.toFixed(2)} ${getAdvice(pFH, document.getElementById('sprFoulsH').value)}</p></div>
-                        <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl font-bold teko text-red-400">${getAdvice(pFA, document.getElementById('sprFoulsA').value)} ${pFA.toFixed(2)}</p></div>
-                    </div>
-                </div>`;
-        }
-
-        // TIRI (Sempre fuori)
-        outputHtml += `
-            <div class="res-box border-l-blue-500">
-                <p class="label-spread text-blue-400">Previsione Tiri Totali</p>
-                <h2 class="text-6xl font-black teko">${(cH + cA).toFixed(2)} ${getAdvice(cH + cA, document.getElementById('sprTotalMatch').value)}</h2>
+            html += `<div class="res-box border-l-red-500">
+                <p class="label-spread">Falli Totali</p>
+                <h2 class="text-6xl font-black teko">${(pFH+pFA).toFixed(2)} ${getAdvice(pFH+pFA, 'sprFoulsMatch')}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdvice(cH, document.getElementById('sprTotalH').value)}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-blue-400">${getAdvice(cA, document.getElementById('sprTotalA').value)} ${cA.toFixed(2)}</p></div>
-                </div>
-            </div>
-            <div class="res-box border-l-purple-500">
-                <p class="label-spread text-purple-400">Previsione Tiri In Porta</p>
-                <h2 class="text-6xl font-black teko">${(oH + oA).toFixed(2)} ${getAdvice(oH + oA, document.getElementById('sprOTMatch').value)}</h2>
-                <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, document.getElementById('sprOTH').value)}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-purple-400">${getAdvice(oA, document.getElementById('sprOTA').value)} ${oA.toFixed(2)}</p></div>
+                    <div><p class="label-spread">Casa Commessi</p><p class="text-xl font-bold teko text-red-400">${pFH.toFixed(2)} ${getAdvice(pFH, 'sprFoulsH')}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl font-bold teko text-red-400">${getAdvice(pFA, 'sprFoulsA')} ${pFA.toFixed(2)}</p></div>
                 </div>
             </div>`;
-        
-        resDiv.innerHTML = outputHtml;
-    } catch(e) { 
-        console.error(e); 
-        resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore nel calcolo. Controlla i dati API.</div>"; 
-    }
+        }
+
+        html += `<div class="res-box border-l-blue-500">
+            <p class="label-spread">Tiri Totali</p>
+            <h2 class="text-6xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
+            <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-blue-400">${getAdvice(cA, 'sprTotalA')} ${cA.toFixed(2)}</p></div>
+            </div>
+        </div>
+        <div class="res-box border-l-purple-500">
+            <p class="label-spread">In Porta</p>
+            <h2 class="text-6xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2>
+            <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-purple-400">${getAdvice(oA, 'sprOTA')} ${oA.toFixed(2)}</p></div>
+            </div>
+        </div>`;
+        resDiv.innerHTML = html;
+    } catch(e) { console.error(e); resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore Connessione API</div>"; }
 }
 loadData();
 </script>
