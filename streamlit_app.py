@@ -31,7 +31,7 @@ html_code = """
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">The Ultimate Professional Betting Engine</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic text-center">Analisi Totale: Tiri, Falli, Corner e Cartellini</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -62,8 +62,8 @@ html_code = """
 
             <div class="grid-spreads">
                 <div><label class="label-spread text-cyan-400">Spread Corner Tot</label><input type="number" id="sprCornMatch" step="0.5" value="9.5"></div>
-                <div><label class="label-spread text-cyan-400">Spread Corner Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
-                <div><label class="label-spread text-cyan-400">Spread Corner Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
+                <div><label class="label-spread text-yellow-400">Spread Cartellini Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
+                <div><label class="label-spread text-yellow-400">Spread Cartellini Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
             </div>
 
             <button onclick="runDeepAnalysis()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE</button>
@@ -121,7 +121,7 @@ function getAdvice(pred, elementId) {
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ELABORAZIONE DATI ELITE...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI TOTALE IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -133,38 +133,54 @@ async function runDeepAnalysis() {
 
         const sH = statsH.response; const sA = statsA.response;
         
-        // --- CALCOLO TIRI & PORTA ---
+        // --- TIRI & PORTA ---
         const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
-        
         const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
         const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
         const oH = (sH.shots?.on_goal?.average || 4) * (xGH / bench);
         const oA = (sA.shots?.on_goal?.average || 3.5) * (xGA / bench);
 
-        // --- CALCOLO CORNER ---
+        // --- CORNER ---
         const pCH = ((sH.corners?.for?.average || 5) + (sA.corners?.against?.average || 4.5)) / 2;
         const pCA = ((sA.corners?.for?.average || 4.5) + (sH.corners?.against?.average || 4)) / 2;
 
+        // --- CARTELLINI ---
+        const cardH = (sH.cards?.yellow?.average || 2.1);
+        const cardA = (sA.cards?.yellow?.average || 2.3);
+
         let html = "";
 
-        // --- BOX FALLI (Dettagliato) ---
+        // FALLI (Solo Serie A)
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
             const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
             const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
-            html += `<div class="res-box border-l-red-500">
-                <p class="label-spread">Falli Previsti</p>
-                <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
-                <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                    <div><p class="label-spread">Casa Commessi</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl teko text-red-400">${getAdvice(fA, 'sprFoulsA')} ${fA.toFixed(2)}</p></div>
-                </div>
-            </div>`;
+            html += `<div class="res-box border-l-red-500"><p class="label-spread">Falli Match</p><h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p></div>
+            </div></div>`;
         }
 
-        // --- BOX TIRI & PORTA (Dettagliato) ---
+        // CARTELLINI (Ripristinati)
+        html += `<div class="res-box border-l-yellow-500">
+            <p class="label-spread">Cartellini Gialli Previsti</p>
+            <h2 class="text-5xl font-black teko">${(cardH+cardA).toFixed(2)} ${getAdvice(cardH+cardA, 'sprCardsMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${cardA.toFixed(2)}</p></div>
+            </div>
+        </div>`;
+
+        // CORNER
+        html += `<div class="res-box border-l-cyan-500">
+            <p class="label-spread">Corner Previsti</p>
+            <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
+        </div>`;
+
+        // TIRI & PORTA
         html += `<div class="res-box border-l-purple-500">
             <p class="label-spread">Tiri In Porta</p>
             <h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2>
@@ -172,28 +188,10 @@ async function runDeepAnalysis() {
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p></div>
                 <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-purple-400">${oA.toFixed(2)}</p></div>
             </div>
-        </div>
-        <div class="res-box border-l-blue-500">
-            <p class="label-spread">Tiri Totali Match</p>
-            <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl teko text-blue-400">${cH.toFixed(2)}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-blue-400">${cA.toFixed(2)}</p></div>
-            </div>
-        </div>`;
-
-        // --- BOX CORNER ---
-        html += `<div class="res-box border-l-cyan-500">
-            <p class="label-spread">Calci d'Angolo</p>
-            <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-cyan-400">${getAdvice(pCA, 'sprCornA')} ${pCA.toFixed(2)}</p></div>
-            </div>
         </div>`;
 
         resDiv.innerHTML = html;
-    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl font-bold uppercase'>Errore Caricamento Statistiche</div>"; }
+    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore Critico Dati</div>"; }
 }
 loadData();
 </script>
