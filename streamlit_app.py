@@ -1,15 +1,12 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V4", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 - TOTAL ANALYST", layout="wide")
 
-st.markdown("""
-    <style>
-        [data-testid="stHeader"], footer {display: none !important;}
-        .main .block-container { padding: 5px !important; }
-        iframe { border: none !important; }
-    </style>
-""", unsafe_allow_html=True)
+# API Key (in produzione usare secrets)
+API_KEY = "75e4107623c05bb4bca2ac8b78b28dca"
+BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/"
+REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv"
 
 html_code = """
 <!DOCTYPE html>
@@ -20,161 +17,551 @@ html_code = """
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;900&display=swap');
-        body { background: #020617; color: white; font-family: 'Inter', sans-serif; padding: 10px; }
+        body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
         .teko { font-family: 'Teko', sans-serif; }
-        .card { background: #1e293b; border-radius: 20px; padding: 15px; border: 1px solid #334155; }
-        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 10px; width: 100%; border-radius: 10px; margin-bottom: 8px; font-weight: bold; font-size: 13px; }
-        .btn { background: #3b82f6; width: 100%; padding: 16px; border-radius: 12px; font-weight: 900; color: white; border: none; cursor: pointer; text-transform: uppercase; }
-        .league-btn { cursor: pointer; padding: 10px; border-radius: 8px; border: 1px solid #334155; text-align: center; font-size: 11px; background: #0f172a; font-weight: bold; }
-        .active { background: #3b82f6; border-color: #3b82f6; }
-        .label-sm { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 800; margin-bottom: 3px; display: block; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 5px; border-top: 1px solid #334155; padding-top: 8px; }
-        .res-box { background: #0f172a; border-radius: 15px; padding: 15px; border-left: 5px solid #3b82f6; margin-top: 12px; }
+        .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
+        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 14px; outline: none; }
+        .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
+        .btn-analizza:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4); }
+        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; margin-bottom: 15px; }
+        .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; }
+        .over-tag { background: #10b981; color: #020617; }
+        .under-tag { background: #ef4444; color: white; }
+        .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; transition: all 0.3s; }
+        .league-active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+        .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 15px; border-top: 1px solid #334155; margin-bottom: 15px; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2,6,23,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #1e293b; border-top: 4px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error-box { background: #7f1d1d; border: 1px solid #ef4444; border-radius: 12px; padding: 16px; color: #fca5a5; }
+        .stat-detail { font-size: 11px; color: #64748b; margin-top: 4px; }
     </style>
 </head>
-<body>
-    <div id="app">
-        <h1 class="text-4xl font-black teko text-center italic mb-4">PROBET <span class="text-blue-500">AI V4</span></h1>
-        
-        <div class="grid grid-cols-4 gap-2 mb-4">
-            <div id="l135" class="league-btn active" onclick="setL(135)">SERIE A</div>
-            <div id="l39" class="league-btn" onclick="setL(39)">PREMIER</div>
-            <div id="l78" class="league-btn" onclick="setL(78)">BUNDES</div>
-            <div id="l140" class="league-btn" onclick="setL(140)">LA LIGA</div>
+<body class="p-4 md:p-8">
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="text-center">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-blue-400 font-bold teko text-xl tracking-widest">CARICAMENTO DATI...</p>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-10">
+            <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Elite Multi-League Analysis System</p>
         </div>
 
-        <div class="card">
-            <div class="grid grid-cols-2 gap-2">
-                <div><label class="label-sm">Home Team</label><select id="hTeam"></select></div>
-                <div><label class="label-sm">Away Team</label><select id="aTeam"></select></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div id="btn-135" class="league-btn league-active" onclick="switchLeague(135)">SERIE A</div>
+            <div id="btn-39" class="league-btn" onclick="switchLeague(39)">PREMIER LEAGUE</div>
+            <div id="btn-78" class="league-btn" onclick="switchLeague(78)">BUNDESLIGA</div>
+            <div id="btn-140" class="league-btn" onclick="switchLeague(140)">LA LIGA</div>
+        </div>
+
+        <div class="card-premium mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div><label class="label-spread text-blue-400">Home Team</label><select id="homeTeam"></select></div>
+                <div><label class="label-spread text-blue-400">Away Team</label><select id="awayTeam"></select></div>
+                <div id="arbitroContainer"><label class="label-spread text-yellow-500 italic">Arbitro (Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli...</option></select></div>
+            </div>
+
+            <div class="grid-spreads">
+                <div><label class="label-spread text-emerald-400">Spread Tiri Tot</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
+                <div><label class="label-spread text-emerald-400">Spread Tiri Casa</label><input type="number" id="sprTotalH" step="0.5" value="12.5"></div>
+                <div><label class="label-spread text-emerald-400">Spread Tiri Osp</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
+            </div>
+
+            <div class="grid-spreads">
+                <div><label class="label-spread text-purple-400">Spread Porta Tot</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
+                <div><label class="label-spread text-purple-400">Spread Porta Casa</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
+                <div><label class="label-spread text-purple-400">Spread Porta Osp</label><input type="number" id="sprOTA" step="0.5" value="3.5"></div>
+            </div>
+
+            <div id="foulsInputs" class="grid-spreads">
+                <div><label class="label-spread text-red-400">Spread Falli Tot</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Osp</label><input type="number" id="sprFoulsA" step="0.5" value="11.5"></div>
+            </div>
+
+            <div class="grid-spreads">
+                <div><label class="label-spread text-cyan-400">Spread Corner Tot</label><input type="number" id="sprCornMatch" step="0.5" value="9.5"></div>
+                <div><label class="label-spread text-cyan-400">Spread Corner Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
+                <div><label class="label-spread text-cyan-400">Spread Corner Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
             </div>
             
-            <div id="refBox">
-                <label class="label-sm text-yellow-500 italic font-black">Arbitro (Serie A)</label>
-                <select id="refSel"></select>
+            <div class="grid-spreads">
+                <div><label class="label-spread text-yellow-400">Spread Gialli Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
+                <div><label class="label-spread text-yellow-400">Spread Gialli Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
+                <div><label class="label-spread text-yellow-400">Spread Gialli Osp</label><input type="number" id="sprCardsA" step="0.5" value="2.5"></div>
             </div>
 
-            <div class="grid-3">
-                <div><label class="label-sm">Tiri Tot</label><input type="number" id="s_tt" value="23.5" step="0.5"></div>
-                <div><label class="label-sm text-blue-400">Casa</label><input type="number" id="s_th" value="12.5" step="0.5"></div>
-                <div><label class="label-sm text-blue-400">Ospite</label><input type="number" id="s_ta" value="10.5" step="0.5"></div>
-            </div>
+            <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
+                <input type="hidden" name="trigger" value="ad">
+            </form>
 
-            <div class="grid-3">
-                <div><label class="label-sm text-purple-400">Porta Tot</label><input type="number" id="s_pt" value="8.5" step="0.5"></div>
-                <div><label class="label-sm text-purple-400">Casa</label><input type="number" id="s_ph" value="4.5" step="0.5"></div>
-                <div><label class="label-sm text-purple-400">Ospite</label><input type="number" id="s_pa" value="3.5" step="0.5"></div>
-            </div>
-
-            <div class="grid-3" id="foulGrid">
-                <div><label class="label-sm text-red-400">Falli Tot</label><input type="number" id="s_ft" value="24.5" step="0.5"></div>
-                <div><label class="label-sm text-red-400">Casa</label><input type="number" id="s_fh" value="12.5" step="0.5"></div>
-                <div><label class="label-sm text-red-400">Ospite</label><input type="number" id="s_fa" value="11.5" step="0.5"></div>
-            </div>
-
-            <div class="grid-3">
-                <div><label class="label-sm text-cyan-400">Corner Tot</label><input type="number" id="s_ct" value="9.5" step="0.5"></div>
-                <div><label class="label-sm text-cyan-400">Casa</label><input type="number" id="s_ch" value="5.5" step="0.5"></div>
-                <div><label class="label-sm text-cyan-400">Ospite</label><input type="number" id="s_ca" value="4.5" step="0.5"></div>
-            </div>
-
-            <div class="grid-3">
-                <div><label class="label-sm text-yellow-400">Gialli Tot</label><input type="number" id="s_gt" value="4.5" step="0.5"></div>
-                <div><label class="label-sm text-yellow-400">Casa</label><input type="number" id="s_gh" value="2.5" step="0.5"></div>
-                <div><label class="label-sm text-yellow-400">Ospite</label><input type="number" id="s_ga" value="2.5" step="0.5"></div>
-            </div>
-
-            <button onclick="run()" class="btn teko text-2xl mt-4 italic">GENERA ANALISI ELITE 2024</button>
+            <button onclick="triggerAdAndCalculate()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE</button>
         </div>
-
-        <div id="results" class="pb-20"></div>
+        <div id="results" class="space-y-6 hidden pb-20"></div>
     </div>
 
 <script>
-const K = "75e4107623c05bb4bca2ac8b78b28dca";
-const B = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
-let curL = 135, dbX = [];
+const API_KEY = "aa5e53f893088010cc7c47af17f306e9";
+const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
+const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
+let currentLeague = 135, dbXG = [], teamsData = {};
 
-async function setL(id) {
-    curL = id;
-    document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('l'+id).classList.add('active');
-    document.getElementById('refBox').style.display = (id==135)?'block':'none';
-    document.getElementById('foulGrid').style.display = (id==135)?'grid':'none';
-    await load();
+// ===================== UTILITY =====================
+function showLoading(show) {
+    document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
 }
 
-async function load() {
-    const f = {135:"DATABASE_AVANZATO_SERIEA_2025.csv", 39:"DATABASE_AVANZATO_PREMIER_2025.csv", 78:"DATABASE_AVANZATO_BUNDES_2025.csv", 140:"DATABASE_AVANZATO_LALIGA_2025.csv"};
+function setError(msg) {
+    const resDiv = document.getElementById('results');
+    resDiv.innerHTML = `<div class="error-box"><strong>ERRORE:</strong> ${msg}</div>`;
+    resDiv.classList.remove('hidden');
+    resDiv.scrollIntoView({behavior:'smooth'});
+}
+
+// Funzione fetch con retry
+async function fetchWithRetry(url, options, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (data.errors && Object.keys(data.errors).length > 0) {
+                throw new Error(Object.values(data.errors)[0]);
+            }
+            return data;
+        } catch (e) {
+            if (i === retries) throw e;
+            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        }
+    }
+}
+
+// ===================== PUBBLICITÀ =====================
+function triggerAdAndCalculate() {
+    const form = document.getElementById('adForm');
+    if(form) form.submit();
     
-    // 1. CARICA SQUADRE DALLA CLASSIFICA (ELIMINA SERIE B)
-    try {
-        const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":K}});
-        const d = await r.json();
-        const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
-        h.innerHTML = ""; a.innerHTML = "";
-        const teams = d.response[0].league.standings[0];
-        teams.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
+    setTimeout(() => {
+        const w = window.open("about:blank/mostra_pubblicita", "_blank");
+        if(w) w.close();
+    }, 10);
+    
+    setTimeout(() => {
+        window.location.hash = "mostra_pubblicita_trigger";
+    }, 50);
+
+    setTimeout(() => {
+        runDeepAnalysis();
+    }, 400);
+}
+
+// ===================== CAMBIO CAMPIONATO =====================
+function switchLeague(id) {
+    currentLeague = id;
+    document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
+    document.getElementById(`btn-${id}`).classList.add('league-active');
+    const isSerieA = (id === 135);
+    document.getElementById('arbitroContainer').style.display = isSerieA ? "block" : "none";
+    document.getElementById('foulsInputs').style.display = isSerieA ? "grid" : "none";
+    loadData();
+}
+
+// ===================== CARICAMENTO DATI =====================
+function loadData() {
+    showLoading(true);
+    const files = { 
+        135: "DATABASE_AVANZATO_SERIEA_2025.csv", 
+        39: "DATABASE_AVANZATO_PREMIER_2025.csv", 
+        78: "DATABASE_AVANZATO_BUNDES_2025.csv", 
+        140: "DATABASE_AVANZATO_LALIGA_2025.csv" 
+    };
+    
+    // Carica xG database
+    Papa.parse(BASE_CSV_URL + files[currentLeague], { 
+        download: true, 
+        header: true, 
+        skipEmptyLines: true, 
+        complete: (r) => { 
+            dbXG = r.data; 
+            loadTeams();
+        },
+        error: (err) => {
+            console.error("Errore CSV:", err);
+            dbXG = [];
+            loadTeams();
+        }
+    });
+    
+    // Carica arbitri Serie A
+    if(currentLeague === 135) {
+        Papa.parse(BASE_CSV_URL + REFS_FILE, { 
+            download: true, 
+            header: true, 
+            skipEmptyLines: true, 
+            delimiter: ";", 
+            complete: (r) => {
+                const sel = document.getElementById('arbitroSelect'); 
+                sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
+                r.data.forEach(row => {
+                    let name = row.Arbitro || Object.values(row)[0];
+                    let val = row["Media Totale"] || Object.values(row)[2];
+                    if(name && val) {
+                        sel.add(new Option(name, val.toString().replace(',', '.')));
+                    }
+                });
+            },
+            error: () => {
+                document.getElementById('arbitroSelect').innerHTML = '<option value="24.5">Dati non disponibili</option>';
+            }
         });
-    } catch(e) { alert("Errore caricamento squadre 2024"); }
-
-    // 2. CSV XG
-    Papa.parse(B + f[curL], { download: true, header: true, complete: (r) => { dbX = r.data; } });
-
-    // 3. ARBITRI
-    if(curL==135) Papa.parse(B + "ARBITRI_SERIE_A%20-%20Foglio1.csv", { download: true, header: true, delimiter: ";", complete: (r) => {
-        const s = document.getElementById('refSel'); s.innerHTML = "";
-        r.data.forEach(x => { let n = x.Arbitro || Object.values(x)[0]; if(n) s.add(new Option(n, (x["Media Totale"]||"24.5").toString().replace(',','.'))); });
-    }});
+    }
 }
 
-function getB(val, id) {
-    const s = parseFloat(document.getElementById(id).value);
-    const p = Math.min(Math.max(50 + (val-s)*9, 5), 98);
-    return `<br><span class="text-[10px] px-2 py-1 rounded font-black ${val>=s?'bg-emerald-500 text-black':'bg-red-500 text-white'}">${val>=s?'OVER':'UNDER'} ${s} (${(val>=s?p:100-p).toFixed(1)}%)</span>`;
-}
-
-async function run() {
-    const res = document.getElementById('results');
-    res.innerHTML = "<p class='text-center py-10 teko text-2xl animate-pulse text-blue-400'>ANALISI API 2024 IN CORSO...</p>";
-    
+// ===================== CARICAMENTO SQUADRE =====================
+async function loadTeams() {
     try {
-        const idH = document.getElementById('hTeam').value, idA = document.getElementById('aTeam').value;
-        const [rH, rA] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idH}`, {headers:{"x-apisports-key":K}}).then(r=>r.json()),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idA}`, {headers:{"x-apisports-key":K}}).then(r=>r.json())
-        ]);
-
-        const sH = rH.response, sA = rA.response;
-        const xGH = parseFloat((dbX.find(x=>x.TeamID==idH)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
-        const xGA = parseFloat((dbX.find(x=>x.TeamID==idA)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
-        const m = ((xGH+xGA)/2)/0.11;
-
-        const tt = (sH.shots.total.average + sA.shots.total.average) * m;
-        const pt = (sH.shots.on_goal.average + sA.shots.on_goal.average) * m;
-        const cr = (sH.corners.for.average + sA.corners.for.average);
-        const gl = (sH.cards.yellow.average + sA.cards.yellow.average);
-
-        let out = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-4xl font-black teko">${tt.toFixed(2)} ${getB(tt, 's_tt')}</div></div>`;
-        out += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-4xl font-black teko">${pt.toFixed(2)} ${getB(pt, 's_pt')}</div></div>`;
+        const data = await fetchWithRetry(
+            `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, 
+            { headers: { "x-apisports-key": API_KEY } }
+        );
         
-        if(curL==135) {
-            const rf = parseFloat(document.getElementById('refSel').value);
-            const ft = (sH.fouls.for.average + sA.fouls.for.average) * 0.7 + (rf * 0.3);
-            out += `<div class="res-box border-l-red-500"><div>FALLI</div><div class="text-4xl font-black teko">${ft.toFixed(2)} ${getB(ft, 's_ft')}</div></div>`;
+        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+        h.innerHTML = ""; a.innerHTML = "";
+        
+        if (!data.response || data.response.length === 0) {
+            h.add(new Option("Nessuna squadra trovata", ""));
+            a.add(new Option("Nessuna squadra trovata", ""));
+            showLoading(false);
+            return;
+        }
+        
+        data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
+            h.add(new Option(t.team.name, t.team.id)); 
+            a.add(new Option(t.team.name, t.team.id));
+        });
+        
+        // Precarica statistiche squadre
+        await preloadTeamStats(data.response);
+        showLoading(false);
+        
+    } catch (e) {
+        console.error("Errore caricamento squadre:", e);
+        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+        h.innerHTML = '<option>Errore caricamento</option>';
+        a.innerHTML = '<option>Errore caricamento</option>';
+        showLoading(false);
+    }
+}
+
+// Precarica statistiche per tutte le squadre
+async function preloadTeamStats(teams) {
+    teamsData = {};
+    const promises = teams.slice(0, 10).map(async (t) => {
+        try {
+            const data = await fetchWithRetry(
+                `https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${t.team.id}`,
+                { headers: { "x-apisports-key": API_KEY } }
+            );
+            if (data.response) {
+                teamsData[t.team.id] = data.response;
+            }
+        } catch (e) {
+            console.warn(`Stats non disponibili per ${t.team.name}`);
+        }
+    });
+    await Promise.all(promises);
+}
+
+// ===================== CALCOLO CONSIGLIO =====================
+function getAdvice(pred, elementId) {
+    const el = document.getElementById(elementId);
+    if(!el || el.offsetParent === null) return "";
+    const s = parseFloat(el.value);
+    if (isNaN(s)) return "";
+    // Formula migliorata: più aggressiva vicino allo spread
+    const diff = pred - s;
+    let p;
+    if (diff >= 0) {
+        p = Math.min(50 + diff * 8, 98);
+    } else {
+        p = Math.min(50 + Math.abs(diff) * 8, 98);
+    }
+    const isOver = pred >= s;
+    return `<span class="advice-tag ${isOver ? 'over-tag' : 'under-tag'}">${isOver ? 'OVER' : 'UNDER'} ${s} (${p.toFixed(1)}%)</span>`;
+}
+
+// ===================== ANALISI CARTELLINI =====================
+async function getCardStats(leagueId) {
+    try {
+        const [yellowData, redData] = await Promise.all([
+            fetchWithRetry(
+                `https://v3.football.api-sports.io/players/topyellowcards?league=${leagueId}&season=2025`,
+                { headers: { "x-apisports-key": API_KEY } }
+            ),
+            fetchWithRetry(
+                `https://v3.football.api-sports.io/players/topredcards?league=${leagueId}&season=2025`,
+                { headers: { "x-apisports-key": API_KEY } }
+            )
+        ]);
+        
+        // Calcola media cartellini per squadra dai top players
+        const yellowByTeam = {};
+        const redByTeam = {};
+        
+        if (yellowData.response) {
+            yellowData.response.forEach(p => {
+                const teamId = p.statistics[0]?.team?.id;
+                if (teamId) {
+                    yellowByTeam[teamId] = (yellowByTeam[teamId] || 0) + (p.statistics[0]?.cards?.yellow || 0);
+                }
+            });
+        }
+        
+        if (redData.response) {
+            redData.response.forEach(p => {
+                const teamId = p.statistics[0]?.team?.id;
+                if (teamId) {
+                    redByTeam[teamId] = (redByTeam[teamId] || 0) + (p.statistics[0]?.cards?.red || 0);
+                }
+            });
+        }
+        
+        return { yellowByTeam, redByTeam };
+    } catch (e) {
+        console.error("Errore cartellini:", e);
+        return { yellowByTeam: {}, redByTeam: {} };
+    }
+}
+
+// ===================== ANALISI PRINCIPALE =====================
+async function runDeepAnalysis() {
+    const resDiv = document.getElementById('results');
+    resDiv.innerHTML = `<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>`;
+    resDiv.classList.remove('hidden');
+
+    try {
+        const idH = document.getElementById('homeTeam').value;
+        const idA = document.getElementById('awayTeam').value;
+        
+        if (!idH || !idA) {
+            setError("Seleziona entrambe le squadre");
+            return;
+        }
+        if (idH === idA) {
+            setError("Le squadre devono essere diverse");
+            return;
         }
 
-        out += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-4xl font-black teko">${cr.toFixed(2)} ${getB(cr, 's_ct')}</div></div>`;
-        out += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-4xl font-black teko">${gl.toFixed(2)} ${getB(gl, 's_gt')}</div></div>`;
+        // Fetch parallelo di tutte le statistiche
+        const [statsH, statsA, cardStats] = await Promise.all([
+            fetchWithRetry(
+                `https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`,
+                { headers: { "x-apisports-key": API_KEY } }
+            ),
+            fetchWithRetry(
+                `https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`,
+                { headers: { "x-apisports-key": API_KEY } }
+            ),
+            getCardStats(currentLeague)
+        ]);
 
-        res.innerHTML = out;
-    } catch(e) { res.innerHTML = "<p class='text-red-500 text-center font-bold'>ERRORE API 2024 - RIPROVA</p>"; }
+        const sH = statsH.response;
+        const sA = statsA.response;
+        
+        if (!sH || !sA) {
+            setError("Statistiche non disponibili per una o entrambe le squadre");
+            return;
+        }
+
+        // xG dal database CSV
+        const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
+
+        // ========== TIRI ==========
+        // shots.total.average = tiri totali medi a partita
+        const shotsTotalH = sH.shots?.total?.average || 12;
+        const shotsTotalA = sA.shots?.total?.average || 10;
+        const shotsOnH = sH.shots?.on_goal?.average || 4;
+        const shotsOnA = sA.shots?.on_goal?.average || 3.5;
+        
+        // Calcolo pesato con xG
+        const cH = shotsTotalH * (xGH / bench);
+        const cA = shotsTotalA * (xGA / bench);
+        const oH = shotsOnH * (xGH / bench);
+        const oA = shotsOnA * (xGA / bench);
+
+        // ========== CORNER ==========
+        // corners.for.average = corner a favore medi
+        // corners.against.average = corner subiti medi
+        const cornForH = sH.corners?.for?.average || 5;
+        const cornAgainstH = sH.corners?.against?.average || 4.5;
+        const cornForA = sA.corners?.for?.average || 4.5;
+        const cornAgainstA = sA.corners?.against?.average || 4;
+        
+        // Media ponderata: (corner fatti casa + corner subiti ospite) / 2
+        const pCH = (cornForH + cornAgainstA) / 2;
+        const pCA = (cornForA + cornAgainstH) / 2;
+
+        // ========== CARTELLINI ==========
+        // Usa stats dalla API teams/statistics se disponibili, altrimenti dai top players
+        let cardH = sH.cards?.yellow?.average || 2.1;
+        let cardA = sA.cards?.yellow?.average || 2.3;
+        
+        // Fallback dai top players se le stats squadra non sono complete
+        if (cardStats.yellowByTeam[idH]) {
+            const teamYellows = cardStats.yellowByTeam[idH];
+            // Normalizza: top players / numero stimato di partite giocate
+            const matchesPlayed = sH.fixtures?.played?.total || 20;
+            cardH = Math.max(cardH, teamYellows / matchesPlayed);
+        }
+        if (cardStats.yellowByTeam[idA]) {
+            const teamYellows = cardStats.yellowByTeam[idA];
+            const matchesPlayed = sA.fixtures?.played?.total || 20;
+            cardA = Math.max(cardA, teamYellows / matchesPlayed);
+        }
+
+        let html = "";
+
+        // ========== FALLI (SOLO SERIE A) ==========
+        if(currentLeague === 135) {
+            const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
+            // fouls.for.average = falli commessi medi
+            // fouls.against.average = falli subiti medi (favore)
+            const foulsForH = sH.fouls?.for?.average || 12.5;
+            const foulsAgainstH = sH.fouls?.against?.average || 11.5;
+            const foulsForA = sA.fouls?.for?.average || 13;
+            const foulsAgainstA = sA.fouls?.against?.average || 12;
+            
+            // Formula: media tra falli commessi e subiti con peso arbitro
+            const fH = ((foulsForH + foulsAgainstA) / 2) * 0.6 + (refVal/2 * 0.4);
+            const fA = ((foulsForA + foulsAgainstH) / 2) * 0.6 + (refVal/2 * 0.4);
+            
+            html += `
+            <div class="res-box border-l-red-500">
+                <p class="label-spread">Falli Commessi (Serie A)</p>
+                <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
+                <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                    <div>
+                        <p class="label-spread">Casa</p>
+                        <p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p>
+                        <p class="stat-detail">Commessi: ${foulsForH.toFixed(1)} | Subiti: ${foulsAgainstH.toFixed(1)}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="label-spread">Ospite</p>
+                        <p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p>
+                        <p class="stat-detail">Commessi: ${foulsForA.toFixed(1)} | Subiti: ${foulsAgainstA.toFixed(1)}</p>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // ========== TIRI TOTALI ==========
+        html += `
+        <div class="res-box border-l-emerald-500">
+            <p class="label-spread">Tiri Totali</p>
+            <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div>
+                    <p class="label-spread">Casa</p>
+                    <p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p>
+                    <p class="stat-detail">Media: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)}</p>
+                </div>
+                <div class="text-right">
+                    <p class="label-spread">Ospite</p>
+                    <p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p>
+                    <p class="stat-detail">Media: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)}</p>
+                </div>
+            </div>
+        </div>`;
+
+        // ========== TIRI IN PORTA ==========
+        html += `
+        <div class="res-box border-l-purple-500">
+            <p class="label-spread">Tiri In Porta</p>
+            <h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div>
+                    <p class="label-spread">Casa</p>
+                    <p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p>
+                    <p class="stat-detail">Media: ${shotsOnH.toFixed(1)}</p>
+                </div>
+                <div class="text-right">
+                    <p class="label-spread">Ospite</p>
+                    <p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p>
+                    <p class="stat-detail">Media: ${shotsOnA.toFixed(1)}</p>
+                </div>
+            </div>
+        </div>`;
+
+        // ========== CORNER ==========
+        html += `
+        <div class="res-box border-l-cyan-500">
+            <p class="label-spread">Calci d'Angolo</p>
+            <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div>
+                    <p class="label-spread">Casa</p>
+                    <p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p>
+                    <p class="stat-detail">Fatti: ${cornForH.toFixed(1)} | Subiti avv: ${cornAgainstA.toFixed(1)}</p>
+                </div>
+                <div class="text-right">
+                    <p class="label-spread">Ospite</p>
+                    <p class="text-xl teko text-cyan-400">${pCA.toFixed(2)} ${getAdvice(pCA, 'sprCornA')}</p>
+                    <p class="stat-detail">Fatti: ${cornForA.toFixed(1)} | Subiti avv: ${cornAgainstH.toFixed(1)}</p>
+                </div>
+            </div>
+        </div>`;
+
+        // ========== CARTELLINI ==========
+        html += `
+        <div class="res-box border-l-yellow-500">
+            <p class="label-spread">Gialli Previsti</p>
+            <h2 class="text-5xl font-black teko">${(cardH+cardA).toFixed(2)} ${getAdvice(cardH+cardA, 'sprCardsMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div>
+                    <p class="label-spread">Casa</p>
+                    <p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p>
+                    <p class="stat-detail">Media stagionale: ${(sH.cards?.yellow?.average || 2.1).toFixed(1)}</p>
+                </div>
+                <div class="text-right">
+                    <p class="label-spread">Ospite</p>
+                    <p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${getAdvice(cardA, 'sprCardsA')}</p>
+                    <p class="stat-detail">Media stagionale: ${(sA.cards?.yellow?.average || 2.3).toFixed(1)}</p>
+                </div>
+            </div>
+        </div>`;
+
+        // Info aggiuntive
+        const homeName = document.getElementById('homeTeam').options[document.getElementById('homeTeam').selectedIndex].text;
+        const awayName = document.getElementById('awayTeam').options[document.getElementById('awayTeam').selectedIndex].text;
+        
+        html += `
+        <div class="res-box border-l-blue-500" style="border-left-color: #3b82f6;">
+            <p class="label-spread text-blue-400">Info Partita</p>
+            <p class="text-sm text-slate-400">${homeName} vs ${awayName} | Stagione 2025 | League ID: ${currentLeague}</p>
+            <p class="text-xs text-slate-500 mt-1">Dati aggiornati da API-Sports.io</p>
+        </div>`;
+
+        resDiv.innerHTML = html;
+        resDiv.scrollIntoView({behavior:'smooth'});
+        
+    } catch(e) { 
+        console.error(e);
+        setError("Errore nel caricamento dei dati: " + e.message); 
+    }
 }
-setL(135);
+
+// Avvia caricamento iniziale
+loadData();
 </script>
 </body>
 </html>
 """
 
-components.html(html_code, height=1200, scrolling=True)
+components.html(html_code, height=1800, scrolling=True)
