@@ -109,7 +109,7 @@ const API_KEY = "75e4107623c05bb4bca2ac8b78b28dca";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 135, dbXG = [];
-const SEASON = 2024; // Stagione 2024/25 in corso
+const SEASON = 2024;
 
 // ===================== UTILITY =====================
 function showLoading(show) {
@@ -219,10 +219,9 @@ function loadData() {
     }
 }
 
-// ===================== CARICAMENTO SQUADRE (come il primo codice) =====================
+// ===================== CARICAMENTO SQUADRE (come il primo codice - FUNZIONANTE) =====================
 async function loadTeams() {
     try {
-        // Usa teams?league=ID&season=2024 come il primo codice - filtra per campionato!
         const url = `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=${SEASON}`;
         const data = await fetchWithRetry(url, { headers: { "x-apisports-key": API_KEY } });
         
@@ -250,10 +249,10 @@ async function loadTeams() {
     }
 }
 
-// ===================== STATISTICHE REALI DA FIXTURES =====================
+// ===================== STATISTICHE SOLO DA FIXTURES DELLA LEGA CORRETTA =====================
 async function getTeamStatsFromFixtures(teamId) {
     try {
-        // Ottieni SOLO le partite di QUESTO campionato e QUESTO team
+        // CHIAVE: filtra per league + season + team per avere SOLO partite di questo campionato
         const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${teamId}`;
         const fixturesData = await fetchWithRetry(fixturesUrl, { headers: { "x-apisports-key": API_KEY } });
         
@@ -282,7 +281,7 @@ async function getTeamStatsFromFixtures(teamId) {
         
         const allStats = await Promise.all(statsPromises);
         
-        // Aggrega le statistiche
+        // Aggrega
         const aggregated = {
             shotsTotal: 0, shotsOn: 0, shotsOff: 0, shotsBlocked: 0,
             shotsInside: 0, shotsOutside: 0,
@@ -404,7 +403,6 @@ async function runDeepAnalysis() {
             return;
         }
 
-        // Fetch parallelo
         const [statsH, statsA, cardStats] = await Promise.all([
             getTeamStatsFromFixtures(idH),
             getTeamStatsFromFixtures(idA),
@@ -416,12 +414,10 @@ async function runDeepAnalysis() {
             return;
         }
 
-        // xG dal database CSV
         const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // ========== TIRI ==========
         const shotsTotalH = statsH.shotsTotal || 12;
         const shotsTotalA = statsA.shotsTotal || 10;
         const shotsOnH = statsH.shotsOn || 4;
@@ -432,7 +428,6 @@ async function runDeepAnalysis() {
         const oH = shotsOnH * (xGH / bench);
         const oA = shotsOnA * (xGA / bench);
 
-        // ========== CORNER ==========
         const cornForH = statsH.corners || 5;
         const cornForA = statsA.corners || 4.5;
         const cornAgainstH = statsA.corners || 4;
@@ -441,7 +436,6 @@ async function runDeepAnalysis() {
         const pCH = (cornForH + cornAgainstA) / 2;
         const pCA = (cornForA + cornAgainstH) / 2;
 
-        // ========== CARTELLINI ==========
         let cardH = statsH.yellowCards || 2.1;
         let cardA = statsA.yellowCards || 2.3;
         
@@ -454,7 +448,6 @@ async function runDeepAnalysis() {
 
         let html = "";
 
-        // ========== FALLI (SOLO SERIE A) ==========
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
             const foulsForH = statsH.fouls || 12.5;
@@ -482,7 +475,6 @@ async function runDeepAnalysis() {
             </div>`;
         }
 
-        // ========== TIRI TOTALI ==========
         html += `
         <div class="res-box border-l-emerald-500">
             <p class="label-spread">Tiri Totali</p>
@@ -501,7 +493,6 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // ========== TIRI IN PORTA ==========
         html += `
         <div class="res-box border-l-purple-500">
             <p class="label-spread">Tiri In Porta</p>
@@ -520,7 +511,6 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // ========== CORNER ==========
         html += `
         <div class="res-box border-l-cyan-500">
             <p class="label-spread">Calci d'Angolo</p>
@@ -539,7 +529,6 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // ========== CARTELLINI ==========
         html += `
         <div class="res-box border-l-yellow-500">
             <p class="label-spread">Gialli Previsti</p>
@@ -558,7 +547,6 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // Info
         const homeName = document.getElementById('homeTeam').options[document.getElementById('homeTeam').selectedIndex].text;
         const awayName = document.getElementById('awayTeam').options[document.getElementById('awayTeam').selectedIndex].text;
         
@@ -566,7 +554,7 @@ async function runDeepAnalysis() {
         <div class="res-box" style="border-left-color: #3b82f6;">
             <p class="label-spread text-blue-400">Info Partita</p>
             <p class="text-sm text-slate-400">${homeName} vs ${awayName} | Stagione ${SEASON}/${SEASON+1} | League ID: ${currentLeague}</p>
-            <p class="text-xs text-slate-500 mt-1">Dati reali dalle ultime ${statsH.matches} partite giocate</p>
+            <p class="text-xs text-slate-500 mt-1">Dati reali dalle ultime ${statsH.matches} partite di campionato</p>
         </div>`;
 
         resDiv.innerHTML = html;
@@ -578,7 +566,6 @@ async function runDeepAnalysis() {
     }
 }
 
-// Avvia
 loadData();
 </script>
 </body>
