@@ -25,7 +25,7 @@ html_code = """
         .teko { font-family: 'Teko', sans-serif; }
         .card { background: #1e293b; border-radius: 20px; padding: 15px; border: 1px solid #334155; }
         select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 10px; width: 100%; border-radius: 10px; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
-        .btn { background: #3b82f6; width: 100%; padding: 16px; border-radius: 12px; font-weight: 900; color: white; border: none; cursor: pointer; }
+        .btn { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 16px; border-radius: 12px; font-weight: 900; color: white; border: none; cursor: pointer; }
         .league-btn { cursor: pointer; padding: 10px; border-radius: 8px; border: 1px solid #334155; text-align: center; font-size: 11px; background: #0f172a; font-weight: bold; }
         .active { background: #3b82f6; border-color: #3b82f6; }
         .label-sm { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 800; margin-bottom: 3px; display: block; }
@@ -35,7 +35,7 @@ html_code = """
 </head>
 <body>
     <div id="app">
-        <h1 class="text-5xl font-black teko text-center italic mb-4">PROBET <span class="text-blue-500">AI V4</span></h1>
+        <h1 class="text-5xl font-black teko text-center italic mb-4 uppercase">PROBET <span class="text-blue-500">AI V4</span></h1>
         
         <div class="grid grid-cols-4 gap-2 mb-4">
             <div id="l135" class="league-btn active" onclick="setL(135)">SERIE A</div>
@@ -48,40 +48,40 @@ html_code = """
             <div class="grid grid-cols-1 gap-2">
                 <div><label class="label-sm">Home Team</label><select id="hTeam"></select></div>
                 <div><label class="label-sm">Away Team</label><select id="aTeam"></select></div>
-                <div id="refBox"><label class="label-sm text-yellow-500 italic">Arbitro (Serie A)</label><select id="refSel"></select></div>
+                <div id="refBox"><label class="label-sm text-yellow-500 italic font-black">Arbitro (Serie A)</label><select id="refSel"></select></div>
             </div>
 
             <div class="grid-3">
-                <div><label class="label-sm">Tiri Tot</label><input type="number" id="s_tt" value="23.5"></div>
-                <div><label class="label-sm">Casa</label><input type="number" id="s_th" value="12.5"></div>
-                <div><label class="label-sm">Ospite</label><input type="number" id="s_ta" value="10.5"></div>
+                <div><label class="label-sm">Tiri Tot</label><input type="number" id="s_tt" step="0.5" value="23.5"></div>
+                <div><label class="label-sm text-emerald-400">Casa</label><input type="number" id="s_th" step="0.5" value="12.5"></div>
+                <div><label class="label-sm text-emerald-400">Ospite</label><input type="number" id="s_ta" step="0.5" value="10.5"></div>
             </div>
 
             <div class="grid-3">
-                <div><label class="label-sm text-purple-400">Porta Tot</label><input type="number" id="s_pt" value="8.5"></div>
-                <div><label class="label-sm text-purple-400">Casa</label><input type="number" id="s_ph" value="4.5"></div>
-                <div><label class="label-sm text-purple-400">Ospite</label><input type="number" id="s_pa" value="3.5"></div>
+                <div><label class="label-sm text-purple-400">Porta Tot</label><input type="number" id="s_pt" step="0.5" value="8.5"></div>
+                <div><label class="label-sm text-purple-400">Casa</label><input type="number" id="s_ph" step="0.5" value="4.5"></div>
+                <div><label class="label-sm text-purple-400">Ospite</label><input type="number" id="s_pa" step="0.5" value="3.5"></div>
             </div>
 
             <div class="grid-3" id="foulGrid">
-                <div><label class="label-sm text-red-400">Falli Tot</label><input type="number" id="s_ft" value="24.5"></div>
-                <div><label class="label-sm text-red-400">Casa</label><input type="number" id="s_fh" value="12.5"></div>
-                <div><label class="label-sm text-red-400">Ospite</label><input type="number" id="s_fa" value="11.5"></div>
+                <div><label class="label-sm text-red-400">Falli Tot</label><input type="number" id="s_ft" step="0.5" value="24.5"></div>
+                <div><label class="label-sm text-red-400">Casa</label><input type="number" id="s_fh" step="0.5" value="12.5"></div>
+                <div><label class="label-sm text-red-400">Ospite</label><input type="number" id="s_fa" step="0.5" value="11.5"></div>
             </div>
 
             <div class="grid-3">
-                <div><label class="label-sm text-cyan-400">Corner Tot</label><input type="number" id="s_ct" value="9.5"></div>
-                <div><label class="label-sm text-cyan-400">Casa</label><input type="number" id="s_ch" value="5.5"></div>
-                <div><label class="label-sm text-cyan-400">Ospite</label><input type="number" id="s_ca" value="4.5"></div>
+                <div><label class="label-sm text-cyan-400">Corner Tot</label><input type="number" id="s_ct" step="0.5" value="9.5"></div>
+                <div><label class="label-sm text-cyan-400">Casa</label><input type="number" id="s_ch" step="0.5" value="5.5"></div>
+                <div><label class="label-sm text-cyan-400">Ospite</label><input type="number" id="s_ca" step="0.5" value="4.5"></div>
             </div>
 
             <div class="grid-3">
-                <div><label class="label-sm text-yellow-400">Gialli Tot</label><input type="number" id="s_gt" value="4.5"></div>
-                <div><label class="label-sm text-yellow-400">Casa</label><input type="number" id="s_gh" value="2.5"></div>
-                <div><label class="label-sm text-yellow-400">Ospite</label><input type="number" id="s_ga" value="2.5"></div>
+                <div><label class="label-sm text-yellow-400">Gialli Tot</label><input type="number" id="s_gt" step="0.5" value="4.5"></div>
+                <div><label class="label-sm text-yellow-400">Casa</label><input type="number" id="s_gh" step="0.5" value="2.5"></div>
+                <div><label class="label-sm text-yellow-400">Ospite</label><input type="number" id="s_ga" step="0.5" value="2.5"></div>
             </div>
 
-            <button onclick="run()" class="btn teko text-2xl italic mt-4">GENERA ANALISI ELITE</button>
+            <button onclick="run()" class="btn teko text-2xl italic mt-4 tracking-widest">GENERA ANALISI ELITE</button>
         </div>
 
         <div id="results" class="pb-20"></div>
@@ -107,40 +107,38 @@ function load() {
     if(curL==135) {
         Papa.parse(B + "ARBITRI_SERIE_A%20-%20Foglio1.csv", { download: true, header: true, delimiter: ";", complete: (r) => {
             const s = document.getElementById('refSel'); s.innerHTML = "";
-            r.data.forEach(x => { let n = x.Arbitro || Object.values(x)[0]; if(n) s.add(new Option(n, (x["Media Totale"]||"24.5").replace(',','.'))); });
+            r.data.forEach(x => { let n = x.Arbitro || Object.values(x)[0]; if(n) s.add(new Option(n, (x["Media Totale"]||"24.5").toString().replace(',','.'))); });
         }});
     }
 }
 
 async function fetchTeams() {
-    // Proviamo stagione 2025, se vuota scala su 2024
-    let season = 2025;
-    let r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=${season}`, {headers:{"x-apisports-key":K}});
-    let d = await r.json();
-    
-    if(!d.response || d.response.length === 0) {
-        season = 2024;
-        r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=${season}`, {headers:{"x-apisports-key":K}});
-        d = await r.json();
-    }
+    // Usiamo stagione 2024 per caricare le squadre attuali e filtrare quelle di B
+    const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":K}});
+    const d = await r.json();
     
     const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
     h.innerHTML = ""; a.innerHTML = "";
-    const teams = d.response[0].league.standings[0];
-    teams.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-        h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
-    });
+    
+    if(d.response && d.response[0]) {
+        const teams = d.response[0].league.standings[0];
+        teams.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
+            h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
+        });
+    }
 }
 
 function getB(val, id) {
-    const s = parseFloat(document.getElementById(id).value);
+    const el = document.getElementById(id);
+    if (!el || el.offsetParent === null) return ""; 
+    const s = parseFloat(el.value);
     const p = Math.min(Math.max(50 + (val-s)*9, 5), 98);
-    return `<br><span class="text-[10px] px-2 py-1 rounded ${val>=s?'bg-emerald-500':'bg-red-500'}">${val>=s?'OVER':'UNDER'} ${s} (${(val>=s?p:100-p).toFixed(1)}%)</span>`;
+    return `<br><span class="text-[10px] px-2 py-1 rounded font-black ${val>=s?'bg-emerald-500 text-black':'bg-red-500 text-white'}">${val>=s?'OVER':'UNDER'} ${s} (${(val>=s?p:100-p).toFixed(1)}%)</span>`;
 }
 
 async function run() {
     const res = document.getElementById('results');
-    res.innerHTML = "<p class='text-center py-10 teko text-2xl animate-pulse text-blue-400'>CALCOLO ELITE...</p>";
+    res.innerHTML = "<p class='text-center py-10 teko text-2xl animate-pulse text-blue-400'>ANALISI ELITE IN CORSO...</p>";
     
     try {
         const idH = document.getElementById('hTeam').value, idA = document.getElementById('aTeam').value;
@@ -150,28 +148,39 @@ async function run() {
         ]);
 
         const sH = rH.response, sA = rA.response;
-        const xG = parseFloat((dbX.find(x=>x.TeamID==idH)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
-        const m = xG / 0.11;
+        const xGH = parseFloat((dbX.find(x=>x.TeamID==idH)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
+        const xGA = parseFloat((dbX.find(x=>x.TeamID==idA)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
+        
+        const mH = xGH / 0.11;
+        const mA = xGA / 0.11;
 
-        const tt = (sH.shots.total.average + sA.shots.total.average) * m;
-        const pt = (sH.shots.on_goal.average + sA.shots.on_goal.average) * m;
-        const ct = (sH.corners.for.average + sA.corners.for.average);
+        const ttH = sH.shots.total.average * mH;
+        const ttA = sA.shots.total.average * mA;
+        const tt = ttH + ttA;
+
+        const ptH = sH.shots.on_goal.average * mH;
+        const ptA = sA.shots.on_goal.average * mA;
+        const pt = ptH + ptA;
+
+        const ct = sH.corners.for.average + sA.corners.for.average;
         const gt = (sH.cards.yellow.average || 2) + (sA.cards.yellow.average || 2);
 
-        let h = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-3xl font-black teko">${tt.toFixed(2)} ${getB(tt, 's_tt')}</div></div>`;
-        h += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-3xl font-black teko">${pt.toFixed(2)} ${getB(pt, 's_pt')}</div></div>`;
+        let h = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-4xl font-black teko">${tt.toFixed(2)} ${getB(tt, 's_tt')}</div></div>`;
+        h += `<div class="res-box border-l-emerald-500"><div>TIRI CASA / OSPITE</div><div class="text-2xl font-black teko text-emerald-400">${ttH.toFixed(2)} ${getB(ttH, 's_th')} / ${ttA.toFixed(2)} ${getB(ttA, 's_ta')}</div></div>`;
+        h += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-4xl font-black teko">${pt.toFixed(2)} ${getB(pt, 's_pt')}</div></div>`;
         
         if(curL==135) {
-            const rf = parseFloat(document.getElementById('refSel').value);
-            const ft = (sH.fouls.for.average + sA.fouls.for.average) * 0.7 + (rf * 0.3);
-            h += `<div class="res-box border-l-red-500"><div>FALLI</div><div class="text-3xl font-black teko">${ft.toFixed(2)} ${getB(ft, 's_ft')}</div></div>`;
+            const rf = parseFloat(document.getElementById('refSel').value) || 24.5;
+            const fH = (sH.fouls.for.average) * 0.7 + (rf/2 * 0.3);
+            const fA = (sA.fouls.for.average) * 0.7 + (rf/2 * 0.3);
+            h += `<div class="res-box border-l-red-500"><div>FALLI TOTALI</div><div class="text-4xl font-black teko">${(fH+fA).toFixed(2)} ${getB(fH+fA, 's_ft')}</div></div>`;
         }
 
-        h += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-3xl font-black teko">${ct.toFixed(2)} ${getB(ct, 's_ct')}</div></div>`;
-        h += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-3xl font-black teko">${gt.toFixed(2)} ${getB(gt, 's_gt')}</div></div>`;
+        h += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-4xl font-black teko">${ct.toFixed(2)} ${getB(ct, 's_ct')}</div></div>`;
+        h += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-4xl font-black teko">${gt.toFixed(2)} ${getB(gt, 's_gt')}</div></div>`;
 
         res.innerHTML = h;
-    } catch(e) { res.innerHTML = "<p class='text-red-500'>Errore dati API</p>"; }
+    } catch(e) { res.innerHTML = "<p class='text-red-500 text-center font-bold'>ERRORE DATI API: Controlla la connessione o i limiti API.</p>"; }
 }
 load();
 </script>
@@ -179,4 +188,4 @@ load();
 </html>
 """
 
-components.html(html_code, height=1200, scrolling=True)
+components.html(html_code, height=1500, scrolling=True)
