@@ -34,7 +34,11 @@ html_code = """
         .spinner { width: 50px; height: 50px; border: 4px solid #1e293b; border-top: 4px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .error-box { background: #7f1d1d; border: 1px solid #ef4444; border-radius: 12px; padding: 16px; color: #fca5a5; }
+        .warning-box { background: #713f12; border: 1px solid #eab308; border-radius: 12px; padding: 16px; color: #fef08a; margin-bottom: 15px; }
         .stat-detail { font-size: 11px; color: #64748b; margin-top: 4px; }
+        .source-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 8px; }
+        .source-api { background: #3b82f6; color: white; }
+        .source-est { background: #f59e0b; color: #020617; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -110,6 +114,20 @@ const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 135, dbXG = [];
 const SEASON = 2024;
+
+// DEFAULTS per squadre senza dati API (neopromosse o poche partite)
+const DEFAULT_STATS = {
+    shotsTotal: { 135: 12.0, 39: 12.5, 78: 13.0, 140: 12.0 },
+    shotsOn: { 135: 4.2, 39: 4.5, 78: 4.8, 140: 4.3 },
+    shotsOff: { 135: 4.5, 39: 4.8, 78: 5.0, 140: 4.6 },
+    shotsBlocked: { 135: 3.0, 39: 3.2, 78: 3.3, 140: 3.1 },
+    shotsInside: { 135: 6.5, 39: 7.0, 78: 7.2, 140: 6.8 },
+    shotsOutside: { 135: 5.5, 39: 5.5, 78: 5.8, 140: 5.2 },
+    fouls: { 135: 12.0, 39: 11.5, 78: 12.5, 140: 13.0 },
+    corners: { 135: 5.0, 39: 5.5, 78: 5.8, 140: 5.2 },
+    yellowCards: { 135: 2.3, 39: 2.1, 78: 2.2, 140: 2.8 },
+    redCards: { 135: 0.15, 39: 0.12, 78: 0.10, 140: 0.18 }
+};
 
 function showLoading(show) {
     document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
@@ -310,12 +328,30 @@ async function getTeamStatsFromFixtures(teamId) {
             corners: aggregated.corners / aggregated.count,
             yellowCards: aggregated.yellowCards / aggregated.count,
             redCards: aggregated.redCards / aggregated.count,
-            matches: aggregated.count
+            matches: aggregated.count,
+            source: 'api'
         };
     } catch (e) {
         console.error("Errore stats fixtures:", e);
         return null;
     }
+}
+
+function getDefaultStats() {
+    return {
+        shotsTotal: DEFAULT_STATS.shotsTotal[currentLeague],
+        shotsOn: DEFAULT_STATS.shotsOn[currentLeague],
+        shotsOff: DEFAULT_STATS.shotsOff[currentLeague],
+        shotsBlocked: DEFAULT_STATS.shotsBlocked[currentLeague],
+        shotsInside: DEFAULT_STATS.shotsInside[currentLeague],
+        shotsOutside: DEFAULT_STATS.shotsOutside[currentLeague],
+        fouls: DEFAULT_STATS.fouls[currentLeague],
+        corners: DEFAULT_STATS.corners[currentLeague],
+        yellowCards: DEFAULT_STATS.yellowCards[currentLeague],
+        redCards: DEFAULT_STATS.redCards[currentLeague],
+        matches: 0,
+        source: 'est'
+    };
 }
 
 function getAdvice(pred, elementId) {
@@ -394,70 +430,66 @@ async function runDeepAnalysis() {
             getCardStats(currentLeague)
         ]);
 
-        if (!statsH || !statsA) {
-            setError("Statistiche non disponibili per una o entrambe le squadre");
-            return;
-        }
+        // Se API non trova dati, usa defaults
+        const finalStatsH = statsH || getDefaultStats();
+        const finalStatsA = statsA || getDefaultStats();
+        
+        const isEstH = finalStatsH.source === 'est';
+        const isEstA = finalStatsA.source === 'est';
 
         // xG dal database CSV
         const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         
-        // ===================== FORMULA CORRETTA xG =====================
-        // Il fattore xG deve essere NEUTRO quando xG = 0.11 (media)
-        // e modificare di poco quando diverso
-        // 
-        // Vecchia formula SBAGLIATA: shots * (xG / 0.11) → gonfia sempre
-        // Nuova formula CORRETTA: shots * (1 + (xG - 0.11) * fattore_peso)
-        // 
-        // Esempio: xG = 0.13 → 1 + (0.13 - 0.11) * 2 = 1.04 (+4%)
-        // Esempio: xG = 0.09 → 1 + (0.09 - 0.11) * 2 = 0.96 (-4%)
+        // Fattore xG: se dati stimati, riduci l'impatto del xG (meno affidabile)
+        const xgWeightH = isEstH ? 1 : (1 + (xGH - 0.11) * 1.5);
+        const xgWeightA = isEstA ? 1 : (1 + (xGA - 0.11) * 1.5);
         
-        const xgFactorH = 1 + (xGH - 0.11) * 2;  // Fattore di peso = 2
-        const xgFactorA = 1 + (xGA - 0.11) * 2;
-        
-        // Limita il fattore tra 0.85 e 1.15 (max ±15% di variazione)
-        const clampedFactorH = Math.max(0.85, Math.min(1.15, xgFactorH));
-        const clampedFactorA = Math.max(0.85, Math.min(1.15, xgFactorA));
+        const clampedFactorH = Math.max(0.90, Math.min(1.10, xgWeightH));
+        const clampedFactorA = Math.max(0.90, Math.min(1.10, xgWeightA));
 
         // ========== TIRI ==========
-        const shotsTotalH = statsH.shotsTotal || 12;
-        const shotsTotalA = statsA.shotsTotal || 10;
-        const shotsOnH = statsH.shotsOn || 4;
-        const shotsOnA = statsA.shotsOn || 3.5;
+        const shotsTotalH = finalStatsH.shotsTotal;
+        const shotsTotalA = finalStatsA.shotsTotal;
+        const shotsOnH = finalStatsH.shotsOn;
+        const shotsOnA = finalStatsA.shotsOn;
         
-        // Applica fattore xG leggero
         const cH = shotsTotalH * clampedFactorH;
         const cA = shotsTotalA * clampedFactorA;
         const oH = shotsOnH * clampedFactorH;
         const oA = shotsOnA * clampedFactorA;
 
         // ========== CORNER ==========
-        const cornForH = statsH.corners || 5;
-        const cornForA = statsA.corners || 4.5;
-        const cornAgainstH = statsA.corners || 4;
-        const cornAgainstA = statsH.corners || 4.5;
+        const cornForH = finalStatsH.corners;
+        const cornForA = finalStatsA.corners;
+        const cornAgainstH = finalStatsA.corners;
+        const cornAgainstA = finalStatsH.corners;
         
         const pCH = (cornForH + cornAgainstA) / 2;
         const pCA = (cornForA + cornAgainstH) / 2;
 
         // ========== CARTELLINI ==========
-        let cardH = statsH.yellowCards || 2.1;
-        let cardA = statsA.yellowCards || 2.3;
+        let cardH = finalStatsH.yellowCards;
+        let cardA = finalStatsA.yellowCards;
         
         if (cardStats.yellowByTeam[idH]) {
-            cardH = Math.max(cardH, cardStats.yellowByTeam[idH] / (statsH.matches || 10));
+            cardH = Math.max(cardH, cardStats.yellowByTeam[idH] / (finalStatsH.matches || 10));
         }
         if (cardStats.yellowByTeam[idA]) {
-            cardA = Math.max(cardA, cardStats.yellowByTeam[idA] / (statsA.matches || 10));
+            cardA = Math.max(cardA, cardStats.yellowByTeam[idA] / (finalStatsA.matches || 10));
         }
 
         let html = "";
+        
+        // Warning se dati stimati
+        if (isEstH || isEstA) {
+            html += `<div class="warning-box">⚠️ Dati parziali: alcune statistiche sono stimate per squadre con pochi dati API disponibili.</div>`;
+        }
 
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const foulsForH = statsH.fouls || 12.5;
-            const foulsForA = statsA.fouls || 13;
+            const foulsForH = finalStatsH.fouls;
+            const foulsForA = finalStatsA.fouls;
             
             const fH = foulsForH * 0.6 + (refVal/2 * 0.4);
             const fA = foulsForA * 0.6 + (refVal/2 * 0.4);
@@ -470,12 +502,12 @@ async function runDeepAnalysis() {
                     <div>
                         <p class="label-spread">Casa</p>
                         <p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p>
-                        <p class="stat-detail">Media: ${foulsForH.toFixed(1)} | Partite: ${statsH.matches}</p>
+                        <p class="stat-detail">Media: ${foulsForH.toFixed(1)} | Partite: ${finalStatsH.matches || 'N/D'}</p>
                     </div>
                     <div class="text-right">
                         <p class="label-spread">Ospite</p>
                         <p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p>
-                        <p class="stat-detail">Media: ${foulsForA.toFixed(1)} | Partite: ${statsA.matches}</p>
+                        <p class="stat-detail">Media: ${foulsForA.toFixed(1)} | Partite: ${finalStatsA.matches || 'N/D'}</p>
                     </div>
                 </div>
             </div>`;
@@ -489,12 +521,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p>
-                    <p class="stat-detail">Media API: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)} | Fattore: ${clampedFactorH.toFixed(2)} | Partite: ${statsH.matches}</p>
+                    <p class="stat-detail">Media API: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)} | Fattore: ${clampedFactorH.toFixed(2)} | Partite: ${finalStatsH.matches || 'N/D'} <span class="source-tag ${isEstH ? 'source-est' : 'source-api'}">${isEstH ? 'STIMATO' : 'API'}</span></p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p>
-                    <p class="stat-detail">Media API: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)} | Fattore: ${clampedFactorA.toFixed(2)} | Partite: ${statsA.matches}</p>
+                    <p class="stat-detail">Media API: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)} | Fattore: ${clampedFactorA.toFixed(2)} | Partite: ${finalStatsA.matches || 'N/D'} <span class="source-tag ${isEstA ? 'source-est' : 'source-api'}">${isEstA ? 'STIMATO' : 'API'}</span></p>
                 </div>
             </div>
         </div>`;
@@ -507,12 +539,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p>
-                    <p class="stat-detail">Media API: ${shotsOnH.toFixed(1)} | Dentro area: ${statsH.shotsInside.toFixed(1)}</p>
+                    <p class="stat-detail">Media API: ${shotsOnH.toFixed(1)} | Dentro area: ${finalStatsH.shotsInside.toFixed(1)}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p>
-                    <p class="stat-detail">Media API: ${shotsOnA.toFixed(1)} | Dentro area: ${statsA.shotsInside.toFixed(1)}</p>
+                    <p class="stat-detail">Media API: ${shotsOnA.toFixed(1)} | Dentro area: ${finalStatsA.shotsInside.toFixed(1)}</p>
                 </div>
             </div>
         </div>`;
@@ -543,12 +575,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p>
-                    <p class="stat-detail">Media: ${(statsH.yellowCards || 0).toFixed(1)} | Rossi: ${(statsH.redCards || 0).toFixed(1)}</p>
+                    <p class="stat-detail">Media: ${(finalStatsH.yellowCards || 0).toFixed(1)} | Rossi: ${(finalStatsH.redCards || 0).toFixed(1)}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${getAdvice(cardA, 'sprCardsA')}</p>
-                    <p class="stat-detail">Media: ${(statsA.yellowCards || 0).toFixed(1)} | Rossi: ${(statsA.redCards || 0).toFixed(1)}</p>
+                    <p class="stat-detail">Media: ${(finalStatsA.yellowCards || 0).toFixed(1)} | Rossi: ${(finalStatsA.redCards || 0).toFixed(1)}</p>
                 </div>
             </div>
         </div>`;
@@ -560,7 +592,7 @@ async function runDeepAnalysis() {
         <div class="res-box" style="border-left-color: #3b82f6;">
             <p class="label-spread text-blue-400">Info Partita</p>
             <p class="text-sm text-slate-400">${homeName} vs ${awayName} | Stagione ${SEASON}/${SEASON+1} | League ID: ${currentLeague}</p>
-            <p class="text-xs text-slate-500 mt-1">Dati reali dalle ultime ${statsH.matches} partite di campionato</p>
+            <p class="text-xs text-slate-500 mt-1">${isEstH || isEstA ? 'Dati stimati per squadre con dati API limitati' : `Dati reali dalle ultime ${finalStatsH.matches} partite di campionato`}</p>
         </div>`;
 
         resDiv.innerHTML = html;
