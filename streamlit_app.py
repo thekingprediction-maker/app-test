@@ -6,7 +6,8 @@ st.set_page_config(page_title="PROBET AI V4", layout="wide")
 st.markdown("""
     <style>
         [data-testid="stHeader"], footer {display: none !important;}
-        .main .block-container { padding: 10px !important; }
+        .main .block-container { padding: 5px !important; }
+        iframe { border: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -15,23 +16,26 @@ html_code = """
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;900&display=swap');
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; padding: 10px; }
         .teko { font-family: 'Teko', sans-serif; }
-        .card { background: #1e293b; border-radius: 15px; padding: 15px; border: 1px solid #334155; }
-        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 10px; margin-bottom: 10px; font-weight: bold; }
-        .btn { background: #3b82f6; width: 100%; padding: 15px; border-radius: 10px; font-weight: 900; color: white; border: none; cursor: pointer; }
+        .card { background: #1e293b; border-radius: 20px; padding: 15px; border: 1px solid #334155; }
+        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 10px; width: 100%; border-radius: 10px; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+        .btn { background: #3b82f6; width: 100%; padding: 16px; border-radius: 12px; font-weight: 900; color: white; border: none; cursor: pointer; }
         .league-btn { cursor: pointer; padding: 10px; border-radius: 8px; border: 1px solid #334155; text-align: center; font-size: 11px; background: #0f172a; font-weight: bold; }
         .active { background: #3b82f6; border-color: #3b82f6; }
-        .res-box { background: #0f172a; border-radius: 12px; padding: 15px; border-left: 4px solid #3b82f6; margin-top: 10px; }
+        .label-sm { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 800; margin-bottom: 3px; display: block; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 5px; border-top: 1px solid #334155; padding-top: 8px; }
+        .res-box { background: #0f172a; border-radius: 15px; padding: 15px; border-left: 5px solid #3b82f6; margin-top: 12px; }
     </style>
 </head>
 <body>
     <div id="app">
-        <h1 class="text-4xl font-black teko text-center italic mb-4 uppercase">PROBET <span class="text-blue-500">AI V4 - 2025</span></h1>
+        <h1 class="text-5xl font-black teko text-center italic mb-4">PROBET <span class="text-blue-500">AI V4</span></h1>
         
         <div class="grid grid-cols-4 gap-2 mb-4">
             <div id="l135" class="league-btn active" onclick="setL(135)">SERIE A</div>
@@ -41,21 +45,46 @@ html_code = """
         </div>
 
         <div class="card">
-            <label class="text-[10px] font-bold text-blue-400">HOME TEAM (STAGIONE 2024/25)</label>
-            <select id="hTeam"><option>Caricamento...</option></select>
-            
-            <label class="text-[10px] font-bold text-blue-400">AWAY TEAM (STAGIONE 2024/25)</label>
-            <select id="aTeam"><option>Caricamento...</option></select>
-            
-            <div id="refContainer">
-                <label class="text-[10px] font-bold text-yellow-500">ARBITRO (SERIE A)</label>
-                <select id="refSel"></select>
+            <div class="grid grid-cols-1 gap-2">
+                <div><label class="label-sm">Home Team</label><select id="hTeam"></select></div>
+                <div><label class="label-sm">Away Team</label><select id="aTeam"></select></div>
+                <div id="refBox"><label class="label-sm text-yellow-500 italic">Arbitro (Serie A)</label><select id="refSel"></select></div>
             </div>
 
-            <button onclick="run()" class="btn teko text-2xl italic mt-4 tracking-wider">GENERA ANALISI ELITE</button>
+            <div class="grid-3">
+                <div><label class="label-sm">Tiri Tot</label><input type="number" id="s_tt" value="23.5"></div>
+                <div><label class="label-sm">Casa</label><input type="number" id="s_th" value="12.5"></div>
+                <div><label class="label-sm">Ospite</label><input type="number" id="s_ta" value="10.5"></div>
+            </div>
+
+            <div class="grid-3">
+                <div><label class="label-sm text-purple-400">Porta Tot</label><input type="number" id="s_pt" value="8.5"></div>
+                <div><label class="label-sm text-purple-400">Casa</label><input type="number" id="s_ph" value="4.5"></div>
+                <div><label class="label-sm text-purple-400">Ospite</label><input type="number" id="s_pa" value="3.5"></div>
+            </div>
+
+            <div class="grid-3" id="foulGrid">
+                <div><label class="label-sm text-red-400">Falli Tot</label><input type="number" id="s_ft" value="24.5"></div>
+                <div><label class="label-sm text-red-400">Casa</label><input type="number" id="s_fh" value="12.5"></div>
+                <div><label class="label-sm text-red-400">Ospite</label><input type="number" id="s_fa" value="11.5"></div>
+            </div>
+
+            <div class="grid-3">
+                <div><label class="label-sm text-cyan-400">Corner Tot</label><input type="number" id="s_ct" value="9.5"></div>
+                <div><label class="label-sm text-cyan-400">Casa</label><input type="number" id="s_ch" value="5.5"></div>
+                <div><label class="label-sm text-cyan-400">Ospite</label><input type="number" id="s_ca" value="4.5"></div>
+            </div>
+
+            <div class="grid-3">
+                <div><label class="label-sm text-yellow-400">Gialli Tot</label><input type="number" id="s_gt" value="4.5"></div>
+                <div><label class="label-sm text-yellow-400">Casa</label><input type="number" id="s_gh" value="2.5"></div>
+                <div><label class="label-sm text-yellow-400">Ospite</label><input type="number" id="s_ga" value="2.5"></div>
+            </div>
+
+            <button onclick="run()" class="btn teko text-2xl italic mt-4">GENERA ANALISI ELITE</button>
         </div>
 
-        <div id="results" class="mt-4 pb-10"></div>
+        <div id="results" class="pb-20"></div>
     </div>
 
 <script>
@@ -67,14 +96,14 @@ function setL(id) {
     curL = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('l'+id).classList.add('active');
-    document.getElementById('refContainer').style.display = (id==135)?'block':'none';
+    document.getElementById('refBox').style.display = (id==135)?'block':'none';
+    document.getElementById('foulGrid').style.display = (id==135)?'grid':'none';
     load();
 }
 
 function load() {
     const f = {135:"DATABASE_AVANZATO_SERIEA_2025.csv", 39:"DATABASE_AVANZATO_PREMIER_2025.csv", 78:"DATABASE_AVANZATO_BUNDES_2025.csv", 140:"DATABASE_AVANZATO_LALIGA_2025.csv"};
     Papa.parse(B + f[curL], { download: true, header: true, complete: (r) => { dbX = r.data; fetchTeams(); } });
-    
     if(curL==135) {
         Papa.parse(B + "ARBITRI_SERIE_A%20-%20Foglio1.csv", { download: true, header: true, delimiter: ";", complete: (r) => {
             const s = document.getElementById('refSel'); s.innerHTML = "";
@@ -84,28 +113,34 @@ function load() {
 }
 
 async function fetchTeams() {
-    // STAGIONE 2024 è quella che copre l'attuale campionato 2024/2025
-    const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":K}});
-    const d = await r.json();
+    // Proviamo stagione 2025, se vuota scala su 2024
+    let season = 2025;
+    let r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=${season}`, {headers:{"x-apisports-key":K}});
+    let d = await r.json();
+    
+    if(!d.response || d.response.length === 0) {
+        season = 2024;
+        r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=${season}`, {headers:{"x-apisports-key":K}});
+        d = await r.json();
+    }
     
     const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
     h.innerHTML = ""; a.innerHTML = "";
-    
-    try {
-        // Prendiamo le squadre direttamente dalla classifica ufficiale della stagione attuale
-        const teams = d.response[0].league.standings[0];
-        teams.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id));
-            a.add(new Option(t.team.name, t.team.id));
-        });
-    } catch(e) {
-        h.innerHTML = "<option>Errore caricamento squadre</option>";
-    }
+    const teams = d.response[0].league.standings[0];
+    teams.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
+        h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
+    });
+}
+
+function getB(val, id) {
+    const s = parseFloat(document.getElementById(id).value);
+    const p = Math.min(Math.max(50 + (val-s)*9, 5), 98);
+    return `<br><span class="text-[10px] px-2 py-1 rounded ${val>=s?'bg-emerald-500':'bg-red-500'}">${val>=s?'OVER':'UNDER'} ${s} (${(val>=s?p:100-p).toFixed(1)}%)</span>`;
 }
 
 async function run() {
     const res = document.getElementById('results');
-    res.innerHTML = "<p class='text-center animate-pulse teko text-2xl py-10'>ANALIZZANDO DATI 2025...</p>";
+    res.innerHTML = "<p class='text-center py-10 teko text-2xl animate-pulse text-blue-400'>CALCOLO ELITE...</p>";
     
     try {
         const idH = document.getElementById('hTeam').value, idA = document.getElementById('aTeam').value;
@@ -121,21 +156,27 @@ async function run() {
         const tt = (sH.shots.total.average + sA.shots.total.average) * m;
         const pt = (sH.shots.on_goal.average + sA.shots.on_goal.average) * m;
         const ct = (sH.corners.for.average + sA.corners.for.average);
+        const gt = (sH.cards.yellow.average || 2) + (sA.cards.yellow.average || 2);
 
-        res.innerHTML = `
-            <div class="res-box"><p class="text-[10px] text-blue-400 font-bold">TIRI TOTALI</p><h2 class="text-4xl font-black teko">${tt.toFixed(2)}</h2></div>
-            <div class="res-box border-l-purple-500"><p class="text-[10px] text-purple-400 font-bold">TIRI IN PORTA</p><h2 class="text-4xl font-black teko">${pt.toFixed(2)}</h2></div>
-            <div class="res-box border-l-cyan-500"><p class="text-[10px] text-cyan-400 font-bold">CORNER</p><h2 class="text-4xl font-black teko">${ct.toFixed(2)}</h2></div>
-        `;
-    } catch(e) { 
-        res.innerHTML = "<p class='text-red-500 bg-red-900/20 p-4 rounded-lg'>Errore API: Dati non disponibili per questa selezione.</p>"; 
-    }
+        let h = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-3xl font-black teko">${tt.toFixed(2)} ${getB(tt, 's_tt')}</div></div>`;
+        h += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-3xl font-black teko">${pt.toFixed(2)} ${getB(pt, 's_pt')}</div></div>`;
+        
+        if(curL==135) {
+            const rf = parseFloat(document.getElementById('refSel').value);
+            const ft = (sH.fouls.for.average + sA.fouls.for.average) * 0.7 + (rf * 0.3);
+            h += `<div class="res-box border-l-red-500"><div>FALLI</div><div class="text-3xl font-black teko">${ft.toFixed(2)} ${getB(ft, 's_ft')}</div></div>`;
+        }
+
+        h += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-3xl font-black teko">${ct.toFixed(2)} ${getB(ct, 's_ct')}</div></div>`;
+        h += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-3xl font-black teko">${gt.toFixed(2)} ${getB(gt, 's_gt')}</div></div>`;
+
+        res.innerHTML = h;
+    } catch(e) { res.innerHTML = "<p class='text-red-500'>Errore dati API</p>"; }
 }
-
 load();
 </script>
 </body>
 </html>
 """
 
-components.html(html_code, height=900, scrolling=True)
+components.html(html_code, height=1200, scrolling=True)
