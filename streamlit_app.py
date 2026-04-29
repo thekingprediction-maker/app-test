@@ -24,7 +24,7 @@ html_code = """
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; padding: 10px; }
         .teko { font-family: 'Teko', sans-serif; }
         .card { background: #1e293b; border-radius: 20px; padding: 15px; border: 1px solid #334155; }
-        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 10px; width: 100%; border-radius: 10px; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 10px; width: 100%; border-radius: 10px; margin-bottom: 8px; font-weight: bold; }
         .btn { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 16px; border-radius: 12px; font-weight: 900; color: white; border: none; cursor: pointer; }
         .league-btn { cursor: pointer; padding: 10px; border-radius: 8px; border: 1px solid #334155; text-align: center; font-size: 11px; background: #0f172a; font-weight: bold; }
         .active { background: #3b82f6; border-color: #3b82f6; }
@@ -45,10 +45,14 @@ html_code = """
         </div>
 
         <div class="card">
-            <div class="grid grid-cols-1 gap-2">
-                <div><label class="label-sm">Home Team</label><select id="hTeam"></select></div>
-                <div><label class="label-sm">Away Team</label><select id="aTeam"></select></div>
-                <div id="refBox"><label class="label-sm text-yellow-500 italic font-black">Arbitro (Serie A)</label><select id="refSel"></select></div>
+            <label class="label-sm">Home Team</label>
+            <select id="hTeam"></select>
+            <label class="label-sm">Away Team</label>
+            <select id="aTeam"></select>
+            
+            <div id="refBox">
+                <label class="label-sm text-yellow-500 italic font-black">Arbitro (Serie A)</label>
+                <select id="refSel"></select>
             </div>
 
             <div class="grid-3">
@@ -88,9 +92,9 @@ html_code = """
     </div>
 
 <script>
-const K = "75e4107623c05bb4bca2ac8b78b28dca";
-const B = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
-let curL = 135, dbX = [];
+const KEY = "75e4107623c05bb4bca2ac8b78b28dca";
+const CSV_BASE = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
+let curL = 135, dbXG = [];
 
 function setL(id) {
     curL = id;
@@ -103,9 +107,9 @@ function setL(id) {
 
 function load() {
     const f = {135:"DATABASE_AVANZATO_SERIEA_2025.csv", 39:"DATABASE_AVANZATO_PREMIER_2025.csv", 78:"DATABASE_AVANZATO_BUNDES_2025.csv", 140:"DATABASE_AVANZATO_LALIGA_2025.csv"};
-    Papa.parse(B + f[curL], { download: true, header: true, complete: (r) => { dbX = r.data; fetchTeams(); } });
+    Papa.parse(CSV_BASE + f[curL], { download: true, header: true, complete: (r) => { dbXG = r.data; fetchTeams(); } });
     if(curL==135) {
-        Papa.parse(B + "ARBITRI_SERIE_A%20-%20Foglio1.csv", { download: true, header: true, delimiter: ";", complete: (r) => {
+        Papa.parse(CSV_BASE + "ARBITRI_SERIE_A%20-%20Foglio1.csv", { download: true, header: true, delimiter: ";", complete: (r) => {
             const s = document.getElementById('refSel'); s.innerHTML = "";
             r.data.forEach(x => { let n = x.Arbitro || Object.values(x)[0]; if(n) s.add(new Option(n, (x["Media Totale"]||"24.5").toString().replace(',','.'))); });
         }});
@@ -113,13 +117,11 @@ function load() {
 }
 
 async function fetchTeams() {
-    // Usiamo stagione 2024 per caricare le squadre attuali e filtrare quelle di B
-    const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":K}});
+    // Carichiamo le squadre reali tramite standings per evitare la Serie B
+    const r = await fetch(`https://v3.football.api-sports.io/standings?league=${curL}&season=2024`, {headers:{"x-apisports-key":KEY}});
     const d = await r.json();
-    
     const h = document.getElementById('hTeam'), a = document.getElementById('aTeam');
     h.innerHTML = ""; a.innerHTML = "";
-    
     if(d.response && d.response[0]) {
         const teams = d.response[0].league.standings[0];
         teams.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
@@ -142,45 +144,48 @@ async function run() {
     
     try {
         const idH = document.getElementById('hTeam').value, idA = document.getElementById('aTeam').value;
-        const [rH, rA] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idH}`, {headers:{"x-apisports-key":K}}).then(r=>r.json()),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idA}`, {headers:{"x-apisports-key":K}}).then(r=>r.json())
+        
+        // CHIAMATA STATISTICHE PER SQUADRA (LEAGUE + SEASON) COME RICHIESTO
+        const [stH, stA] = await Promise.all([
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idH}`, {headers:{"x-apisports-key":KEY}}).then(r=>r.json()),
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${curL}&season=2024&team=${idA}`, {headers:{"x-apisports-key":KEY}}).then(r=>r.json())
         ]);
 
-        const sH = rH.response, sA = rA.response;
-        const xGH = parseFloat((dbX.find(x=>x.TeamID==idH)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
-        const xGA = parseFloat((dbX.find(x=>x.TeamID==idA)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
+        const sH = stH.response, sA = stA.response;
         
-        const mH = xGH / 0.11;
-        const mA = xGA / 0.11;
+        // Calcolo Moltiplicatore xG dal CSV
+        const xGH = parseFloat((dbXG.find(x=>x.TeamID==idH)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
+        const xGA = parseFloat((dbXG.find(x=>x.TeamID==idA)?.xG_Per_Shot || "0.11").toString().replace(',','.'));
+        const mH = xGH / 0.11, mA = xGA / 0.11;
 
+        // Tiri Totali e in Porta
         const ttH = sH.shots.total.average * mH;
         const ttA = sA.shots.total.average * mA;
-        const tt = ttH + ttA;
-
         const ptH = sH.shots.on_goal.average * mH;
         const ptA = sA.shots.on_goal.average * mA;
-        const pt = ptH + ptA;
 
-        const ct = sH.corners.for.average + sA.corners.for.average;
-        const gt = (sH.cards.yellow.average || 2) + (sA.cards.yellow.average || 2);
+        // Corner e Cartellini
+        const corH = sH.corners.for.average, corA = sA.corners.for.average;
+        const gialH = sH.cards.yellow.average || 2.1, gialA = sA.cards.yellow.average || 2.2;
 
-        let h = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-4xl font-black teko">${tt.toFixed(2)} ${getB(tt, 's_tt')}</div></div>`;
-        h += `<div class="res-box border-l-emerald-500"><div>TIRI CASA / OSPITE</div><div class="text-2xl font-black teko text-emerald-400">${ttH.toFixed(2)} ${getB(ttH, 's_th')} / ${ttA.toFixed(2)} ${getB(ttA, 's_ta')}</div></div>`;
-        h += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-4xl font-black teko">${pt.toFixed(2)} ${getB(pt, 's_pt')}</div></div>`;
+        let html = `<div class="res-box"><div>TIRI TOTALI</div><div class="text-4xl font-black teko">${(ttH+ttA).toFixed(2)} ${getB(ttH+ttA, 's_tt')}</div></div>`;
+        html += `<div class="res-box border-l-emerald-500"><div>TIRI CASA / OSPITE</div><div class="text-2xl font-black teko text-emerald-400">${ttH.toFixed(2)} ${getB(ttH, 's_th')} / ${ttA.toFixed(2)} ${getB(ttA, 's_ta')}</div></div>`;
+        html += `<div class="res-box border-l-purple-500"><div>IN PORTA</div><div class="text-4xl font-black teko">${(ptH+ptA).toFixed(2)} ${getB(ptH+ptA, 's_pt')}</div></div>`;
         
+        // Falli (Solo Serie A)
         if(curL==135) {
-            const rf = parseFloat(document.getElementById('refSel').value) || 24.5;
-            const fH = (sH.fouls.for.average) * 0.7 + (rf/2 * 0.3);
-            const fA = (sA.fouls.for.average) * 0.7 + (rf/2 * 0.3);
-            h += `<div class="res-box border-l-red-500"><div>FALLI TOTALI</div><div class="text-4xl font-black teko">${(fH+fA).toFixed(2)} ${getB(fH+fA, 's_ft')}</div></div>`;
+            const ref = parseFloat(document.getElementById('refSel').value) || 24.5;
+            const fComm = (sH.fouls.for.average + sA.fouls.for.average) * 0.7 + (ref * 0.3);
+            html += `<div class="res-box border-l-red-500"><div>FALLI COMMESSI</div><div class="text-4xl font-black teko">${fComm.toFixed(2)} ${getB(fComm, 's_ft')}</div></div>`;
         }
 
-        h += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-4xl font-black teko">${ct.toFixed(2)} ${getB(ct, 's_ct')}</div></div>`;
-        h += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-4xl font-black teko">${gt.toFixed(2)} ${getB(gt, 's_gt')}</div></div>`;
+        html += `<div class="res-box border-l-cyan-500"><div>CORNER</div><div class="text-4xl font-black teko">${(corH+corA).toFixed(2)} ${getB(corH+corA, 's_ct')}</div></div>`;
+        html += `<div class="res-box border-l-yellow-500"><div>GIALLI</div><div class="text-4xl font-black teko">${(gialH+gialA).toFixed(2)} ${getB(gialH+gialA, 's_gt')}</div></div>`;
 
-        res.innerHTML = h;
-    } catch(e) { res.innerHTML = "<p class='text-red-500 text-center font-bold'>ERRORE DATI API: Controlla la connessione o i limiti API.</p>"; }
+        res.innerHTML = html;
+    } catch(e) { 
+        res.innerHTML = "<p class='text-red-500 font-bold'>ERRORE API: DATI NON TROVATI PER QUESTE SQUADRE.</p>"; 
+    }
 }
 load();
 </script>
