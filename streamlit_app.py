@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V4 - ELITE", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 - ELITE FOULS", layout="wide")
 
 html_code = """
 <!DOCTYPE html>
@@ -46,7 +46,7 @@ html_code = """
     <div class="max-w-4xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Elite Defense Adjusted Analysis • Precision Mode</p>
+            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Elite Fouls & Shots Analysis • Season 2025</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -70,20 +70,35 @@ html_code = """
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
                 <div>
-                    <label class="label-spread text-emerald-400">Spread Match Totali</label>
+                    <label class="label-spread text-emerald-400">Spread Tiri Match</label>
                     <input type="number" id="sprTotalMatch" step="0.5" value="23.5">
                 </div>
                 <div>
-                    <label class="label-spread text-emerald-400">Spread Casa Totali</label>
+                    <label class="label-spread text-emerald-400">Spread Tiri Casa</label>
                     <input type="number" id="sprTotalH" step="0.5" value="12.5">
                 </div>
                 <div>
-                    <label class="label-spread text-emerald-400">Spread Ospite Totali</label>
+                    <label class="label-spread text-emerald-400">Spread Tiri Ospite</label>
                     <input type="number" id="sprTotalA" step="0.5" value="10.5">
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
+                <div>
+                    <label class="label-spread text-red-400">Spread Falli Match</label>
+                    <input type="number" id="sprFoulsMatch" step="0.5" value="24.5">
+                </div>
+                <div>
+                    <label class="label-spread text-red-400">Spread Falli Casa</label>
+                    <input type="number" id="sprFoulsH" step="0.5" value="12.5">
+                </div>
+                <div>
+                    <label class="label-spread text-red-400">Spread Falli Ospite</label>
+                    <input type="number" id="sprFoulsA" step="0.5" value="12.5">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
                 <div>
                     <label class="label-spread text-purple-400">Spread Match In Porta</label>
                     <input type="number" id="sprOTMatch" step="0.5" value="8.5">
@@ -105,7 +120,7 @@ html_code = """
     </div>
 
 <script>
-const API_KEY = "aa5e53f893088010cc7c47af17f306e9";
+const API_KEY = "75e4107623c05bb4bca2ac8b78b28dca";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 
 let currentLeague = 135;
@@ -149,7 +164,7 @@ async function loadTeams() {
 
 function calcProb(pred, spr) {
     let diff = pred - spr;
-    let p = 50 + (diff * 9.2); // Sensibilità aumentata
+    let p = 50 + (diff * 9.2);
     return Math.min(Math.max(p, 5), 98).toFixed(1);
 }
 
@@ -178,21 +193,49 @@ async function runDeepAnalysis() {
         const xGH = parseFloat(dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || 0.11);
         const xGA = parseFloat(dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || 0.11);
 
-        // MODIFICA: Benchmark dinamico e Defense Adjustment
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
         
-        // Calcolo con simulazione impatto difensivo (incrocio attacco e media campionato)
+        // CALCOLO TIRI
         const cH = ((rH.response?.shots?.total?.average || 12.0) + 11.5) / 2 * (xGH / bench) * 1.05;
         const cA = ((rA.response?.shots?.total?.average || 10.5) + 11.0) / 2 * (xGA / bench);
         const totalM = cH + cA;
 
+        // CALCOLO TIRI IN PORTA
         const oH = ((rH.response?.shots?.on_goal?.average || 4.0) + 3.8) / 2 * (xGH / bench) * 1.05;
         const oA = ((rA.response?.shots?.on_goal?.average || 3.5) + 3.5) / 2 * (xGA / bench);
         const totalOTM = oH + oA;
 
+        // CALCOLO FALLI (Basato sui dati API forniti)
+        // Media commessi Squadra A + Media subiti Squadra B e viceversa
+        const fCommH = rH.response?.fouls?.for?.average || 12.5;
+        const fSubH = rH.response?.fouls?.against?.average || 12.0;
+        const fCommA = rA.response?.fouls?.for?.average || 13.0;
+        const fSubA = rA.response?.fouls?.against?.average || 11.5;
+
+        const predFoulsH = (fCommH + fSubA) / 2;
+        const predFoulsA = (fCommA + fSubH) / 2;
+        const totalFoulsMatch = predFoulsH + predFoulsA;
+
         resDiv.innerHTML = `
+            <div class="res-box border-l-red-500">
+                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Falli Totali Match (Team Stats Adjusted)</p>
+                <h2 class="text-6xl font-black teko text-white inline-block">${totalFoulsMatch.toFixed(2)}</h2>
+                ${getAdviceHtml(totalFoulsMatch, document.getElementById('sprFoulsMatch').value)}
+                
+                <div class="grid grid-cols-2 gap-4 mt-4 border-t border-slate-800 pt-4">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">Casa Commessi (${document.getElementById('sprFoulsH').value})</p>
+                        <p class="text-xl font-bold teko text-red-400">${predFoulsH.toFixed(2)} ${getAdviceHtml(predFoulsH, document.getElementById('sprFoulsH').value)}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">Ospite Commessi (${document.getElementById('sprFoulsA').value})</p>
+                        <p class="text-xl font-bold teko text-red-400">${getAdviceHtml(predFoulsA, document.getElementById('sprFoulsA').value)} ${predFoulsA.toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="res-box border-l-blue-500">
-                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Tiri Totali Match (Defense Adjusted)</p>
+                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Tiri Totali Match</p>
                 <h2 class="text-6xl font-black teko text-white inline-block">${totalM.toFixed(2)}</h2>
                 ${getAdviceHtml(totalM, document.getElementById('sprTotalMatch').value)}
                 
@@ -209,7 +252,7 @@ async function runDeepAnalysis() {
             </div>
 
             <div class="res-box border-l-purple-500">
-                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Tiri In Porta Match (Quality Adjusted)</p>
+                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Previsione Tiri In Porta Match</p>
                 <h2 class="text-6xl font-black teko text-white inline-block">${totalOTM.toFixed(2)}</h2>
                 ${getAdviceHtml(totalOTM, document.getElementById('sprOTMatch').value)}
 
@@ -233,4 +276,4 @@ switchLeague(135);
 </body>
 </html>
 """
-components.html(html_code, height=1100, scrolling=True)
+components.html(html_code, height=1200, scrolling=True)
