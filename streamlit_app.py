@@ -15,29 +15,14 @@ html_code = """
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
         .teko { font-family: 'Teko', sans-serif; }
         .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
-        
-        select, input { 
-            background: #0f172a; 
-            border: 1px solid #475569; 
-            color: white; 
-            padding: 12px; 
-            width: 100%; 
-            border-radius: 12px; 
-            font-weight: bold; 
-            font-size: 14px;
-            outline: none;
-        }
-        input:focus { border-color: #3b82f6; background: #1e293b; }
-
+        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 14px; outline: none; }
         .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
-        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; position: relative; margin-bottom: 15px; }
-        
-        .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; vertical-align: middle; }
+        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; margin-bottom: 15px; }
+        .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; }
         .over-tag { background: #10b981; color: #020617; }
         .under-tag { background: #ef4444; color: white; }
-        
         .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; transition: 0.3s; font-size: 12px; }
+        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 12px; }
         .league-active { background: #3b82f6; border-color: #3b82f6; color: white; }
     </style>
 </head>
@@ -45,7 +30,6 @@ html_code = """
     <div class="max-w-4xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Elite Fouls & Shots Analysis • Season 2025</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -57,68 +41,31 @@ html_code = """
 
         <div class="card-premium mb-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div>
-                    <label class="label-spread text-blue-400">Home Team</label>
-                    <select id="homeTeam"></select>
-                </div>
-                <div>
-                    <label class="label-spread text-blue-400">Away Team</label>
-                    <select id="awayTeam"></select>
-                </div>
-                <div>
-                    <label class="label-spread text-yellow-500 italic">Arbitro (Solo Serie A)</label>
-                    <select id="arbitroSelect"><option value="24.5">Scegli Arbitro...</option></select>
-                </div>
+                <div><label class="label-spread text-blue-400">Home Team</label><select id="homeTeam"></select></div>
+                <div><label class="label-spread text-blue-400">Away Team</label><select id="awayTeam"></select></div>
+                <div><label class="label-spread text-yellow-500">Arbitro (Solo Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli Arbitro...</option></select></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div>
-                    <label class="label-spread text-emerald-400">Spread Tiri Match</label>
-                    <input type="number" id="sprTotalMatch" step="0.5" value="23.5">
-                </div>
-                <div>
-                    <label class="label-spread text-emerald-400">Spread Tiri Casa</label>
-                    <input type="number" id="sprTotalH" step="0.5" value="12.5">
-                </div>
-                <div>
-                    <label class="label-spread text-emerald-400">Spread Tiri Ospite</label>
-                    <input type="number" id="sprTotalA" step="0.5" value="10.5">
-                </div>
+                <div><label class="label-spread text-emerald-400">Spread Tiri Match</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
+                <div><label class="label-spread text-emerald-400">Spread Tiri Casa</label><input type="number" id="sprTotalH" step="0.5" value="12.5"></div>
+                <div><label class="label-spread text-emerald-400">Spread Tiri Ospite</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div>
-                    <label class="label-spread text-red-400">Spread Falli Match</label>
-                    <input type="number" id="sprFoulsMatch" step="0.5" value="24.5">
-                </div>
-                <div>
-                    <label class="label-spread text-red-400">Spread Falli Casa</label>
-                    <input type="number" id="sprFoulsH" step="0.5" value="12.5">
-                </div>
-                <div>
-                    <label class="label-spread text-red-400">Spread Falli Ospite</label>
-                    <input type="number" id="sprFoulsA" step="0.5" value="12.5">
-                </div>
+                <div><label class="label-spread text-red-400">Spread Falli Match</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Ospite</label><input type="number" id="sprFoulsA" step="0.5" value="12.5"></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div>
-                    <label class="label-spread text-purple-400">Spread Match In Porta</label>
-                    <input type="number" id="sprOTMatch" step="0.5" value="8.5">
-                </div>
-                <div>
-                    <label class="label-spread text-purple-400">Spread Casa In Porta</label>
-                    <input type="number" id="sprOTH" step="0.5" value="4.5">
-                </div>
-                <div>
-                    <label class="label-spread text-purple-400">Spread Ospite In Porta</label>
-                    <input type="number" id="sprOTA" step="0.5" value="3.5">
-                </div>
+                <div><label class="label-spread text-purple-400">Spread Match In Porta</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
+                <div><label class="label-spread text-purple-400">Spread Casa In Porta</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
+                <div><label class="label-spread text-purple-400">Spread Ospite In Porta</label><input type="number" id="sprOTA" step="0.5" value="3.5"></div>
             </div>
 
             <button onclick="runDeepAnalysis()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE</button>
         </div>
-
         <div id="results" class="space-y-6 hidden pb-20"></div>
     </div>
 
@@ -126,10 +73,7 @@ html_code = """
 const API_KEY = "75e4107623c05bb4bca2ac8b78b28dca";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
-
-let currentLeague = 135, dbXG = [], dbRef = [];
-
-const leagueFiles = { 135: "DATABASE_AVANZATO_SERIEA_2025.csv", 39: "DATABASE_AVANZATO_PREMIER_2025.csv", 78: "DATABASE_AVANZATO_BUNDES_2025.csv", 140: "DATABASE_AVANZATO_LALIGA_2025.csv" };
+let currentLeague = 135, dbXG = [];
 
 function switchLeague(id) {
     currentLeague = id;
@@ -139,58 +83,46 @@ function switchLeague(id) {
 }
 
 function loadData() {
-    // Carica xG
-    Papa.parse(BASE_CSV_URL + leagueFiles[currentLeague], {
-        download: true, header: true, skipEmptyLines: true,
-        complete: (r) => { dbXG = r.data; loadTeams(); }
-    });
-    // Carica Arbitri (Serie A)
+    const files = { 135: "DATABASE_AVANZATO_SERIEA_2025.csv", 39: "DATABASE_AVANZATO_PREMIER_2025.csv", 78: "DATABASE_AVANZATO_BUNDES_2025.csv", 140: "DATABASE_AVANZATO_LALIGA_2025.csv" };
+    Papa.parse(BASE_CSV_URL + files[currentLeague], { download: true, header: true, skipEmptyLines: true, complete: (r) => { dbXG = r.data; loadTeams(); } });
     if(currentLeague === 135) {
-        Papa.parse(BASE_CSV_URL + REFS_FILE, {
-            download: true, header: true, skipEmptyLines: true, delimiter: ";",
-            complete: (r) => {
-                dbRef = r.data;
-                const sel = document.getElementById('arbitroSelect');
-                sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
-                dbRef.forEach(row => {
-                    let name = row.Arbitro || Object.values(row)[0];
-                    let val = row["Media Totale"] || Object.values(row)[2];
-                    if(name && val) sel.add(new Option(name, val.toString().replace(',', '.')));
-                });
-            }
-        });
+        Papa.parse(BASE_CSV_URL + REFS_FILE, { download: true, header: true, skipEmptyLines: true, delimiter: ";", complete: (r) => {
+            const sel = document.getElementById('arbitroSelect'); sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
+            r.data.forEach(row => {
+                let name = row.Arbitro || Object.values(row)[0];
+                let val = row["Media Totale"] || Object.values(row)[2];
+                if(name && val) sel.add(new Option(name, val.toString().replace(',', '.')));
+            });
+        }});
     }
 }
 
 async function loadTeams() {
-    try {
-        const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
-        const data = await res.json();
-        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-        h.innerHTML = ""; a.innerHTML = "";
-        data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
-        });
-    } catch(e) { console.error(e); }
+    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+    const data = await res.json();
+    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+    h.innerHTML = ""; a.innerHTML = "";
+    data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
+        h.add(new Option(t.team.name, t.team.id)); a.add(new Option(t.team.name, t.team.id));
+    });
 }
 
-function getAdviceHtml(pred, spr) {
+function getAdvice(pred, spr) {
     const s = parseFloat(spr);
     const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
     const label = p >= 50 ? "OVER" : "UNDER";
-    const css = p >= 50 ? "over-tag" : "under-tag";
     const prob = p >= 50 ? p : (100 - p);
-    return `<span class="advice-tag ${css}">${label} ${s} (${prob.toFixed(1)}%)</span>`;
+    return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${label} ${s} (${prob.toFixed(1)}%)</span>`;
 }
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>Analyzing Match Data...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>CALCOLO IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
         const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
-        const refVal = parseFloat(document.getElementById('arbitroSelect').value);
+        const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
 
         const [rH, rA] = await Promise.all([
             fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
@@ -202,50 +134,51 @@ async function runDeepAnalysis() {
         const xGA = parseFloat(dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || 0.11);
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // CALCOLO TIRI
+        // LOGICA CALCOLO TIRI
         const cH = (sH.shots.total.average || 12) * (xGH / bench) * 1.05;
         const cA = (sA.shots.total.average || 10) * (xGA / bench);
-        
-        // CALCOLO PORTA
         const oH = (sH.shots.on_goal.average || 4) * (xGH / bench) * 1.05;
         const oA = (sA.shots.on_goal.average || 3.5) * (xGA / bench);
 
-        // CALCOLO FALLI (Inclusa influenza arbitro 40%)
-        const baseH = (sH.fouls.for.average + sA.fouls.against.average) / 2;
-        const baseA = (sA.fouls.for.average + sH.fouls.against.average) / 2;
-        const predFoulsH = (baseH * 0.6) + ((refVal/2) * 0.4);
-        const predFoulsA = (baseA * 0.6) + ((refVal/2) * 0.4);
+        // LOGICA CALCOLO FALLI (PESO ARBITRO 40%)
+        const fCommH = sH.fouls?.for?.average || 12.5;
+        const fSubH = sH.fouls?.against?.average || 12.0;
+        const fCommA = sA.fouls?.for?.average || 13.0;
+        const fSubA = sA.fouls?.against?.average || 11.5;
+
+        const predFoulsH = ((fCommH + fSubA) / 2 * 0.6) + ((refVal / 2) * 0.4);
+        const predFoulsA = ((fCommA + fSubH) / 2 * 0.6) + ((refVal / 2) * 0.4);
         const totalFouls = predFoulsH + predFoulsA;
 
         resDiv.innerHTML = `
             <div class="res-box border-l-red-500">
                 <p class="label-spread">Falli Totali</p>
-                <h2 class="text-6xl font-black teko">${totalFouls.toFixed(2)} ${getAdviceHtml(totalFouls, document.getElementById('sprFoulsMatch').value)}</h2>
+                <h2 class="text-6xl font-black teko">${totalFouls.toFixed(2)} ${getAdvice(totalFouls, document.getElementById('sprFoulsMatch').value)}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-red-400">${predFoulsH.toFixed(2)} ${getAdviceHtml(predFoulsH, document.getElementById('sprFoulsH').value)}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-red-400">${getAdviceHtml(predFoulsA, document.getElementById('sprFoulsA').value)} ${predFoulsA.toFixed(2)}</p></div>
+                    <div><p class="label-spread">Casa Commessi</p><p class="text-xl font-bold teko text-red-400">${predFoulsH.toFixed(2)} ${getAdvice(predFoulsH, document.getElementById('sprFoulsH').value)}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl font-bold teko text-red-400">${getAdvice(predFoulsA, document.getElementById('sprFoulsA').value)} ${predFoulsA.toFixed(2)}</p></div>
                 </div>
             </div>
-
             <div class="res-box border-l-blue-500">
                 <p class="label-spread">Tiri Totali</p>
-                <h2 class="text-6xl font-black teko">${(cH+cA).toFixed(2)} ${getAdviceHtml(cH+cA, document.getElementById('sprTotalMatch').value)}</h2>
+                <h2 class="text-6xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, document.getElementById('sprTotalMatch').value)}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdviceHtml(cH, document.getElementById('sprTotalH').value)}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-blue-400">${getAdviceHtml(cA, document.getElementById('sprTotalA').value)} ${cA.toFixed(2)}</p></div>
+                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdvice(cH, document.getElementById('sprTotalH').value)}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-blue-400">${getAdvice(cA, document.getElementById('sprTotalA').value)} ${cA.toFixed(2)}</p></div>
                 </div>
             </div>
-
             <div class="res-box border-l-purple-500">
-                <p class="label-spread">In Porta Totali</p>
-                <h2 class="text-6xl font-black teko">${(oH+oA).toFixed(2)} ${getAdviceHtml(oH+oA, document.getElementById('sprOTMatch').value)}</h2>
+                <p class="label-spread">Tiri In Porta</p>
+                <h2 class="text-6xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, document.getElementById('sprOTMatch').value)}</h2>
                 <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-purple-400">${oH.toFixed(2)} ${getAdviceHtml(oH, document.getElementById('sprOTH').value)}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-purple-400">${getAdviceHtml(oA, document.getElementById('sprOTA').value)} ${oA.toFixed(2)}</p></div>
+                    <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, document.getElementById('sprOTH').value)}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-purple-400">${getAdvice(oA, document.getElementById('sprOTA').value)} ${oA.toFixed(2)}</p></div>
                 </div>
             </div>
         `;
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        resDiv.innerHTML = `<div class="p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-xl">Errore nel calcolo. Verifica la connessione API.</div>`;
+    }
 }
 loadData();
 </script>
