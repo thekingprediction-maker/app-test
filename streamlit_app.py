@@ -31,7 +31,7 @@ html_code = """
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Full Analyst Mode: All Markets Online</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Elite Multi-League Analysis System</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -93,7 +93,12 @@ function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
-    document.getElementById('arbitroContainer').style.display = (id === 135) ? "block" : "none";
+    
+    // Mostra/Nascondi Arbitro e Input Falli
+    const isSerieA = (id === 135);
+    document.getElementById('arbitroContainer').style.display = isSerieA ? "block" : "none";
+    document.getElementById('foulsInputs').style.display = isSerieA ? "grid" : "none";
+    
     loadData();
 }
 
@@ -124,7 +129,7 @@ async function loadTeams() {
 
 function getAdvice(pred, elementId) {
     const el = document.getElementById(elementId);
-    if(!el) return "";
+    if(!el || el.offsetParent === null) return "";
     const s = parseFloat(el.value);
     const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
     return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
@@ -132,7 +137,7 @@ function getAdvice(pred, elementId) {
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI TOTALE IN CORSO...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -147,35 +152,31 @@ async function runDeepAnalysis() {
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // CALCOLI TIRI
         const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
         const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
         const oH = (sH.shots?.on_goal?.average || 4) * (xGH / bench);
         const oA = (sA.shots?.on_goal?.average || 3.5) * (xGA / bench);
-
-        // CALCOLI CORNER
         const pCH = ((sH.corners?.for?.average || 5) + (sA.corners?.against?.average || 4.5)) / 2;
         const pCA = ((sA.corners?.for?.average || 4.5) + (sH.corners?.against?.average || 4)) / 2;
-
-        // CALCOLI CARTELLINI
         const cardH = (sH.cards?.yellow?.average || 2.1);
         const cardA = (sA.cards?.yellow?.average || 2.3);
 
         let html = "";
 
-        // --- BOX FALLI (Dettaglio Casa/Ospite/Totale) ---
-        const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-        const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * (currentLeague === 135 ? 0.6 : 1) + (currentLeague === 135 ? refVal/2 * 0.4 : 0);
-        const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * (currentLeague === 135 ? 0.6 : 1) + (currentLeague === 135 ? refVal/2 * 0.4 : 0);
-        
-        html += `<div class="res-box border-l-red-500">
-            <p class="label-spread">Falli Commessi</p>
-            <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p></div>
-            </div>
-        </div>`;
+        // --- RISULTATO FALLI (SOLO SE SERIE A) ---
+        if(currentLeague === 135) {
+            const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
+            const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
+            const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
+            html += `<div class="res-box border-l-red-500">
+                <p class="label-spread">Falli Commessi (Serie A)</p>
+                <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
+                <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                    <div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p></div>
+                </div>
+            </div>`;
+        }
 
         // --- BOX TIRI TOTALI ---
         html += `<div class="res-box border-l-emerald-500">
@@ -225,4 +226,4 @@ loadData();
 </body>
 </html>
 """
-components.html(html_code, height=2000, scrolling=True)
+components.html(html_code, height=1800, scrolling=True)
