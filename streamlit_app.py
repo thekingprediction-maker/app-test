@@ -31,7 +31,7 @@ html_code = """
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">The Ultimate Professional Betting Engine</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Full Analyst Mode: All Markets Online</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -58,6 +58,12 @@ html_code = """
                 <div><label class="label-spread text-purple-400">Spread Porta Tot</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
                 <div><label class="label-spread text-purple-400">Spread Porta Casa</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
                 <div><label class="label-spread text-purple-400">Spread Porta Osp</label><input type="number" id="sprOTA" step="0.5" value="3.5"></div>
+            </div>
+
+            <div id="foulsInputs" class="grid-spreads">
+                <div><label class="label-spread text-red-400">Spread Falli Tot</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Osp</label><input type="number" id="sprFoulsA" step="0.5" value="11.5"></div>
             </div>
 
             <div class="grid-spreads">
@@ -107,7 +113,7 @@ function loadData() {
 }
 
 async function loadTeams() {
-    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2024`, { headers: { "x-apisports-key": API_KEY } });
     const data = await res.json();
     const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
     h.innerHTML = ""; a.innerHTML = "";
@@ -126,14 +132,14 @@ function getAdvice(pred, elementId) {
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ENGINE AI: ANALISI DATI COMPLETA...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI TOTALE IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
         const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
         const [statsH, statsA] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2024&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2024&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
         ]);
 
         const sH = statsH.response; const sA = statsA.response;
@@ -141,24 +147,39 @@ async function runDeepAnalysis() {
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // --- TIRI TOTALI ---
+        // CALCOLI TIRI
         const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
         const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
-        // --- TIRI IN PORTA ---
         const oH = (sH.shots?.on_goal?.average || 4) * (xGH / bench);
         const oA = (sA.shots?.on_goal?.average || 3.5) * (xGA / bench);
-        // --- CORNER ---
+
+        // CALCOLI CORNER
         const pCH = ((sH.corners?.for?.average || 5) + (sA.corners?.against?.average || 4.5)) / 2;
         const pCA = ((sA.corners?.for?.average || 4.5) + (sH.corners?.against?.average || 4)) / 2;
-        // --- CARTELLINI ---
+
+        // CALCOLI CARTELLINI
         const cardH = (sH.cards?.yellow?.average || 2.1);
         const cardA = (sA.cards?.yellow?.average || 2.3);
 
         let html = "";
 
-        // TIRI TOTALI BOX
+        // --- BOX FALLI (Dettaglio Casa/Ospite/Totale) ---
+        const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
+        const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * (currentLeague === 135 ? 0.6 : 1) + (currentLeague === 135 ? refVal/2 * 0.4 : 0);
+        const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * (currentLeague === 135 ? 0.6 : 1) + (currentLeague === 135 ? refVal/2 * 0.4 : 0);
+        
+        html += `<div class="res-box border-l-red-500">
+            <p class="label-spread">Falli Commessi</p>
+            <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p></div>
+            </div>
+        </div>`;
+
+        // --- BOX TIRI TOTALI ---
         html += `<div class="res-box border-l-emerald-500">
-            <p class="label-spread">Tiri Totali Match</p>
+            <p class="label-spread">Tiri Totali</p>
             <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
             <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p></div>
@@ -166,7 +187,7 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // TIRI IN PORTA BOX
+        // --- BOX TIRI IN PORTA ---
         html += `<div class="res-box border-l-purple-500">
             <p class="label-spread">Tiri In Porta</p>
             <h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2>
@@ -176,7 +197,7 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // CORNER BOX
+        // --- BOX CORNER ---
         html += `<div class="res-box border-l-cyan-500">
             <p class="label-spread">Calci d'Angolo</p>
             <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
@@ -186,9 +207,9 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // CARTELLINI BOX
+        // --- BOX CARTELLINI ---
         html += `<div class="res-box border-l-yellow-500">
-            <p class="label-spread">Cartellini Gialli</p>
+            <p class="label-spread">Gialli Previsti</p>
             <h2 class="text-5xl font-black teko">${(cardH+cardA).toFixed(2)} ${getAdvice(cardH+cardA, 'sprCardsMatch')}</h2>
             <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p></div>
@@ -197,11 +218,11 @@ async function runDeepAnalysis() {
         </div>`;
 
         resDiv.innerHTML = html;
-    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl font-bold uppercase'>Errore Caricamento Dati API</div>"; }
+    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore Caricamento Dati</div>"; }
 }
 loadData();
 </script>
 </body>
 </html>
 """
-components.html(html_code, height=1800, scrolling=True)
+components.html(html_code, height=2000, scrolling=True)
