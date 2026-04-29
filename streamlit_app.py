@@ -3,7 +3,6 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="PROBET AI V4 - TOTAL ANALYST", layout="wide")
 
-# API Key (in produzione usare secrets)
 API_KEY = "75e4107623c05bb4bca2ac8b78b28dca"
 BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/"
 REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv"
@@ -109,7 +108,8 @@ html_code = """
 const API_KEY = "75e4107623c05bb4bca2ac8b78b28dca";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
-let currentLeague = 135, dbXG = [], teamsData = {};
+let currentLeague = 135, dbXG = [];
+const SEASON = 2024; // Stagione 2024/25 in corso
 
 // ===================== UTILITY =====================
 function showLoading(show) {
@@ -123,7 +123,6 @@ function setError(msg) {
     resDiv.scrollIntoView({behavior:'smooth'});
 }
 
-// Funzione fetch con retry
 async function fetchWithRetry(url, options, retries = 2) {
     for (let i = 0; i <= retries; i++) {
         try {
@@ -131,7 +130,7 @@ async function fetchWithRetry(url, options, retries = 2) {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (data.errors && Object.keys(data.errors).length > 0) {
-                throw new Error(Object.values(data.errors)[0]);
+                throw new Error(JSON.stringify(data.errors));
             }
             return data;
         } catch (e) {
@@ -181,7 +180,6 @@ function loadData() {
         140: "DATABASE_AVANZATO_LALIGA_2025.csv" 
     };
     
-    // Carica xG database
     Papa.parse(BASE_CSV_URL + files[currentLeague], { 
         download: true, 
         header: true, 
@@ -197,7 +195,6 @@ function loadData() {
         }
     });
     
-    // Carica arbitri Serie A
     if(currentLeague === 135) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
             download: true, 
@@ -222,13 +219,12 @@ function loadData() {
     }
 }
 
-// ===================== CARICAMENTO SQUADRE =====================
+// ===================== CARICAMENTO SQUADRE (come il primo codice) =====================
 async function loadTeams() {
     try {
-        const data = await fetchWithRetry(
-            `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, 
-            { headers: { "x-apisports-key": API_KEY } }
-        );
+        // Usa teams?league=ID&season=2024 come il primo codice - filtra per campionato!
+        const url = `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=${SEASON}`;
+        const data = await fetchWithRetry(url, { headers: { "x-apisports-key": API_KEY } });
         
         const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
         h.innerHTML = ""; a.innerHTML = "";
@@ -245,36 +241,94 @@ async function loadTeams() {
             a.add(new Option(t.team.name, t.team.id));
         });
         
-        // Precarica statistiche squadre
-        await preloadTeamStats(data.response);
         showLoading(false);
         
     } catch (e) {
         console.error("Errore caricamento squadre:", e);
-        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-        h.innerHTML = '<option>Errore caricamento</option>';
-        a.innerHTML = '<option>Errore caricamento</option>';
+        setError("Impossibile caricare le squadre: " + e.message);
         showLoading(false);
     }
 }
 
-// Precarica statistiche per tutte le squadre
-async function preloadTeamStats(teams) {
-    teamsData = {};
-    const promises = teams.slice(0, 10).map(async (t) => {
-        try {
-            const data = await fetchWithRetry(
-                `https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${t.team.id}`,
-                { headers: { "x-apisports-key": API_KEY } }
-            );
-            if (data.response) {
-                teamsData[t.team.id] = data.response;
-            }
-        } catch (e) {
-            console.warn(`Stats non disponibili per ${t.team.name}`);
+// ===================== STATISTICHE REALI DA FIXTURES =====================
+async function getTeamStatsFromFixtures(teamId) {
+    try {
+        // Ottieni SOLO le partite di QUESTO campionato e QUESTO team
+        const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${teamId}`;
+        const fixturesData = await fetchWithRetry(fixturesUrl, { headers: { "x-apisports-key": API_KEY } });
+        
+        if (!fixturesData.response || fixturesData.response.length === 0) {
+            return null;
         }
-    });
-    await Promise.all(promises);
+        
+        // Filtra solo partite terminate
+        const fixtures = fixturesData.response
+            .filter(f => f.fixture.status.short === 'FT')
+            .slice(0, 10);
+        
+        if (fixtures.length === 0) return null;
+        
+        // Per ogni partita, ottieni le statistiche
+        const statsPromises = fixtures.map(async (fixture) => {
+            const fixtureId = fixture.fixture.id;
+            const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}&team=${teamId}`;
+            try {
+                const statsData = await fetchWithRetry(statsUrl, { headers: { "x-apisports-key": API_KEY } });
+                return statsData.response?.[0]?.statistics || [];
+            } catch (e) {
+                return [];
+            }
+        });
+        
+        const allStats = await Promise.all(statsPromises);
+        
+        // Aggrega le statistiche
+        const aggregated = {
+            shotsTotal: 0, shotsOn: 0, shotsOff: 0, shotsBlocked: 0,
+            shotsInside: 0, shotsOutside: 0,
+            fouls: 0, corners: 0, yellowCards: 0, redCards: 0,
+            count: 0
+        };
+        
+        allStats.forEach(matchStats => {
+            if (!matchStats || matchStats.length === 0) return;
+            aggregated.count++;
+            matchStats.forEach(stat => {
+                const val = parseFloat(stat.value) || 0;
+                switch(stat.type) {
+                    case 'Shots on Goal': aggregated.shotsOn += val; break;
+                    case 'Shots off Goal': aggregated.shotsOff += val; break;
+                    case 'Total Shots': aggregated.shotsTotal += val; break;
+                    case 'Blocked Shots': aggregated.shotsBlocked += val; break;
+                    case 'Shots insidebox': aggregated.shotsInside += val; break;
+                    case 'Shots outsidebox': aggregated.shotsOutside += val; break;
+                    case 'Fouls': aggregated.fouls += val; break;
+                    case 'Corner Kicks': aggregated.corners += val; break;
+                    case 'Yellow Cards': aggregated.yellowCards += val; break;
+                    case 'Red Cards': aggregated.redCards += val; break;
+                }
+            });
+        });
+        
+        if (aggregated.count === 0) return null;
+        
+        return {
+            shotsTotal: aggregated.shotsTotal / aggregated.count,
+            shotsOn: aggregated.shotsOn / aggregated.count,
+            shotsOff: aggregated.shotsOff / aggregated.count,
+            shotsBlocked: aggregated.shotsBlocked / aggregated.count,
+            shotsInside: aggregated.shotsInside / aggregated.count,
+            shotsOutside: aggregated.shotsOutside / aggregated.count,
+            fouls: aggregated.fouls / aggregated.count,
+            corners: aggregated.corners / aggregated.count,
+            yellowCards: aggregated.yellowCards / aggregated.count,
+            redCards: aggregated.redCards / aggregated.count,
+            matches: aggregated.count
+        };
+    } catch (e) {
+        console.error("Errore stats fixtures:", e);
+        return null;
+    }
 }
 
 // ===================== CALCOLO CONSIGLIO =====================
@@ -283,14 +337,8 @@ function getAdvice(pred, elementId) {
     if(!el || el.offsetParent === null) return "";
     const s = parseFloat(el.value);
     if (isNaN(s)) return "";
-    // Formula migliorata: più aggressiva vicino allo spread
     const diff = pred - s;
-    let p;
-    if (diff >= 0) {
-        p = Math.min(50 + diff * 8, 98);
-    } else {
-        p = Math.min(50 + Math.abs(diff) * 8, 98);
-    }
+    let p = Math.min(50 + Math.abs(diff) * 8, 98);
     const isOver = pred >= s;
     return `<span class="advice-tag ${isOver ? 'over-tag' : 'under-tag'}">${isOver ? 'OVER' : 'UNDER'} ${s} (${p.toFixed(1)}%)</span>`;
 }
@@ -300,22 +348,21 @@ async function getCardStats(leagueId) {
     try {
         const [yellowData, redData] = await Promise.all([
             fetchWithRetry(
-                `https://v3.football.api-sports.io/players/topyellowcards?league=${leagueId}&season=2025`,
+                `https://v3.football.api-sports.io/players/topyellowcards?league=${leagueId}&season=${SEASON}`,
                 { headers: { "x-apisports-key": API_KEY } }
             ),
             fetchWithRetry(
-                `https://v3.football.api-sports.io/players/topredcards?league=${leagueId}&season=2025`,
+                `https://v3.football.api-sports.io/players/topredcards?league=${leagueId}&season=${SEASON}`,
                 { headers: { "x-apisports-key": API_KEY } }
             )
         ]);
         
-        // Calcola media cartellini per squadra dai top players
         const yellowByTeam = {};
         const redByTeam = {};
         
         if (yellowData.response) {
             yellowData.response.forEach(p => {
-                const teamId = p.statistics[0]?.team?.id;
+                const teamId = p.statistics?.[0]?.team?.id;
                 if (teamId) {
                     yellowByTeam[teamId] = (yellowByTeam[teamId] || 0) + (p.statistics[0]?.cards?.yellow || 0);
                 }
@@ -324,7 +371,7 @@ async function getCardStats(leagueId) {
         
         if (redData.response) {
             redData.response.forEach(p => {
-                const teamId = p.statistics[0]?.team?.id;
+                const teamId = p.statistics?.[0]?.team?.id;
                 if (teamId) {
                     redByTeam[teamId] = (redByTeam[teamId] || 0) + (p.statistics[0]?.cards?.red || 0);
                 }
@@ -357,23 +404,14 @@ async function runDeepAnalysis() {
             return;
         }
 
-        // Fetch parallelo di tutte le statistiche
+        // Fetch parallelo
         const [statsH, statsA, cardStats] = await Promise.all([
-            fetchWithRetry(
-                `https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`,
-                { headers: { "x-apisports-key": API_KEY } }
-            ),
-            fetchWithRetry(
-                `https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`,
-                { headers: { "x-apisports-key": API_KEY } }
-            ),
+            getTeamStatsFromFixtures(idH),
+            getTeamStatsFromFixtures(idA),
             getCardStats(currentLeague)
         ]);
 
-        const sH = statsH.response;
-        const sA = statsA.response;
-        
-        if (!sH || !sA) {
+        if (!statsH || !statsA) {
             setError("Statistiche non disponibili per una o entrambe le squadre");
             return;
         }
@@ -384,46 +422,34 @@ async function runDeepAnalysis() {
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
         // ========== TIRI ==========
-        // shots.total.average = tiri totali medi a partita
-        const shotsTotalH = sH.shots?.total?.average || 12;
-        const shotsTotalA = sA.shots?.total?.average || 10;
-        const shotsOnH = sH.shots?.on_goal?.average || 4;
-        const shotsOnA = sA.shots?.on_goal?.average || 3.5;
+        const shotsTotalH = statsH.shotsTotal || 12;
+        const shotsTotalA = statsA.shotsTotal || 10;
+        const shotsOnH = statsH.shotsOn || 4;
+        const shotsOnA = statsA.shotsOn || 3.5;
         
-        // Calcolo pesato con xG
         const cH = shotsTotalH * (xGH / bench);
         const cA = shotsTotalA * (xGA / bench);
         const oH = shotsOnH * (xGH / bench);
         const oA = shotsOnA * (xGA / bench);
 
         // ========== CORNER ==========
-        // corners.for.average = corner a favore medi
-        // corners.against.average = corner subiti medi
-        const cornForH = sH.corners?.for?.average || 5;
-        const cornAgainstH = sH.corners?.against?.average || 4.5;
-        const cornForA = sA.corners?.for?.average || 4.5;
-        const cornAgainstA = sA.corners?.against?.average || 4;
+        const cornForH = statsH.corners || 5;
+        const cornForA = statsA.corners || 4.5;
+        const cornAgainstH = statsA.corners || 4;
+        const cornAgainstA = statsH.corners || 4.5;
         
-        // Media ponderata: (corner fatti casa + corner subiti ospite) / 2
         const pCH = (cornForH + cornAgainstA) / 2;
         const pCA = (cornForA + cornAgainstH) / 2;
 
         // ========== CARTELLINI ==========
-        // Usa stats dalla API teams/statistics se disponibili, altrimenti dai top players
-        let cardH = sH.cards?.yellow?.average || 2.1;
-        let cardA = sA.cards?.yellow?.average || 2.3;
+        let cardH = statsH.yellowCards || 2.1;
+        let cardA = statsA.yellowCards || 2.3;
         
-        // Fallback dai top players se le stats squadra non sono complete
         if (cardStats.yellowByTeam[idH]) {
-            const teamYellows = cardStats.yellowByTeam[idH];
-            // Normalizza: top players / numero stimato di partite giocate
-            const matchesPlayed = sH.fixtures?.played?.total || 20;
-            cardH = Math.max(cardH, teamYellows / matchesPlayed);
+            cardH = Math.max(cardH, cardStats.yellowByTeam[idH] / (statsH.matches || 10));
         }
         if (cardStats.yellowByTeam[idA]) {
-            const teamYellows = cardStats.yellowByTeam[idA];
-            const matchesPlayed = sA.fixtures?.played?.total || 20;
-            cardA = Math.max(cardA, teamYellows / matchesPlayed);
+            cardA = Math.max(cardA, cardStats.yellowByTeam[idA] / (statsA.matches || 10));
         }
 
         let html = "";
@@ -431,16 +457,11 @@ async function runDeepAnalysis() {
         // ========== FALLI (SOLO SERIE A) ==========
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            // fouls.for.average = falli commessi medi
-            // fouls.against.average = falli subiti medi (favore)
-            const foulsForH = sH.fouls?.for?.average || 12.5;
-            const foulsAgainstH = sH.fouls?.against?.average || 11.5;
-            const foulsForA = sA.fouls?.for?.average || 13;
-            const foulsAgainstA = sA.fouls?.against?.average || 12;
+            const foulsForH = statsH.fouls || 12.5;
+            const foulsForA = statsA.fouls || 13;
             
-            // Formula: media tra falli commessi e subiti con peso arbitro
-            const fH = ((foulsForH + foulsAgainstA) / 2) * 0.6 + (refVal/2 * 0.4);
-            const fA = ((foulsForA + foulsAgainstH) / 2) * 0.6 + (refVal/2 * 0.4);
+            const fH = foulsForH * 0.6 + (refVal/2 * 0.4);
+            const fA = foulsForA * 0.6 + (refVal/2 * 0.4);
             
             html += `
             <div class="res-box border-l-red-500">
@@ -450,12 +471,12 @@ async function runDeepAnalysis() {
                     <div>
                         <p class="label-spread">Casa</p>
                         <p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p>
-                        <p class="stat-detail">Commessi: ${foulsForH.toFixed(1)} | Subiti: ${foulsAgainstH.toFixed(1)}</p>
+                        <p class="stat-detail">Media: ${foulsForH.toFixed(1)} | Partite: ${statsH.matches}</p>
                     </div>
                     <div class="text-right">
                         <p class="label-spread">Ospite</p>
                         <p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p>
-                        <p class="stat-detail">Commessi: ${foulsForA.toFixed(1)} | Subiti: ${foulsAgainstA.toFixed(1)}</p>
+                        <p class="stat-detail">Media: ${foulsForA.toFixed(1)} | Partite: ${statsA.matches}</p>
                     </div>
                 </div>
             </div>`;
@@ -470,12 +491,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p>
-                    <p class="stat-detail">Media: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)}</p>
+                    <p class="stat-detail">Media: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)} | Partite: ${statsH.matches}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p>
-                    <p class="stat-detail">Media: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)}</p>
+                    <p class="stat-detail">Media: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)} | Partite: ${statsA.matches}</p>
                 </div>
             </div>
         </div>`;
@@ -489,12 +510,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p>
-                    <p class="stat-detail">Media: ${shotsOnH.toFixed(1)}</p>
+                    <p class="stat-detail">Media: ${shotsOnH.toFixed(1)} | Dentro area: ${statsH.shotsInside.toFixed(1)}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p>
-                    <p class="stat-detail">Media: ${shotsOnA.toFixed(1)}</p>
+                    <p class="stat-detail">Media: ${shotsOnA.toFixed(1)} | Dentro area: ${statsA.shotsInside.toFixed(1)}</p>
                 </div>
             </div>
         </div>`;
@@ -527,25 +548,25 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p>
-                    <p class="stat-detail">Media stagionale: ${(sH.cards?.yellow?.average || 2.1).toFixed(1)}</p>
+                    <p class="stat-detail">Media: ${(statsH.yellowCards || 0).toFixed(1)} | Rossi: ${(statsH.redCards || 0).toFixed(1)}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${getAdvice(cardA, 'sprCardsA')}</p>
-                    <p class="stat-detail">Media stagionale: ${(sA.cards?.yellow?.average || 2.3).toFixed(1)}</p>
+                    <p class="stat-detail">Media: ${(statsA.yellowCards || 0).toFixed(1)} | Rossi: ${(statsA.redCards || 0).toFixed(1)}</p>
                 </div>
             </div>
         </div>`;
 
-        // Info aggiuntive
+        // Info
         const homeName = document.getElementById('homeTeam').options[document.getElementById('homeTeam').selectedIndex].text;
         const awayName = document.getElementById('awayTeam').options[document.getElementById('awayTeam').selectedIndex].text;
         
         html += `
-        <div class="res-box border-l-blue-500" style="border-left-color: #3b82f6;">
+        <div class="res-box" style="border-left-color: #3b82f6;">
             <p class="label-spread text-blue-400">Info Partita</p>
-            <p class="text-sm text-slate-400">${homeName} vs ${awayName} | Stagione 2025 | League ID: ${currentLeague}</p>
-            <p class="text-xs text-slate-500 mt-1">Dati aggiornati da API-Sports.io</p>
+            <p class="text-sm text-slate-400">${homeName} vs ${awayName} | Stagione ${SEASON}/${SEASON+1} | League ID: ${currentLeague}</p>
+            <p class="text-xs text-slate-500 mt-1">Dati reali dalle ultime ${statsH.matches} partite giocate</p>
         </div>`;
 
         resDiv.innerHTML = html;
@@ -557,7 +578,7 @@ async function runDeepAnalysis() {
     }
 }
 
-// Avvia caricamento iniziale
+// Avvia
 loadData();
 </script>
 </body>
