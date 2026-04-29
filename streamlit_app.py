@@ -80,15 +80,14 @@ function switchLeague(id) {
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
     
-    // Mostra/Nascondi input falli in base alla lega
     const fInput = document.getElementById('foulsInputs');
     const aSelect = document.getElementById('arbitroSelect');
+    
     if(id === 135) {
         fInput.style.display = "grid";
         aSelect.disabled = false;
     } else {
         fInput.style.display = "none";
-        aSelect.innerHTML = '<option value="0">N/A</option>';
         aSelect.disabled = true;
     }
     loadData();
@@ -122,13 +121,14 @@ async function loadTeams() {
 
 function getAdvice(pred, spr) {
     const s = parseFloat(spr);
+    if (isNaN(s)) return "";
     const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
     return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
 }
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>CALCOLANDO DATI ELITE...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>CALCOLO IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -147,7 +147,6 @@ async function runDeepAnalysis() {
         const xGA = parseFloat(rowA.xG_Per_Shot.toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // CALCOLO TIRI
         const cH = (sH.shots.total.average || 12) * (xGH / bench) * 1.05;
         const cA = (sA.shots.total.average || 10) * (xGA / bench);
         const oH = (sH.shots.on_goal.average || 4) * (xGH / bench) * 1.05;
@@ -155,7 +154,7 @@ async function runDeepAnalysis() {
 
         let outputHtml = "";
 
-        // SOLO SE SERIE A: AGGIUNGI FALLI
+        // CALCOLO FALLI SOLO SE SERIE A
         if(currentLeague === 135) {
             const fCommH = sH.fouls?.for?.average || 12.5;
             const fSubA = sA.fouls?.against?.average || 11.5;
@@ -175,7 +174,7 @@ async function runDeepAnalysis() {
                 </div>`;
         }
 
-        // TIRI E PORTA (Sempre presenti)
+        // TIRI (Sempre fuori)
         outputHtml += `
             <div class="res-box border-l-blue-500">
                 <p class="label-spread text-blue-400">Previsione Tiri Totali</p>
@@ -195,7 +194,10 @@ async function runDeepAnalysis() {
             </div>`;
         
         resDiv.innerHTML = outputHtml;
-    } catch(e) { console.error(e); resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore dati.</div>"; }
+    } catch(e) { 
+        console.error(e); 
+        resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore nel calcolo. Controlla i dati API.</div>"; 
+    }
 }
 loadData();
 </script>
