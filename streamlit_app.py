@@ -31,7 +31,7 @@ html_code = """
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase">Full Market Analysis: Tiri, Falli, Corner & Cartellini</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">The Ultimate Professional Betting Engine</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -50,26 +50,20 @@ html_code = """
 
             <div class="grid-spreads">
                 <div><label class="label-spread text-emerald-400">Spread Tiri Tot</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
-                <div><label class="label-spread text-emerald-400">Spread Tiri Casa</label><input type="number" id="sprTotalH" step="0.5" value="12.5"></div>
-                <div><label class="label-spread text-emerald-400">Spread Tiri Osp</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
+                <div><label class="label-spread text-purple-400">Spread Porta Tot</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
+                <div><label class="label-spread text-purple-400">Spread Porta Casa</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
             </div>
 
             <div id="foulsInputs" class="grid-spreads">
                 <div><label class="label-spread text-red-400">Spread Falli Tot</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
                 <div><label class="label-spread text-red-400">Spread Falli Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
-                <div><label class="label-spread text-red-400">Spread Falli Osp</label><input type="number" id="sprFoulsA" step="0.5" value="11.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Osp</label><input type="number" id="sprFoulsA" step="0.5" value="12.5"></div>
             </div>
 
             <div class="grid-spreads">
                 <div><label class="label-spread text-cyan-400">Spread Corner Tot</label><input type="number" id="sprCornMatch" step="0.5" value="9.5"></div>
                 <div><label class="label-spread text-cyan-400">Spread Corner Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
                 <div><label class="label-spread text-cyan-400">Spread Corner Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
-            </div>
-
-            <div class="grid-spreads">
-                <div><label class="label-spread text-yellow-400">Spread Cartellini Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
-                <div><label class="label-spread text-yellow-400">Spread Cartellini Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
-                <div><label class="label-spread text-yellow-400">Spread Cartellini Osp</label><input type="number" id="sprCardsA" step="0.5" value="2.5"></div>
             </div>
 
             <button onclick="runDeepAnalysis()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE</button>
@@ -119,7 +113,7 @@ async function loadTeams() {
 
 function getAdvice(pred, elementId) {
     const el = document.getElementById(elementId);
-    if(!el) return "";
+    if(!el || el.offsetParent === null) return "";
     const s = parseFloat(el.value);
     const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
     return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
@@ -127,7 +121,7 @@ function getAdvice(pred, elementId) {
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI MULTI-MARKET IN CORSO...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ELABORAZIONE DATI ELITE...</div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -139,40 +133,58 @@ async function runDeepAnalysis() {
 
         const sH = statsH.response; const sA = statsA.response;
         
-        // --- CALCOLO TIRI ---
+        // --- CALCOLO TIRI & PORTA ---
         const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
+        
         const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
         const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
+        const oH = (sH.shots?.on_goal?.average || 4) * (xGH / bench);
+        const oA = (sA.shots?.on_goal?.average || 3.5) * (xGA / bench);
 
         // --- CALCOLO CORNER ---
-        const cornH = (sH.corners?.for?.average || 5.0);
-        const cornAgainstA = (sA.corners?.against?.average || 4.5);
-        const cornA = (sA.corners?.for?.average || 4.5);
-        const cornAgainstH = (sH.corners?.against?.average || 4.0);
-        const pCH = (cornH + cornAgainstA) / 2;
-        const pCA = (cornA + cornAgainstH) / 2;
-
-        // --- CALCOLO CARTELLINI ---
-        const cardsH = (sH.cards?.yellow?.average || 2.2);
-        const cardsA = (sA.cards?.yellow?.average || 2.4);
-        const pCardH = cardsH * 1.1; // Fattore aggressività base
-        const pCardA = cardsA * 1.1;
+        const pCH = ((sH.corners?.for?.average || 5) + (sA.corners?.against?.average || 4.5)) / 2;
+        const pCA = ((sA.corners?.for?.average || 4.5) + (sH.corners?.against?.average || 4)) / 2;
 
         let html = "";
 
-        // BOX FALLI (Solo Serie A)
+        // --- BOX FALLI (Dettagliato) ---
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const pFH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
-            const pFA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
-            html += `<div class="res-box border-l-red-500"><p class="label-spread">Falli Previsti</p><h2 class="text-5xl font-black teko">${(pFH+pFA).toFixed(2)} ${getAdvice(pFH+pFA, 'sprFoulsMatch')}</h2></div>`;
+            const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
+            const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
+            html += `<div class="res-box border-l-red-500">
+                <p class="label-spread">Falli Previsti</p>
+                <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
+                <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                    <div><p class="label-spread">Casa Commessi</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl teko text-red-400">${getAdvice(fA, 'sprFoulsA')} ${fA.toFixed(2)}</p></div>
+                </div>
+            </div>`;
         }
 
-        // BOX CORNER
+        // --- BOX TIRI & PORTA (Dettagliato) ---
+        html += `<div class="res-box border-l-purple-500">
+            <p class="label-spread">Tiri In Porta</p>
+            <h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-purple-400">${oA.toFixed(2)}</p></div>
+            </div>
+        </div>
+        <div class="res-box border-l-blue-500">
+            <p class="label-spread">Tiri Totali Match</p>
+            <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-blue-400">${cH.toFixed(2)}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-blue-400">${cA.toFixed(2)}</p></div>
+            </div>
+        </div>`;
+
+        // --- BOX CORNER ---
         html += `<div class="res-box border-l-cyan-500">
-            <p class="label-spread">Corner Previsti</p>
+            <p class="label-spread">Calci d'Angolo</p>
             <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
             <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p></div>
@@ -180,24 +192,8 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
 
-        // BOX CARTELLINI
-        html += `<div class="res-box border-l-yellow-500">
-            <p class="label-spread">Cartellini Gialli Previsti</p>
-            <h2 class="text-5xl font-black teko">${(pCardH+pCardA).toFixed(2)} ${getAdvice(pCardH+pCardA, 'sprCardsMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${pCardH.toFixed(2)} ${getAdvice(pCardH, 'sprCardsH')}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${getAdvice(pCardA, 'sprCardsA')} ${pCardA.toFixed(2)}</p></div>
-            </div>
-        </div>`;
-
-        // BOX TIRI
-        html += `<div class="res-box border-l-blue-500">
-            <p class="label-spread">Tiri Totali Previsti</p>
-            <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
-        </div>`;
-
         resDiv.innerHTML = html;
-    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore API: Dati non disponibili per questa selezione.</div>"; }
+    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl font-bold uppercase'>Errore Caricamento Statistiche</div>"; }
 }
 loadData();
 </script>
