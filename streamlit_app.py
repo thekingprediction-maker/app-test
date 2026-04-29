@@ -111,7 +111,6 @@ const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 135, dbXG = [];
 const SEASON = 2024;
 
-// ===================== UTILITY =====================
 function showLoading(show) {
     document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
 }
@@ -140,7 +139,6 @@ async function fetchWithRetry(url, options, retries = 2) {
     }
 }
 
-// ===================== PUBBLICITÀ =====================
 function triggerAdAndCalculate() {
     const form = document.getElementById('adForm');
     if(form) form.submit();
@@ -159,7 +157,6 @@ function triggerAdAndCalculate() {
     }, 400);
 }
 
-// ===================== CAMBIO CAMPIONATO =====================
 function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
@@ -170,7 +167,6 @@ function switchLeague(id) {
     loadData();
 }
 
-// ===================== CARICAMENTO DATI =====================
 function loadData() {
     showLoading(true);
     const files = { 
@@ -219,23 +215,18 @@ function loadData() {
     }
 }
 
-// ===================== CARICAMENTO SQUADRE DAL DATABASE CSV (CORRETTE) =====================
 async function loadTeams() {
     try {
-        // Usa SOLO il database CSV per le squadre - contiene quelle giuste!
-        // Esempio Serie A: Inter, Juventus, Atalanta, AC Milan, Como, Fiorentina, Napoli, AS Roma, Torino, Genoa, Bologna, Lazio, Sassuolo, Udinese, Pisa, Verona, Cagliari, Parma, Cremonese, Lecce
+        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
         const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
         h.innerHTML = ""; a.innerHTML = "";
         
-        if (!dbXG || dbXG.length === 0) {
+        if (!teams || teams.length === 0) {
             h.add(new Option("Database non caricato", ""));
             a.add(new Option("Database non caricato", ""));
             showLoading(false);
             return;
         }
-        
-        // Ordina per nome squadra
-        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
         
         teams.forEach(t => {
             h.add(new Option(t.TeamName, t.TeamID)); 
@@ -251,10 +242,8 @@ async function loadTeams() {
     }
 }
 
-// ===================== STATISTICHE REALI DA FIXTURES DELLA LEGA CORRETTA =====================
 async function getTeamStatsFromFixtures(teamId) {
     try {
-        // Filtra per league + season + team
         const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${teamId}`;
         const fixturesData = await fetchWithRetry(fixturesUrl, { headers: { "x-apisports-key": API_KEY } });
         
@@ -262,14 +251,12 @@ async function getTeamStatsFromFixtures(teamId) {
             return null;
         }
         
-        // Filtra solo partite terminate
         const fixtures = fixturesData.response
             .filter(f => f.fixture.status.short === 'FT')
             .slice(0, 10);
         
         if (fixtures.length === 0) return null;
         
-        // Per ogni partita, ottieni le statistiche
         const statsPromises = fixtures.map(async (fixture) => {
             const fixtureId = fixture.fixture.id;
             const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}&team=${teamId}`;
@@ -283,7 +270,6 @@ async function getTeamStatsFromFixtures(teamId) {
         
         const allStats = await Promise.all(statsPromises);
         
-        // Aggrega
         const aggregated = {
             shotsTotal: 0, shotsOn: 0, shotsOff: 0, shotsBlocked: 0,
             shotsInside: 0, shotsOutside: 0,
@@ -332,7 +318,6 @@ async function getTeamStatsFromFixtures(teamId) {
     }
 }
 
-// ===================== CALCOLO CONSIGLIO =====================
 function getAdvice(pred, elementId) {
     const el = document.getElementById(elementId);
     if(!el || el.offsetParent === null) return "";
@@ -344,7 +329,6 @@ function getAdvice(pred, elementId) {
     return `<span class="advice-tag ${isOver ? 'over-tag' : 'under-tag'}">${isOver ? 'OVER' : 'UNDER'} ${s} (${p.toFixed(1)}%)</span>`;
 }
 
-// ===================== ANALISI CARTELLINI =====================
 async function getCardStats(leagueId) {
     try {
         const [yellowData, redData] = await Promise.all([
@@ -386,7 +370,6 @@ async function getCardStats(leagueId) {
     }
 }
 
-// ===================== ANALISI PRINCIPALE =====================
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
     resDiv.innerHTML = `<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>`;
@@ -416,20 +399,40 @@ async function runDeepAnalysis() {
             return;
         }
 
+        // xG dal database CSV
         const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
-        const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
+        
+        // ===================== FORMULA CORRETTA xG =====================
+        // Il fattore xG deve essere NEUTRO quando xG = 0.11 (media)
+        // e modificare di poco quando diverso
+        // 
+        // Vecchia formula SBAGLIATA: shots * (xG / 0.11) → gonfia sempre
+        // Nuova formula CORRETTA: shots * (1 + (xG - 0.11) * fattore_peso)
+        // 
+        // Esempio: xG = 0.13 → 1 + (0.13 - 0.11) * 2 = 1.04 (+4%)
+        // Esempio: xG = 0.09 → 1 + (0.09 - 0.11) * 2 = 0.96 (-4%)
+        
+        const xgFactorH = 1 + (xGH - 0.11) * 2;  // Fattore di peso = 2
+        const xgFactorA = 1 + (xGA - 0.11) * 2;
+        
+        // Limita il fattore tra 0.85 e 1.15 (max ±15% di variazione)
+        const clampedFactorH = Math.max(0.85, Math.min(1.15, xgFactorH));
+        const clampedFactorA = Math.max(0.85, Math.min(1.15, xgFactorA));
 
+        // ========== TIRI ==========
         const shotsTotalH = statsH.shotsTotal || 12;
         const shotsTotalA = statsA.shotsTotal || 10;
         const shotsOnH = statsH.shotsOn || 4;
         const shotsOnA = statsA.shotsOn || 3.5;
         
-        const cH = shotsTotalH * (xGH / bench);
-        const cA = shotsTotalA * (xGA / bench);
-        const oH = shotsOnH * (xGH / bench);
-        const oA = shotsOnA * (xGA / bench);
+        // Applica fattore xG leggero
+        const cH = shotsTotalH * clampedFactorH;
+        const cA = shotsTotalA * clampedFactorA;
+        const oH = shotsOnH * clampedFactorH;
+        const oA = shotsOnA * clampedFactorA;
 
+        // ========== CORNER ==========
         const cornForH = statsH.corners || 5;
         const cornForA = statsA.corners || 4.5;
         const cornAgainstH = statsA.corners || 4;
@@ -438,6 +441,7 @@ async function runDeepAnalysis() {
         const pCH = (cornForH + cornAgainstA) / 2;
         const pCA = (cornForA + cornAgainstH) / 2;
 
+        // ========== CARTELLINI ==========
         let cardH = statsH.yellowCards || 2.1;
         let cardA = statsA.yellowCards || 2.3;
         
@@ -485,12 +489,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p>
-                    <p class="stat-detail">Media: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)} | Partite: ${statsH.matches}</p>
+                    <p class="stat-detail">Media API: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)} | Fattore: ${clampedFactorH.toFixed(2)} | Partite: ${statsH.matches}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p>
-                    <p class="stat-detail">Media: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)} | Partite: ${statsA.matches}</p>
+                    <p class="stat-detail">Media API: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)} | Fattore: ${clampedFactorA.toFixed(2)} | Partite: ${statsA.matches}</p>
                 </div>
             </div>
         </div>`;
@@ -503,12 +507,12 @@ async function runDeepAnalysis() {
                 <div>
                     <p class="label-spread">Casa</p>
                     <p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p>
-                    <p class="stat-detail">Media: ${shotsOnH.toFixed(1)} | Dentro area: ${statsH.shotsInside.toFixed(1)}</p>
+                    <p class="stat-detail">Media API: ${shotsOnH.toFixed(1)} | Dentro area: ${statsH.shotsInside.toFixed(1)}</p>
                 </div>
                 <div class="text-right">
                     <p class="label-spread">Ospite</p>
                     <p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p>
-                    <p class="stat-detail">Media: ${shotsOnA.toFixed(1)} | Dentro area: ${statsA.shotsInside.toFixed(1)}</p>
+                    <p class="stat-detail">Media API: ${shotsOnA.toFixed(1)} | Dentro area: ${statsA.shotsInside.toFixed(1)}</p>
                 </div>
             </div>
         </div>`;
