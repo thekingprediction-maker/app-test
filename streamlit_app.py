@@ -22,8 +22,8 @@ html_code = """
         .over-tag { background: #10b981; color: #020617; }
         .under-tag { background: #ef4444; color: white; }
         .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 12px; }
-        .league-active { background: #3b82f6; border-color: #3b82f6; color: white; }
+        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 12px; transition: 0.2s; }
+        .league-active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -43,7 +43,7 @@ html_code = """
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div><label class="label-spread text-blue-400">Home Team</label><select id="homeTeam"></select></div>
                 <div><label class="label-spread text-blue-400">Away Team</label><select id="awayTeam"></select></div>
-                <div><label class="label-spread text-yellow-500 italic">Arbitro (Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli...</option></select></div>
+                <div id="arbitroContainer"><label class="label-spread text-yellow-500 italic">Arbitro (Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli...</option></select></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
@@ -79,14 +79,19 @@ function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
-    document.getElementById('foulsInputs').style.display = (id === 135) ? "grid" : "none";
-    document.getElementById('arbitroSelect').disabled = (id !== 135);
+    
+    // Gestione visibilità menu arbitro e falli
+    const isSerieA = (id === 135);
+    document.getElementById('arbitroContainer').style.display = isSerieA ? "block" : "none";
+    document.getElementById('foulsInputs').style.display = isSerieA ? "grid" : "none";
+    
     loadData();
 }
 
 function loadData() {
     const files = { 135: "DATABASE_AVANZATO_SERIEA_2025.csv", 39: "DATABASE_AVANZATO_PREMIER_2025.csv", 78: "DATABASE_AVANZATO_BUNDES_2025.csv", 140: "DATABASE_AVANZATO_LALIGA_2025.csv" };
     Papa.parse(BASE_CSV_URL + files[currentLeague], { download: true, header: true, skipEmptyLines: true, complete: (r) => { dbXG = r.data; loadTeams(); } });
+    
     if(currentLeague === 135) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { download: true, header: true, skipEmptyLines: true, delimiter: ";", complete: (r) => {
             const sel = document.getElementById('arbitroSelect'); sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
@@ -132,11 +137,11 @@ async function runDeepAnalysis() {
 
         const sH = rH.response || {}, sA = rA.response || {};
         
-        // ESTRAZIONE SICURA TIRI (Fallback se l'API non risponde correttamente)
-        const avgShotsH = (sH.shots && sH.shots.total && sH.shots.total.average) ? sH.shots.total.average : 12.0;
-        const avgShotsA = (sA.shots && sA.shots.total && sA.shots.total.average) ? sA.shots.total.average : 10.5;
-        const avgOT_H = (sH.shots && sH.shots.on_goal && sH.shots.on_goal.average) ? sH.shots.on_goal.average : 4.0;
-        const avgOT_A = (sA.shots && sA.shots.on_goal && sA.shots.on_goal.average) ? sA.shots.on_goal.average : 3.5;
+        // ESTRAZIONE SICURA TIRI
+        const avgShotsH = (sH.shots?.total?.average) || 12.0;
+        const avgShotsA = (sA.shots?.total?.average) || 10.5;
+        const avgOT_H = (sH.shots?.on_goal?.average) || 4.0;
+        const avgOT_A = (sA.shots?.on_goal?.average) || 3.5;
 
         // XG DATABASE
         const rowH = dbXG.find(x => x.TeamID == idH) || { xG_Per_Shot: 0.11 };
@@ -145,7 +150,6 @@ async function runDeepAnalysis() {
         const xGA = parseFloat(rowA.xG_Per_Shot.toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
 
-        // CALCOLI FINALI
         const cH = avgShotsH * (xGH / bench) * 1.05;
         const cA = avgShotsA * (xGA / bench);
         const oH = avgOT_H * (xGH / bench) * 1.05;
@@ -154,10 +158,10 @@ async function runDeepAnalysis() {
         let html = "";
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const fCH = (sH.fouls && sH.fouls.for) ? sH.fouls.for.average : 12.5;
-            const fSA = (sA.fouls && sA.fouls.against) ? sA.fouls.against.average : 11.5;
-            const fCA = (sA.fouls && sA.fouls.for) ? sA.fouls.for.average : 13.0;
-            const fSH = (sH.fouls && sH.fouls.against) ? sH.fouls.against.average : 12.0;
+            const fCH = sH.fouls?.for?.average || 12.5;
+            const fSA = sA.fouls?.against?.average || 11.5;
+            const fCA = sA.fouls?.for?.average || 13.0;
+            const fSH = sH.fouls?.against?.average || 12.0;
             const pFH = ((fCH + fSA) / 2 * 0.6) + ((refVal / 2) * 0.4);
             const pFA = ((fCA + fSH) / 2 * 0.6) + ((refVal / 2) * 0.4);
 
@@ -188,7 +192,7 @@ async function runDeepAnalysis() {
             </div>
         </div>`;
         resDiv.innerHTML = html;
-    } catch(e) { console.error(e); resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore Connessione API</div>"; }
+    } catch(e) { console.error(e); resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>ERRORE DATI: Verifica la selezione delle squadre.</div>"; }
 }
 loadData();
 </script>
