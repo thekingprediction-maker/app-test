@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V4 - ULTRA PRECISION", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 - TOTAL ANALYST", layout="wide")
 
 html_code = """
 <!DOCTYPE html>
@@ -22,16 +22,16 @@ html_code = """
         .over-tag { background: #10b981; color: #020617; }
         .under-tag { background: #ef4444; color: white; }
         .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; transition: 0.2s; }
+        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; }
         .league-active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
-        .rolling-badge { background: #334155; color: #3b82f6; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-bottom: 5px; display: inline-block; }
+        .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 15px; border-top: 1px solid #334155; margin-bottom: 15px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase">Hybrid Intelligence: Season Stats + Rolling Form (Last 5)</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase">Full Market Analysis: Tiri, Falli, Corner & Cartellini</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -48,22 +48,28 @@ html_code = """
                 <div id="arbitroContainer"><label class="label-spread text-yellow-500 italic">Arbitro (Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli...</option></select></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div><label class="label-spread text-emerald-400">Spread Tiri Match</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
+            <div class="grid-spreads">
+                <div><label class="label-spread text-emerald-400">Spread Tiri Tot</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
                 <div><label class="label-spread text-emerald-400">Spread Tiri Casa</label><input type="number" id="sprTotalH" step="0.5" value="12.5"></div>
-                <div><label class="label-spread text-emerald-400">Spread Tiri Ospite</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
+                <div><label class="label-spread text-emerald-400">Spread Tiri Osp</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
             </div>
 
-            <div id="foulsInputs" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div><label class="label-spread text-red-400">Spread Falli Match</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
+            <div id="foulsInputs" class="grid-spreads">
+                <div><label class="label-spread text-red-400">Spread Falli Tot</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
                 <div><label class="label-spread text-red-400">Spread Falli Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
-                <div><label class="label-spread text-red-400">Spread Falli Ospite</label><input type="number" id="sprFoulsA" step="0.5" value="12.5"></div>
+                <div><label class="label-spread text-red-400">Spread Falli Osp</label><input type="number" id="sprFoulsA" step="0.5" value="11.5"></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pt-4 border-t border-slate-700">
-                <div><label class="label-spread text-purple-400">Spread Match In Porta</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
-                <div><label class="label-spread text-purple-400">Spread Casa In Porta</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
-                <div><label class="label-spread text-purple-400">Spread Ospite In Porta</label><input type="number" id="sprOTA" step="0.5" value="3.5"></div>
+            <div class="grid-spreads">
+                <div><label class="label-spread text-cyan-400">Spread Corner Tot</label><input type="number" id="sprCornMatch" step="0.5" value="9.5"></div>
+                <div><label class="label-spread text-cyan-400">Spread Corner Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
+                <div><label class="label-spread text-cyan-400">Spread Corner Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
+            </div>
+
+            <div class="grid-spreads">
+                <div><label class="label-spread text-yellow-400">Spread Cartellini Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
+                <div><label class="label-spread text-yellow-400">Spread Cartellini Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
+                <div><label class="label-spread text-yellow-400">Spread Cartellini Osp</label><input type="number" id="sprCardsA" step="0.5" value="2.5"></div>
             </div>
 
             <button onclick="runDeepAnalysis()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE</button>
@@ -102,7 +108,7 @@ function loadData() {
 }
 
 async function loadTeams() {
-    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2024`, { headers: { "x-apisports-key": API_KEY } });
     const data = await res.json();
     const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
     h.innerHTML = ""; a.innerHTML = "";
@@ -113,106 +119,89 @@ async function loadTeams() {
 
 function getAdvice(pred, elementId) {
     const el = document.getElementById(elementId);
-    if(!el || el.offsetParent === null) return "";
+    if(!el) return "";
     const s = parseFloat(el.value);
     const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
     return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
 }
 
-// NUOVA FUNZIONE: CALCOLA ROLLING FORM ULTIME 5
-async function getRollingStats(teamId) {
-    const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${currentLeague}&season=2025&last=5`, { headers: { "x-apisports-key": API_KEY } });
-    const data = await res.json();
-    let shots = [], onGoal = [], fouls = [];
-    
-    // NOTA: Per brevità usiamo medie di fallback se i dati fixture dettagliati sono limitati
-    // In produzione, l'API-Football richiede una chiamata separata per ogni fixture id per avere i tiri precisi.
-    // Qui simuliamo una correzione basata sui risultati per non saturare i limiti API.
-    return { hasRolling: data.response.length >= 3 };
-}
-
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>AI ENGINE: LOADING ROLLING FORM...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI MULTI-MARKET IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
         const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
         const [statsH, statsA] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2024&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2024&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
         ]);
 
         const sH = statsH.response; const sA = statsA.response;
         
-        // PARAMETRI BASE
-        let tH = sH.shots?.total?.average || 12;
-        let tA = sA.shots?.total?.average || 10;
-        let oH = sH.shots?.on_goal?.average || 4;
-        let oA = sA.shots?.on_goal?.average || 3.5;
-
-        // XG CORRECTION
-        const rowH = dbXG.find(x => x.TeamID == idH) || { xG_Per_Shot: 0.11 };
-        const rowA = dbXG.find(x => x.TeamID == idA) || { xG_Per_Shot: 0.11 };
-        const xGH = parseFloat(rowH.xG_Per_Shot.toString().replace(',', '.'));
-        const xGA = parseFloat(rowA.xG_Per_Shot.toString().replace(',', '.'));
+        // --- CALCOLO TIRI ---
+        const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
         const bench = (currentLeague === 39 || currentLeague === 78) ? 0.12 : 0.11;
+        const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
+        const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
 
-        // CALCOLO FINALE TIRI (Con peso forma simulato per stabilità)
-        const cH = tH * (xGH / bench) * 1.05;
-        const cA = tA * (xGA / bench);
-        const pOH = oH * (xGH / bench) * 1.05;
-        const pOA = oA * (xGA / bench);
+        // --- CALCOLO CORNER ---
+        const cornH = (sH.corners?.for?.average || 5.0);
+        const cornAgainstA = (sA.corners?.against?.average || 4.5);
+        const cornA = (sA.corners?.for?.average || 4.5);
+        const cornAgainstH = (sH.corners?.against?.average || 4.0);
+        const pCH = (cornH + cornAgainstA) / 2;
+        const pCA = (cornA + cornAgainstH) / 2;
+
+        // --- CALCOLO CARTELLINI ---
+        const cardsH = (sH.cards?.yellow?.average || 2.2);
+        const cardsA = (sA.cards?.yellow?.average || 2.4);
+        const pCardH = cardsH * 1.1; // Fattore aggressività base
+        const pCardA = cardsA * 1.1;
 
         let html = "";
-        // SEZIONE FALLI (SOLO SERIE A)
+
+        // BOX FALLI (Solo Serie A)
         if(currentLeague === 135) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const fCH = sH.fouls?.for?.average || 12.5;
-            const fSA = sA.fouls?.against?.average || 11.5;
-            const fCA = sA.fouls?.for?.average || 13.0;
-            const fSH = sH.fouls?.against?.average || 12.0;
-            
-            // Formula Elite: (Media Squadre * 0.6) + (Media Arbitro * 0.4)
-            const pFH = ((fCH + fSA) / 2 * 0.6) + ((refVal / 2) * 0.4);
-            const pFA = ((fCA + fSH) / 2 * 0.6) + ((refVal / 2) * 0.4);
-
-            html += `<div class="res-box border-l-red-500">
-                <span class="rolling-badge">SEASON + ARBITRO WEIGHT</span>
-                <p class="label-spread">Falli Previsti</p>
-                <h2 class="text-6xl font-black teko">${(pFH+pFA).toFixed(2)} ${getAdvice(pFH+pFA, 'sprFoulsMatch')}</h2>
-                <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                    <div><p class="label-spread">Casa Commessi</p><p class="text-xl font-bold teko text-red-400">${pFH.toFixed(2)} ${getAdvice(pFH, 'sprFoulsH')}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite Commessi</p><p class="text-xl font-bold teko text-red-400">${getAdvice(pFA, 'sprFoulsA')} ${pFA.toFixed(2)}</p></div>
-                </div>
-            </div>`;
+            const pFH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
+            const pFA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
+            html += `<div class="res-box border-l-red-500"><p class="label-spread">Falli Previsti</p><h2 class="text-5xl font-black teko">${(pFH+pFA).toFixed(2)} ${getAdvice(pFH+pFA, 'sprFoulsMatch')}</h2></div>`;
         }
 
-        html += `<div class="res-box border-l-blue-500">
-            <span class="rolling-badge">FORM WEIGHTED (xG CORRECTED)</span>
-            <p class="label-spread">Tiri Totali Previsti</p>
-            <h2 class="text-6xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
-            <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-blue-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-blue-400">${getAdvice(cA, 'sprTotalA')} ${cA.toFixed(2)}</p></div>
-            </div>
-        </div>
-        <div class="res-box border-l-purple-500">
-            <span class="rolling-badge">SHOTS ON TARGET PRECISION</span>
-            <p class="label-spread">In Porta Previsti</p>
-            <h2 class="text-6xl font-black teko">${(pOH+pOA).toFixed(2)} ${getAdvice(pOH+pOA, 'sprOTMatch')}</h2>
-            <div class="grid grid-cols-2 mt-4 pt-4 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl font-bold teko text-purple-400">${pOH.toFixed(2)} ${getAdvice(pOH, 'sprOTH')}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl font-bold teko text-purple-400">${getAdvice(pOA, 'sprOTA')} ${pOA.toFixed(2)}</p></div>
+        // BOX CORNER
+        html += `<div class="res-box border-l-cyan-500">
+            <p class="label-spread">Corner Previsti</p>
+            <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-cyan-400">${getAdvice(pCA, 'sprCornA')} ${pCA.toFixed(2)}</p></div>
             </div>
         </div>`;
-        
+
+        // BOX CARTELLINI
+        html += `<div class="res-box border-l-yellow-500">
+            <p class="label-spread">Cartellini Gialli Previsti</p>
+            <h2 class="text-5xl font-black teko">${(pCardH+pCardA).toFixed(2)} ${getAdvice(pCardH+pCardA, 'sprCardsMatch')}</h2>
+            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${pCardH.toFixed(2)} ${getAdvice(pCardH, 'sprCardsH')}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${getAdvice(pCardA, 'sprCardsA')} ${pCardA.toFixed(2)}</p></div>
+            </div>
+        </div>`;
+
+        // BOX TIRI
+        html += `<div class="res-box border-l-blue-500">
+            <p class="label-spread">Tiri Totali Previsti</p>
+            <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
+        </div>`;
+
         resDiv.innerHTML = html;
-    } catch(e) { console.error(e); resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl font-bold'>ERRORE: API BUSY O SQUADRA NON TROVATA.</div>"; }
+    } catch(e) { resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore API: Dati non disponibili per questa selezione.</div>"; }
 }
 loadData();
 </script>
 </body>
 </html>
 """
-components.html(html_code, height=1500, scrolling=True)
+components.html(html_code, height=1600, scrolling=True)
