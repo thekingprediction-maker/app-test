@@ -219,25 +219,27 @@ function loadData() {
     }
 }
 
-// ===================== CARICAMENTO SQUADRE (come il primo codice - FUNZIONANTE) =====================
+// ===================== CARICAMENTO SQUADRE DAL DATABASE CSV (CORRETTE) =====================
 async function loadTeams() {
     try {
-        const url = `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=${SEASON}`;
-        const data = await fetchWithRetry(url, { headers: { "x-apisports-key": API_KEY } });
-        
+        // Usa SOLO il database CSV per le squadre - contiene quelle giuste!
+        // Esempio Serie A: Inter, Juventus, Atalanta, AC Milan, Como, Fiorentina, Napoli, AS Roma, Torino, Genoa, Bologna, Lazio, Sassuolo, Udinese, Pisa, Verona, Cagliari, Parma, Cremonese, Lecce
         const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
         h.innerHTML = ""; a.innerHTML = "";
         
-        if (!data.response || data.response.length === 0) {
-            h.add(new Option("Nessuna squadra trovata", ""));
-            a.add(new Option("Nessuna squadra trovata", ""));
+        if (!dbXG || dbXG.length === 0) {
+            h.add(new Option("Database non caricato", ""));
+            a.add(new Option("Database non caricato", ""));
             showLoading(false);
             return;
         }
         
-        data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id)); 
-            a.add(new Option(t.team.name, t.team.id));
+        // Ordina per nome squadra
+        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
+        
+        teams.forEach(t => {
+            h.add(new Option(t.TeamName, t.TeamID)); 
+            a.add(new Option(t.TeamName, t.TeamID));
         });
         
         showLoading(false);
@@ -249,10 +251,10 @@ async function loadTeams() {
     }
 }
 
-// ===================== STATISTICHE SOLO DA FIXTURES DELLA LEGA CORRETTA =====================
+// ===================== STATISTICHE REALI DA FIXTURES DELLA LEGA CORRETTA =====================
 async function getTeamStatsFromFixtures(teamId) {
     try {
-        // CHIAVE: filtra per league + season + team per avere SOLO partite di questo campionato
+        // Filtra per league + season + team
         const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${teamId}`;
         const fixturesData = await fetchWithRetry(fixturesUrl, { headers: { "x-apisports-key": API_KEY } });
         
