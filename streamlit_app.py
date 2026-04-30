@@ -34,7 +34,6 @@ html_code = """
         .spinner { width: 50px; height: 50px; border: 4px solid #1e293b; border-top: 4px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .error-box { background: #7f1d1d; border: 1px solid #ef4444; border-radius: 12px; padding: 16px; color: #fca5a5; }
-        .debug-box { background: #1e293b; border: 1px solid #475569; border-radius: 8px; padding: 10px; margin-top: 10px; font-size: 11px; color: #94a3b8; font-family: monospace; white-space: pre-wrap; }
         .stat-detail { font-size: 11px; color: #64748b; margin-top: 4px; }
     </style>
 </head>
@@ -111,18 +110,15 @@ const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 135, dbXG = [];
 const SEASON = 2024;
+let apiTeamsMap = {}; // Mappa: nome squadra (lowercase) -> ID API corretto
 
 function showLoading(show) {
     document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
 }
 
-function setError(msg, debugInfo = "") {
+function setError(msg) {
     const resDiv = document.getElementById('results');
-    let html = `<div class="error-box"><strong>ERRORE:</strong> ${msg}</div>`;
-    if (debugInfo) {
-        html += `<div class="debug-box">${debugInfo}</div>`;
-    }
-    resDiv.innerHTML = html;
+    resDiv.innerHTML = `<div class="error-box"><strong>ERRORE:</strong> ${msg}</div>`;
     resDiv.classList.remove('hidden');
     resDiv.scrollIntoView({behavior:'smooth'});
 }
@@ -187,12 +183,12 @@ function loadData() {
         skipEmptyLines: true, 
         complete: (r) => { 
             dbXG = r.data; 
-            loadTeams();
+            loadTeamsAndMapIDs();
         },
         error: (err) => {
             console.error("Errore CSV:", err);
             dbXG = [];
-            loadTeams();
+            loadTeamsAndMapIDs();
         }
     });
     
@@ -220,98 +216,163 @@ function loadData() {
     }
 }
 
-async function loadTeams() {
-    const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
-    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-    h.innerHTML = ""; a.innerHTML = "";
-    
-    if (!teams || teams.length === 0) {
-        h.add(new Option("Database non caricato", ""));
-        a.add(new Option("Database non caricato", ""));
-        showLoading(false);
-        return;
-    }
-    
-    teams.forEach(t => {
-        h.add(new Option(t.TeamName, t.TeamID)); 
-        a.add(new Option(t.TeamName, t.TeamID));
-    });
-    
-    showLoading(false);
-}
-
-// ===================== DEBUG: TEST API PER SQUADRA =====================
-async function debugTeamAPI(teamId, teamName) {
-    let debug = `=== DEBUG: ${teamName} (ID: ${teamId}) ===\\n`;
-    
+// ===================== CARICAMENTO SQUADRE + MAPPING ID API =====================
+async function loadTeamsAndMapIDs() {
     try {
-        // Test 1: fixtures con league+season+team
-        const url1 = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${teamId}`;
-        debug += `\\n1. ${url1}\\n`;
-        const r1 = await fetchWithRetry(url1, { headers: { "x-apisports-key": API_KEY } });
-        debug += `   Response: ${r1.response ? r1.response.length : 0} fixtures\\n`;
-        debug += `   Errors: ${JSON.stringify(r1.errors || {})}\\n`;
+        // 1. Carica TUTTE le squadre dall'API per questo campionato/stagione
+        const apiData = await fetchWithRetry(
+            `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=${SEASON}`, 
+            { headers: { "x-apisports-key": API_KEY } }
+        );
         
-        if (r1.response && r1.response.length > 0) {
-            const ft = r1.response.filter(f => f.fixture.status.short === 'FT');
-            debug += `   Finished: ${ft.length}\\n`;
-            if (ft.length > 0) {
-                debug += `   Last match: ${ft[0].fixture.date} vs ${ft[0].teams.away.name}\\n`;
-            }
+        // 2. Crea mappa nome -> ID API (con varie varianti del nome)
+        apiTeamsMap = {};
+        if (apiData.response) {
+            apiData.response.forEach(t => {
+                const name = t.team.name;
+                const id = t.team.id;
+                
+                // Aggiungi nome esatto
+                apiTeamsMap[name.toLowerCase()] = id;
+                
+                // Aggiungi senza "FC", "CF", "US", "SS", "AC", "AS" ecc.
+                const cleanName = name.toLowerCase()
+                    .replace(/\\bfc\\b/g, '').replace(/\\bcf\\b/g, '')
+                    .replace(/\\bus\\b/g, '').replace(/\\bss\\b/g, '')
+                    .replace(/\\bac\\b/g, '').replace(/\\bas\\b/g, '')
+                    .replace(/\\b1909\\b/g, '').replace(/\\b1926\\b/g, '')
+                    .replace(/[0-9]/g, '')
+                    .replace(/\\s+/g, ' ').trim();
+                
+                if (cleanName && cleanName !== name.toLowerCase()) {
+                    apiTeamsMap[cleanName] = id;
+                }
+                
+                // Aggiungi anche solo cognome (es. "Inter" da "FC Internazionale")
+                const parts = name.split(/[\\s-]+/);
+                parts.forEach(part => {
+                    if (part.length > 3) {
+                        apiTeamsMap[part.toLowerCase().replace(/[^a-z]/g, '')] = id;
+                    }
+                });
+            });
         }
         
-        // Test 2: fixtures solo con team (tutte le competizioni)
-        const url2 = `https://v3.football.api-sports.io/fixtures?season=${SEASON}&team=${teamId}`;
-        debug += `\\n2. ${url2}\\n`;
-        const r2 = await fetchWithRetry(url2, { headers: { "x-apisports-key": API_KEY } });
-        debug += `   Response: ${r2.response ? r2.response.length : 0} fixtures\\n`;
+        console.log("API Teams Map:", apiTeamsMap);
         
-        if (r2.response && r2.response.length > 0) {
-            const leagues = [...new Set(r2.response.map(f => f.league.name))];
-            debug += `   Leagues found: ${leagues.join(', ')}\\n`;
+        // 3. Popola select con squadre dal database CSV
+        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
+        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+        h.innerHTML = ""; a.innerHTML = "";
+        
+        if (!teams || teams.length === 0) {
+            h.add(new Option("Database non caricato", ""));
+            a.add(new Option("Database non caricato", ""));
+            showLoading(false);
+            return;
         }
         
-        // Test 3: team info
-        const url3 = `https://v3.football.api-sports.io/teams?id=${teamId}`;
-        debug += `\\n3. ${url3}\\n`;
-        const r3 = await fetchWithRetry(url3, { headers: { "x-apisports-key": API_KEY } });
-        debug += `   Response: ${r3.response ? r3.response.length : 0}\\n`;
-        if (r3.response && r3.response[0]) {
-            debug += `   Name: ${r3.response[0].team.name}\\n`;
-            debug += `   Country: ${r3.response[0].team.country}\\n`;
-        }
+        teams.forEach(t => {
+            // Salva sia il nome che l'ID originale del CSV
+            // Ma per l'API useremo il nome per trovare l'ID corretto
+            const option = new Option(t.TeamName, t.TeamName);
+            option.dataset.csvId = t.TeamID; // ID originale dal CSV
+            option.dataset.xg = t.xG_Per_Shot;
+            h.add(option);
+            a.add(new Option(t.TeamName, t.TeamName));
+        });
+        
+        showLoading(false);
         
     } catch (e) {
-        debug += `\\nERROR: ${e.message}\\n`;
+        console.error("Errore caricamento squadre:", e);
+        // Fallback: carica solo dal CSV senza mapping API
+        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
+        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+        h.innerHTML = ""; a.innerHTML = "";
+        teams.forEach(t => {
+            h.add(new Option(t.TeamName, t.TeamName));
+            a.add(new Option(t.TeamName, t.TeamName));
+        });
+        showLoading(false);
+    }
+}
+
+// ===================== TROVA ID API PER NOME SQUADRA =====================
+function findApiTeamId(teamName) {
+    const lowerName = teamName.toLowerCase().trim();
+    
+    // 1. Match esatto
+    if (apiTeamsMap[lowerName]) {
+        return apiTeamsMap[lowerName];
     }
     
-    debug += `\\n=== END DEBUG ===`;
-    return debug;
+    // 2. Match senza prefissi/suffissi
+    const cleanName = lowerName
+        .replace(/\\bfc\\b/g, '').replace(/\\bcf\\b/g, '')
+        .replace(/\\bus\\b/g, '').replace(/\\bss\\b/g, '')
+        .replace(/\\bac\\b/g, '').replace(/\\bas\\b/g, '')
+        .replace(/\\b1909\\b/g, '').replace(/\\b1926\\b/g, '')
+        .replace(/[0-9]/g, '')
+        .replace(/\\s+/g, ' ').trim();
+    
+    if (apiTeamsMap[cleanName]) {
+        return apiTeamsMap[cleanName];
+    }
+    
+    // 3. Match parziale (contiene)
+    for (let apiName in apiTeamsMap) {
+        if (apiName.includes(cleanName) || cleanName.includes(apiName)) {
+            return apiTeamsMap[apiName];
+        }
+    }
+    
+    // 4. Match per parole singole > 3 lettere
+    const words = cleanName.split(/\\s+/);
+    for (let word of words) {
+        if (word.length > 3) {
+            for (let apiName in apiTeamsMap) {
+                if (apiName.includes(word)) {
+                    return apiTeamsMap[apiName];
+                }
+            }
+        }
+    }
+    
+    return null;
 }
 
 // ===================== STATISTICHE DA FIXTURES =====================
-async function getTeamStatsFromFixtures(teamId, teamName) {
+async function getTeamStatsFromFixtures(teamName) {
     try {
-        const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${teamId}`;
+        // Trova ID API corretto per questa squadra
+        const apiTeamId = findApiTeamId(teamName);
+        
+        console.log(`Team: ${teamName} -> API ID cercato: ${apiTeamId}`);
+        
+        if (!apiTeamId) {
+            console.warn(`ID API non trovato per ${teamName}`);
+            return null;
+        }
+        
+        const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${apiTeamId}`;
         const fixturesData = await fetchWithRetry(fixturesUrl, { headers: { "x-apisports-key": API_KEY } });
         
-        console.log(`Fixtures for ${teamName} (ID:${teamId}):`, fixturesData);
+        console.log(`Fixtures response for ${teamName} (ID:${apiTeamId}):`, fixturesData);
         
         if (!fixturesData.response || fixturesData.response.length === 0) {
-            return { error: "No fixtures found", debug: await debugTeamAPI(teamId, teamName) };
+            return null;
         }
         
         const fixtures = fixturesData.response
             .filter(f => f.fixture.status.short === 'FT')
             .slice(0, 10);
         
-        if (fixtures.length === 0) {
-            return { error: "No finished fixtures", debug: await debugTeamAPI(teamId, teamName) };
-        }
+        if (fixtures.length === 0) return null;
         
         const statsPromises = fixtures.map(async (fixture) => {
             const fixtureId = fixture.fixture.id;
-            const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}&team=${teamId}`;
+            const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}&team=${apiTeamId}`;
             try {
                 const statsData = await fetchWithRetry(statsUrl, { headers: { "x-apisports-key": API_KEY } });
                 return statsData.response?.[0]?.statistics || [];
@@ -349,9 +410,7 @@ async function getTeamStatsFromFixtures(teamId, teamName) {
             });
         });
         
-        if (aggregated.count === 0) {
-            return { error: "No stats in fixtures", debug: await debugTeamAPI(teamId, teamName) };
-        }
+        if (aggregated.count === 0) return null;
         
         return {
             shotsTotal: aggregated.shotsTotal / aggregated.count,
@@ -368,7 +427,7 @@ async function getTeamStatsFromFixtures(teamId, teamName) {
         };
     } catch (e) {
         console.error("Errore stats fixtures:", e);
-        return { error: e.message, debug: await debugTeamAPI(teamId, teamName) };
+        return null;
     }
 }
 
@@ -430,38 +489,37 @@ async function runDeepAnalysis() {
     resDiv.classList.remove('hidden');
 
     try {
-        const idH = document.getElementById('homeTeam').value;
-        const idA = document.getElementById('awayTeam').value;
-        const nameH = document.getElementById('homeTeam').options[document.getElementById('homeTeam').selectedIndex].text;
-        const nameA = document.getElementById('awayTeam').options[document.getElementById('awayTeam').selectedIndex].text;
+        const teamNameH = document.getElementById('homeTeam').value;
+        const teamNameA = document.getElementById('awayTeam').value;
         
-        if (!idH || !idA) {
+        if (!teamNameH || !teamNameA) {
             setError("Seleziona entrambe le squadre");
             return;
         }
-        if (idH === idA) {
+        if (teamNameH === teamNameA) {
             setError("Le squadre devono essere diverse");
             return;
         }
 
+        // Trova xG dal database CSV usando il nome
+        const xGH = parseFloat((dbXG.find(x => x.TeamName === teamNameH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        const xGA = parseFloat((dbXG.find(x => x.TeamName === teamNameA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        
+        console.log(`xG ${teamNameH}: ${xGH}, xG ${teamNameA}: ${xGA}`);
+
+        // Fetch statistiche da API usando il nome squadra
         const [statsH, statsA, cardStats] = await Promise.all([
-            getTeamStatsFromFixtures(idH, nameH),
-            getTeamStatsFromFixtures(idA, nameA),
+            getTeamStatsFromFixtures(teamNameH),
+            getTeamStatsFromFixtures(teamNameA),
             getCardStats(currentLeague)
         ]);
 
-        // Se c'è errore, mostra debug
-        if (statsH.error || statsA.error) {
-            let debugInfo = "";
-            if (statsH.debug) debugInfo += statsH.debug + "\\n\\n";
-            if (statsA.debug) debugInfo += statsA.debug;
-            setError(`Errore dati API per ${statsH.error ? nameH : ''} ${statsA.error ? nameA : ''}`, debugInfo);
+        if (!statsH || !statsA) {
+            setError(`Dati API non disponibili per ${!statsH ? teamNameH : ''} ${!statsA ? teamNameA : ''}. Verifica nella console (F12) i log di mapping.`);
             return;
         }
 
-        const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
-        const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
-        
+        // Fattore xG
         const xgWeightH = 1 + (xGH - 0.11) * 1.5;
         const xgWeightA = 1 + (xGA - 0.11) * 1.5;
         const clampedFactorH = Math.max(0.90, Math.min(1.10, xgWeightH));
@@ -592,7 +650,7 @@ async function runDeepAnalysis() {
         html += `
         <div class="res-box" style="border-left-color: #3b82f6;">
             <p class="label-spread text-blue-400">Info Partita</p>
-            <p class="text-sm text-slate-400">${nameH} vs ${nameA} | Stagione ${SEASON}/${SEASON+1} | League ID: ${currentLeague}</p>
+            <p class="text-sm text-slate-400">${teamNameH} vs ${teamNameA} | Stagione ${SEASON}/${SEASON+1} | League ID: ${currentLeague}</p>
             <p class="text-xs text-slate-500 mt-1">Dati reali dalle ultime ${statsH.matches} partite di campionato</p>
         </div>`;
 
