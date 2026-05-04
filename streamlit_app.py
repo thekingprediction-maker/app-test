@@ -32,7 +32,6 @@ html_code = """
         .status-err { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; }
         .confidence-bar { height: 6px; border-radius: 3px; background: #1e293b; margin-top: 12px; overflow: hidden; }
         .confidence-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
-        .metric-detail { font-size: 13px; color: #94a3b8; margin-top: 8px; font-weight: 500; }
         .precision-badge { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
     </style>
 </head>
@@ -226,30 +225,22 @@ async function loadTeams() {
     }
 }
 
-// ============================================
-// ALGORITMI DI CALCOLO AVANZATI - PRECISIONE MASSIMA
-// ============================================
-
 function calcConfidence(pred, spread) {
-    // Modello logistico per calibrare la confidenza
     const diff = pred - spread;
     const rawProb = 1 / (1 + Math.exp(-diff * 0.85));
     const confidence = Math.min(Math.max(rawProb * 100, 8), 96);
     return confidence;
 }
 
-function getAdviceAdvanced(pred, spread, metricName) {
+function getAdviceAdvanced(pred, spread) {
     const conf = calcConfidence(pred, spread);
     const isOver = conf >= 50;
     const displayConf = isOver ? conf : 100 - conf;
     const direction = isOver ? 'OVER' : 'UNDER';
-
-    // Determina colore e precisione basata sulla confidenza
-    let precisionClass = isOver ? 'over-tag' : 'under-tag';
     let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
 
     return {
-        html: `<span class="advice-tag ${precisionClass}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
+        html: `<span class="advice-tag ${isOver ? 'over-tag' : 'under-tag'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
         confidence: displayConf,
         isOver: isOver,
         precision: precisionLabel
@@ -276,7 +267,6 @@ async function runDeepAnalysis() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        // Recupero statistiche avanzate
         let statsH, statsA;
         try {
             [statsH, statsA] = await Promise.all([
@@ -296,116 +286,77 @@ async function runDeepAnalysis() {
         const sA = statsA.response;
         const homeAdv = leagueInfo.homeAdv;
 
-        // ============================================
-        // 1. TI TOTALI (SHOTS) - Modello xG Avanzato
-        // ============================================
-        // xG per shot dal database + correzione qualità
+        // === TI TOTALI ===
         const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
         const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
         const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
         const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
-
-        // Benchmark xG per campionato (Premier/Bundes più offensivi)
         const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
-        // Tiri medi stagionali con peso forma
         const shotsH_avg = sH.shots?.total?.average || 12.5;
         const shotsA_avg = sA.shots?.total?.average || 10.5;
-
-        // Fattore xG: squadre con xG alto tendono a tirare di più e meglio
         const xgFactorH = 0.7 + (xGH / bench) * 0.3;
         const xgFactorA = 0.7 + (xGA / bench) * 0.3;
-
-        // Calcolo tiri con home advantage e matchup
         const cH = shotsH_avg * xgFactorH * homeAdv * 0.95;
-        const cA = shotsA_avg * xgFactorA * 1.0 * 1.05; // away leggermente stimolata
+        const cA = shotsA_avg * xgFactorA * 1.0 * 1.05;
         const totalShots = cH + cA;
 
-        // ============================================
-        // 2. TI IN PORTA (SHOTS ON TARGET) - Modello Precisione
-        // ============================================
+        // === TI IN PORTA ===
         const onTargetH_avg = sH.shots?.on_goal?.average || 4.2;
         const onTargetA_avg = sA.shots?.on_goal?.average || 3.6;
-
-        // Conversion rate tiri in porta
         const convRateH = onTargetH_avg / shotsH_avg;
         const convRateA = onTargetA_avg / shotsA_avg;
-
-        // xG influisce sulla precisione (squadre con xG alto tirano meglio)
         const precisionH = convRateH * (0.85 + xGH * 2.5);
         const precisionA = convRateA * (0.85 + xGA * 2.5);
-
         const oH = cH * precisionH * homeAdv;
         const oA = cA * precisionA;
         const totalOnTarget = oH + oA;
 
-        // ============================================
-        // 3. CORNER - Modello Pressione + Possesso
-        // ============================================
+        // === CORNER ===
         const cornersForH = sH.corners?.for?.average || 5.2;
         const cornersAgainstH = sH.corners?.against?.average || 4.1;
         const cornersForA = sA.corners?.for?.average || 4.8;
         const cornersAgainstA = sA.corners?.against?.average || 4.4;
-
-        // Pressione offensiva combinata
         const pressureH = (cornersForH + cornersAgainstA) / 2;
         const pressureA = (cornersForA + cornersAgainstH) / 2;
-
-        // Fattore possesso (più possesso = più corner)
         const possH = sH.possession?.average || 52;
         const possA = sA.possession?.average || 48;
         const possFactorH = 0.9 + (possH / 100) * 0.2;
         const possFactorA = 0.9 + (possA / 100) * 0.2;
-
         const pCH = pressureH * possFactorH * homeAdv * 0.92;
         const pCA = pressureA * possFactorA * 1.08;
         const totalCorners = pCH + pCA;
 
-        // ============================================
-        // 4. CARTELLINI GIALLI - Modello Disciplina
-        // ============================================
+        // === CARTELLINI ===
         const yellowH_avg = sH.cards?.yellow?.average || 2.1;
         const yellowA_avg = sA.cards?.yellow?.average || 2.3;
         const foulsH_avg = sH.fouls?.for?.average || 12.5;
         const foulsA_avg = sA.fouls?.for?.average || 13.0;
-
-        // Rapporto falli/giallo (disciplina)
         const disciplineH = foulsH_avg / Math.max(yellowH_avg, 0.5);
         const disciplineA = foulsA_avg / Math.max(yellowA_avg, 0.5);
-
-        // Intensità match (più falli = più gialli probabili)
         const intensityFactor = 1.0 + ((foulsH_avg + foulsA_avg) - 24) / 100;
-
         const cardH = yellowH_avg * intensityFactor * homeAdv * 0.95;
         const cardA = yellowA_avg * intensityFactor * 1.05;
         const totalCards = cardH + cardA;
 
-        // ============================================
-        // 5. FALLI (SOLO SERIE A) - Modello Arbitro
-        // ============================================
+        // === FALLI SERIE A ===
         let totalFouls = 0, fH = 0, fA = 0;
         if(currentLeague === 7286) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
             const foulsAgainstH = sH.fouls?.against?.average || 11.5;
             const foulsAgainstA = sA.fouls?.against?.average || 12.0;
-
-            // Media ponderata: 60% comportamento squadre, 40% stile arbitro
             fH = ((foulsH_avg + foulsAgainstA) / 2) * 0.6 + (refVal / 2 * 0.4);
             fA = ((foulsA_avg + foulsAgainstH) / 2) * 0.6 + (refVal / 2 * 0.4);
             totalFouls = fH + fA;
         }
 
-        // ============================================
-        // RENDERING RISULTATI CON PRECISIONE
-        // ============================================
+        // === RENDERING ===
         let html = "";
 
-        // FALLI (Serie A)
         if(currentLeague === 7286) {
-            const advFouls = getAdviceAdvanced(totalFouls, parseFloat(document.getElementById('sprFoulsMatch').value), 'falli');
-            const advFoulsH = getAdviceAdvanced(fH, parseFloat(document.getElementById('sprFoulsH').value), 'falliH');
-            const advFoulsA = getAdviceAdvanced(fA, parseFloat(document.getElementById('sprFoulsA').value), 'falliA');
-
+            const advFouls = getAdviceAdvanced(totalFouls, parseFloat(document.getElementById('sprFoulsMatch').value));
+            const advFoulsH = getAdviceAdvanced(fH, parseFloat(document.getElementById('sprFoulsH').value));
+            const advFoulsA = getAdviceAdvanced(fA, parseFloat(document.getElementById('sprFoulsA').value));
             html += `
             <div class="res-box border-l-red-500">
                 <div class="precision-badge">${advFouls.precision}</div>
@@ -416,15 +367,12 @@ async function runDeepAnalysis() {
                     <div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${advFoulsH.html}</p></div>
                     <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${advFoulsA.html}</p></div>
                 </div>
-                <p class="metric-detail">Modello: 60% comportamento squadre + 40% stile arbitro • xG H: ${xGH.toFixed(3)} • xG A: ${xGA.toFixed(3)}</p>
             </div>`;
         }
 
-        // TI TOTALI
-        const advShots = getAdviceAdvanced(totalShots, parseFloat(document.getElementById('sprTotalMatch').value), 'tiri');
-        const advShotsH = getAdviceAdvanced(cH, parseFloat(document.getElementById('sprTotalH').value), 'tiriH');
-        const advShotsA = getAdviceAdvanced(cA, parseFloat(document.getElementById('sprTotalA').value), 'tiriA');
-
+        const advShots = getAdviceAdvanced(totalShots, parseFloat(document.getElementById('sprTotalMatch').value));
+        const advShotsH = getAdviceAdvanced(cH, parseFloat(document.getElementById('sprTotalH').value));
+        const advShotsA = getAdviceAdvanced(cA, parseFloat(document.getElementById('sprTotalA').value));
         html += `
         <div class="res-box border-l-emerald-500">
             <div class="precision-badge">${advShots.precision}</div>
@@ -435,14 +383,11 @@ async function runDeepAnalysis() {
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${advShotsH.html}</p></div>
                 <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${advShotsA.html}</p></div>
             </div>
-            <p class="metric-detail">Modello xG: fattore ${xgFactorH.toFixed(2)} (H) / ${xgFactorA.toFixed(2)} (A) • HomeAdv: ${homeAdv} • Bench: ${bench}</p>
         </div>`;
 
-        // TI IN PORTA
-        const advOT = getAdviceAdvanced(totalOnTarget, parseFloat(document.getElementById('sprOTMatch').value), 'porta');
-        const advOTH = getAdviceAdvanced(oH, parseFloat(document.getElementById('sprOTH').value), 'portaH');
-        const advOTA = getAdviceAdvanced(oA, parseFloat(document.getElementById('sprOTA').value), 'portaA');
-
+        const advOT = getAdviceAdvanced(totalOnTarget, parseFloat(document.getElementById('sprOTMatch').value));
+        const advOTH = getAdviceAdvanced(oH, parseFloat(document.getElementById('sprOTH').value));
+        const advOTA = getAdviceAdvanced(oA, parseFloat(document.getElementById('sprOTA').value));
         html += `
         <div class="res-box border-l-purple-500">
             <div class="precision-badge">${advOT.precision}</div>
@@ -453,14 +398,11 @@ async function runDeepAnalysis() {
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${advOTH.html}</p></div>
                 <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${advOTA.html}</p></div>
             </div>
-            <p class="metric-detail">Precisione: ${(convRateH*100).toFixed(1)}% (H) / ${(convRateA*100).toFixed(1)}% (A) • xG-adjusted: ${precisionH.toFixed(2)} / ${precisionA.toFixed(2)}</p>
         </div>`;
 
-        // CORNER
-        const advCorn = getAdviceAdvanced(totalCorners, parseFloat(document.getElementById('sprCornMatch').value), 'corner');
-        const advCornH = getAdviceAdvanced(pCH, parseFloat(document.getElementById('sprCornH').value), 'cornerH');
-        const advCornA = getAdviceAdvanced(pCA, parseFloat(document.getElementById('sprCornA').value), 'cornerA');
-
+        const advCorn = getAdviceAdvanced(totalCorners, parseFloat(document.getElementById('sprCornMatch').value));
+        const advCornH = getAdviceAdvanced(pCH, parseFloat(document.getElementById('sprCornH').value));
+        const advCornA = getAdviceAdvanced(pCA, parseFloat(document.getElementById('sprCornA').value));
         html += `
         <div class="res-box border-l-cyan-500">
             <div class="precision-badge">${advCorn.precision}</div>
@@ -471,14 +413,11 @@ async function runDeepAnalysis() {
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${advCornH.html}</p></div>
                 <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-cyan-400">${pCA.toFixed(2)} ${advCornA.html}</p></div>
             </div>
-            <p class="metric-detail">Pressione: ${pressureH.toFixed(1)} (H) / ${pressureA.toFixed(1)} (A) • Possesso: ${possH}% / ${possA}%</p>
         </div>`;
 
-        // CARTELLINI
-        const advCards = getAdviceAdvanced(totalCards, parseFloat(document.getElementById('sprCardsMatch').value), 'cards');
-        const advCardsH = getAdviceAdvanced(cardH, parseFloat(document.getElementById('sprCardsH').value), 'cardsH');
-        const advCardsA = getAdviceAdvanced(cardA, parseFloat(document.getElementById('sprCardsA').value), 'cardsA');
-
+        const advCards = getAdviceAdvanced(totalCards, parseFloat(document.getElementById('sprCardsMatch').value));
+        const advCardsH = getAdviceAdvanced(cardH, parseFloat(document.getElementById('sprCardsH').value));
+        const advCardsA = getAdviceAdvanced(cardA, parseFloat(document.getElementById('sprCardsA').value));
         html += `
         <div class="res-box border-l-yellow-500">
             <div class="precision-badge">${advCards.precision}</div>
@@ -489,7 +428,6 @@ async function runDeepAnalysis() {
                 <div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${advCardsH.html}</p></div>
                 <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${advCardsA.html}</p></div>
             </div>
-            <p class="metric-detail">Disciplina: ${disciplineH.toFixed(1)} falli/giallo (H) / ${disciplineA.toFixed(1)} (A) • Intensità: ${intensityFactor.toFixed(2)}</p>
         </div>`;
 
         resDiv.innerHTML = html;
