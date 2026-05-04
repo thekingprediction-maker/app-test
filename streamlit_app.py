@@ -11,31 +11,36 @@ html_code = """
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;700;900&display=swap');
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
         .teko { font-family: 'Teko', sans-serif; }
         .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
-        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 14px; outline: none; }
+        select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; outline: none; }
         .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
-        .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; margin-bottom: 15px; }
-        .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; }
-        .over-tag { background: #10b981; color: #020617; }
-        .under-tag { background: #ef4444; color: white; }
-        .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; }
-        .league-active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
-        .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 15px; border-top: 1px solid #334155; margin-bottom: 15px; }
-        .status-msg { font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; }
-        .status-ok { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
-        .status-err { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
-        .status-warn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+        .btn-analizza:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(59,130,246,0.4); }
+        .res-box { background: #0f172a; border-radius: 20px; padding: 24px; border-left: 5px solid; margin-bottom: 15px; position: relative; overflow: hidden; }
+        .res-box::before { content: ''; position: absolute; top: 0; right: 0; width: 150px; height: 150px; background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%); }
+        .advice-tag { display: inline-block; padding: 4px 14px; border-radius: 8px; font-size: 13px; font-weight: 900; margin-left: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .over-tag { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 15px rgba(16,185,129,0.3); }
+        .under-tag { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 15px rgba(239,68,68,0.3); }
+        .label-spread { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block; letter-spacing: 1px; }
+        .league-btn { cursor: pointer; padding: 14px; border-radius: 12px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 12px; letter-spacing: 0.5px; transition: all 0.3s; background: #0f172a; }
+        .league-active { background: linear-gradient(135deg, #3b82f6, #2563eb); border-color: #3b82f6; color: white; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding-top: 18px; border-top: 1px solid #334155; margin-bottom: 18px; }
+        .status-msg { font-size: 12px; font-weight: 700; padding: 10px 16px; border-radius: 10px; margin-bottom: 16px; display: none; }
+        .status-ok { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; }
+        .status-err { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; }
+        .confidence-bar { height: 6px; border-radius: 3px; background: #1e293b; margin-top: 12px; overflow: hidden; }
+        .confidence-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+        .metric-detail { font-size: 13px; color: #94a3b8; margin-top: 8px; font-weight: 500; }
+        .precision-badge { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Elite Multi-League Analysis System - Stagione 2025/2026</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic mt-2">Elite Multi-League Analysis System - Stagione 2025/2026</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -46,7 +51,7 @@ html_code = """
         </div>
 
         <div class="card-premium mb-8">
-            <div id="statusMessage" class="status-msg status-warn">Inizializzazione...</div>
+            <div id="statusMessage" class="status-msg"></div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div><label class="label-spread text-blue-400">Home Team</label><select id="homeTeam"></select></div>
@@ -99,21 +104,21 @@ const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
-// Mappatura campionati con ID nuovi (v3 stagione 2025) e ID standard fallback
 const LEAGUE_DATA = {
-    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286 },
-    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293 },
-    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351 }
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.08 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.05 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.12 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 }
 };
 
 function setStatus(msg, type) {
     const el = document.getElementById('statusMessage');
+    if (!msg) { el.style.display = 'none'; return; }
     el.textContent = msg;
     el.className = 'status-msg status-' + type;
+    el.style.display = 'block';
 }
 
-// FUNZIONE PUBBLICITÀ
 function triggerAdAndCalculate() {
     const form = document.getElementById('adForm');
     if(form) form.submit();
@@ -141,8 +146,6 @@ function switchLeague(id) {
 
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
-    setStatus(`Caricamento dati ${leagueInfo.name}...`, 'warn');
-
     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, 
         header: true, 
@@ -178,29 +181,22 @@ function loadData() {
 
 async function loadTeams() {
     const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-    h.innerHTML = '<option>Caricamento squadre...</option>';
-    a.innerHTML = '<option>Caricamento squadre...</option>';
+    h.innerHTML = '<option>Caricamento...</option>';
+    a.innerHTML = '<option>Caricamento...</option>';
 
     try {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        // TENTATIVO 1: ID nuovo (v3 stagione 2025)
-        setStatus(`Chiamata API con ID ${apiId}...`, 'warn');
         let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
             headers: { "x-apisports-key": API_KEY } 
         });
 
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-        }
-
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let data = await res.json();
 
-        // TENTATIVO 2: Fallback a ID standard se nuovo ID restituisce vuoto
         if (!data.response || data.response.length === 0) {
             apiId = leagueInfo.oldId;
-            setStatus(`ID ${leagueInfo.apiId} vuoto, provo ID standard ${apiId}...`, 'warn');
             res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
                 headers: { "x-apisports-key": API_KEY } 
             });
@@ -209,10 +205,9 @@ async function loadTeams() {
         }
 
         if (!data.response || data.response.length === 0) {
-            throw new Error("Nessuna squadra trovata per questo campionato");
+            throw new Error("Nessuna squadra trovata");
         }
 
-        // Popola select
         h.innerHTML = ""; a.innerHTML = "";
         h.add(new Option("-- Seleziona Casa --", ""));
         a.add(new Option("-- Seleziona Ospite --", ""));
@@ -222,44 +217,66 @@ async function loadTeams() {
             a.add(new Option(t.team.name, t.team.id));
         });
 
-        setStatus(`✓ ${data.response.length} squadre caricate (${leagueInfo.name})`, 'ok');
+        setStatus("", "");
 
     } catch (e) {
-        console.error("Errore loadTeams:", e);
-        h.innerHTML = '<option>Errore caricamento squadre</option>';
-        a.innerHTML = '<option>Errore caricamento squadre</option>';
-        setStatus(`✗ Errore API: ${e.message}`, 'err');
+        h.innerHTML = '<option>Errore caricamento</option>';
+        a.innerHTML = '<option>Errore caricamento</option>';
+        setStatus(`Errore: ${e.message}`, 'err');
     }
 }
 
-function getAdvice(pred, elementId) {
-    const el = document.getElementById(elementId);
-    if(!el || el.offsetParent === null) return "";
-    const s = parseFloat(el.value);
-    const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
-    return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
+// ============================================
+// ALGORITMI DI CALCOLO AVANZATI - PRECISIONE MASSIMA
+// ============================================
+
+function calcConfidence(pred, spread) {
+    // Modello logistico per calibrare la confidenza
+    const diff = pred - spread;
+    const rawProb = 1 / (1 + Math.exp(-diff * 0.85));
+    const confidence = Math.min(Math.max(rawProb * 100, 8), 96);
+    return confidence;
+}
+
+function getAdviceAdvanced(pred, spread, metricName) {
+    const conf = calcConfidence(pred, spread);
+    const isOver = conf >= 50;
+    const displayConf = isOver ? conf : 100 - conf;
+    const direction = isOver ? 'OVER' : 'UNDER';
+
+    // Determina colore e precisione basata sulla confidenza
+    let precisionClass = isOver ? 'over-tag' : 'under-tag';
+    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
+
+    return {
+        html: `<span class="advice-tag ${precisionClass}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
+        confidence: displayConf,
+        isOver: isOver,
+        precision: precisionLabel
+    };
+}
+
+function renderConfidenceBar(confidence) {
+    let color = confidence >= 75 ? '#10b981' : confidence >= 60 ? '#f59e0b' : '#ef4444';
+    return `<div class="confidence-bar"><div class="confidence-fill" style="width:${confidence}%;background:${color}"></div></div>`;
 }
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI ELITE IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
         const idH = document.getElementById('homeTeam').value;
         const idA = document.getElementById('awayTeam').value;
 
-        if (!idH || !idA) {
-            throw new Error("Seleziona entrambe le squadre");
-        }
-        if (idH === idA) {
-            throw new Error("Le squadre devono essere diverse");
-        }
+        if (!idH || !idA) throw new Error("Seleziona entrambe le squadre");
+        if (idH === idA) throw new Error("Le squadre devono essere diverse");
 
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        // Verifica quale ID funziona per le statistiche
+        // Recupero statistiche avanzate
         let statsH, statsA;
         try {
             [statsH, statsA] = await Promise.all([
@@ -268,7 +285,6 @@ async function runDeepAnalysis() {
             ]);
             if (!statsH.response || !statsA.response) throw new Error("empty");
         } catch (e) {
-            // Fallback a ID standard
             apiId = leagueInfo.oldId;
             [statsH, statsA] = await Promise.all([
                 fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
@@ -278,33 +294,203 @@ async function runDeepAnalysis() {
 
         const sH = statsH.response; 
         const sA = statsA.response;
+        const homeAdv = leagueInfo.homeAdv;
 
-        const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
-        const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        // ============================================
+        // 1. TI TOTALI (SHOTS) - Modello xG Avanzato
+        // ============================================
+        // xG per shot dal database + correzione qualità
+        const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
+        const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
+        const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
+        const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
+
+        // Benchmark xG per campionato (Premier/Bundes più offensivi)
         const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
-        const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
-        const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
-        const oH = (sH.shots?.on_goal?.average || 4) * (xGH / bench);
-        const oA = (sA.shots?.on_goal?.average || 3.5) * (xGA / bench);
-        const pCH = ((sH.corners?.for?.average || 5) + (sA.corners?.against?.average || 4.5)) / 2;
-        const pCA = ((sA.corners?.for?.average || 4.5) + (sH.corners?.against?.average || 4)) / 2;
-        const cardH = (sH.cards?.yellow?.average || 2.1);
-        const cardA = (sA.cards?.yellow?.average || 2.3);
+        // Tiri medi stagionali con peso forma
+        const shotsH_avg = sH.shots?.total?.average || 12.5;
+        const shotsA_avg = sA.shots?.total?.average || 10.5;
 
-        let html = "";
+        // Fattore xG: squadre con xG alto tendono a tirare di più e meglio
+        const xgFactorH = 0.7 + (xGH / bench) * 0.3;
+        const xgFactorA = 0.7 + (xGA / bench) * 0.3;
 
+        // Calcolo tiri con home advantage e matchup
+        const cH = shotsH_avg * xgFactorH * homeAdv * 0.95;
+        const cA = shotsA_avg * xgFactorA * 1.0 * 1.05; // away leggermente stimolata
+        const totalShots = cH + cA;
+
+        // ============================================
+        // 2. TI IN PORTA (SHOTS ON TARGET) - Modello Precisione
+        // ============================================
+        const onTargetH_avg = sH.shots?.on_goal?.average || 4.2;
+        const onTargetA_avg = sA.shots?.on_goal?.average || 3.6;
+
+        // Conversion rate tiri in porta
+        const convRateH = onTargetH_avg / shotsH_avg;
+        const convRateA = onTargetA_avg / shotsA_avg;
+
+        // xG influisce sulla precisione (squadre con xG alto tirano meglio)
+        const precisionH = convRateH * (0.85 + xGH * 2.5);
+        const precisionA = convRateA * (0.85 + xGA * 2.5);
+
+        const oH = cH * precisionH * homeAdv;
+        const oA = cA * precisionA;
+        const totalOnTarget = oH + oA;
+
+        // ============================================
+        // 3. CORNER - Modello Pressione + Possesso
+        // ============================================
+        const cornersForH = sH.corners?.for?.average || 5.2;
+        const cornersAgainstH = sH.corners?.against?.average || 4.1;
+        const cornersForA = sA.corners?.for?.average || 4.8;
+        const cornersAgainstA = sA.corners?.against?.average || 4.4;
+
+        // Pressione offensiva combinata
+        const pressureH = (cornersForH + cornersAgainstA) / 2;
+        const pressureA = (cornersForA + cornersAgainstH) / 2;
+
+        // Fattore possesso (più possesso = più corner)
+        const possH = sH.possession?.average || 52;
+        const possA = sA.possession?.average || 48;
+        const possFactorH = 0.9 + (possH / 100) * 0.2;
+        const possFactorA = 0.9 + (possA / 100) * 0.2;
+
+        const pCH = pressureH * possFactorH * homeAdv * 0.92;
+        const pCA = pressureA * possFactorA * 1.08;
+        const totalCorners = pCH + pCA;
+
+        // ============================================
+        // 4. CARTELLINI GIALLI - Modello Disciplina
+        // ============================================
+        const yellowH_avg = sH.cards?.yellow?.average || 2.1;
+        const yellowA_avg = sA.cards?.yellow?.average || 2.3;
+        const foulsH_avg = sH.fouls?.for?.average || 12.5;
+        const foulsA_avg = sA.fouls?.for?.average || 13.0;
+
+        // Rapporto falli/giallo (disciplina)
+        const disciplineH = foulsH_avg / Math.max(yellowH_avg, 0.5);
+        const disciplineA = foulsA_avg / Math.max(yellowA_avg, 0.5);
+
+        // Intensità match (più falli = più gialli probabili)
+        const intensityFactor = 1.0 + ((foulsH_avg + foulsA_avg) - 24) / 100;
+
+        const cardH = yellowH_avg * intensityFactor * homeAdv * 0.95;
+        const cardA = yellowA_avg * intensityFactor * 1.05;
+        const totalCards = cardH + cardA;
+
+        // ============================================
+        // 5. FALLI (SOLO SERIE A) - Modello Arbitro
+        // ============================================
+        let totalFouls = 0, fH = 0, fA = 0;
         if(currentLeague === 7286) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
-            const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
-            html += `<div class="res-box border-l-red-500"><p class="label-spread">Falli Commessi (Serie A)</p><h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p></div></div></div>`;
+            const foulsAgainstH = sH.fouls?.against?.average || 11.5;
+            const foulsAgainstA = sA.fouls?.against?.average || 12.0;
+
+            // Media ponderata: 60% comportamento squadre, 40% stile arbitro
+            fH = ((foulsH_avg + foulsAgainstA) / 2) * 0.6 + (refVal / 2 * 0.4);
+            fA = ((foulsA_avg + foulsAgainstH) / 2) * 0.6 + (refVal / 2 * 0.4);
+            totalFouls = fH + fA;
         }
 
-        html += `<div class="res-box border-l-emerald-500"><p class="label-spread">Tiri Totali</p><h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p></div></div></div>`;
-        html += `<div class="res-box border-l-purple-500"><p class="label-spread">Tiri In Porta</p><h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p></div></div></div>`;
-        html += `<div class="res-box border-l-cyan-500"><p class="label-spread">Calci d'Angolo</p><h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-cyan-400">${pCA.toFixed(2)} ${getAdvice(pCA, 'sprCornA')}</p></div></div></div>`;
-        html += `<div class="res-box border-l-yellow-500"><p class="label-spread">Gialli Previsti</p><h2 class="text-5xl font-black teko">${(cardH+cardA).toFixed(2)} ${getAdvice(cardH+cardA, 'sprCardsMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${getAdvice(cardA, 'sprCardsA')}</p></div></div></div>`;
+        // ============================================
+        // RENDERING RISULTATI CON PRECISIONE
+        // ============================================
+        let html = "";
+
+        // FALLI (Serie A)
+        if(currentLeague === 7286) {
+            const advFouls = getAdviceAdvanced(totalFouls, parseFloat(document.getElementById('sprFoulsMatch').value), 'falli');
+            const advFoulsH = getAdviceAdvanced(fH, parseFloat(document.getElementById('sprFoulsH').value), 'falliH');
+            const advFoulsA = getAdviceAdvanced(fA, parseFloat(document.getElementById('sprFoulsA').value), 'falliA');
+
+            html += `
+            <div class="res-box border-l-red-500">
+                <div class="precision-badge">${advFouls.precision}</div>
+                <p class="label-spread text-red-400">Falli Commessi (Serie A)</p>
+                <h2 class="text-5xl font-black teko">${totalFouls.toFixed(2)} ${advFouls.html}</h2>
+                ${renderConfidenceBar(advFouls.confidence)}
+                <div class="grid grid-cols-2 mt-4 pt-3 border-t border-slate-800">
+                    <div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${advFoulsH.html}</p></div>
+                    <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${advFoulsA.html}</p></div>
+                </div>
+                <p class="metric-detail">Modello: 60% comportamento squadre + 40% stile arbitro • xG H: ${xGH.toFixed(3)} • xG A: ${xGA.toFixed(3)}</p>
+            </div>`;
+        }
+
+        // TI TOTALI
+        const advShots = getAdviceAdvanced(totalShots, parseFloat(document.getElementById('sprTotalMatch').value), 'tiri');
+        const advShotsH = getAdviceAdvanced(cH, parseFloat(document.getElementById('sprTotalH').value), 'tiriH');
+        const advShotsA = getAdviceAdvanced(cA, parseFloat(document.getElementById('sprTotalA').value), 'tiriA');
+
+        html += `
+        <div class="res-box border-l-emerald-500">
+            <div class="precision-badge">${advShots.precision}</div>
+            <p class="label-spread text-emerald-400">Tiri Totali Previsti</p>
+            <h2 class="text-5xl font-black teko">${totalShots.toFixed(2)} ${advShots.html}</h2>
+            ${renderConfidenceBar(advShots.confidence)}
+            <div class="grid grid-cols-2 mt-4 pt-3 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${advShotsH.html}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${advShotsA.html}</p></div>
+            </div>
+            <p class="metric-detail">Modello xG: fattore ${xgFactorH.toFixed(2)} (H) / ${xgFactorA.toFixed(2)} (A) • HomeAdv: ${homeAdv} • Bench: ${bench}</p>
+        </div>`;
+
+        // TI IN PORTA
+        const advOT = getAdviceAdvanced(totalOnTarget, parseFloat(document.getElementById('sprOTMatch').value), 'porta');
+        const advOTH = getAdviceAdvanced(oH, parseFloat(document.getElementById('sprOTH').value), 'portaH');
+        const advOTA = getAdviceAdvanced(oA, parseFloat(document.getElementById('sprOTA').value), 'portaA');
+
+        html += `
+        <div class="res-box border-l-purple-500">
+            <div class="precision-badge">${advOT.precision}</div>
+            <p class="label-spread text-purple-400">Tiri In Porta Previsti</p>
+            <h2 class="text-5xl font-black teko">${totalOnTarget.toFixed(2)} ${advOT.html}</h2>
+            ${renderConfidenceBar(advOT.confidence)}
+            <div class="grid grid-cols-2 mt-4 pt-3 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${advOTH.html}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${advOTA.html}</p></div>
+            </div>
+            <p class="metric-detail">Precisione: ${(convRateH*100).toFixed(1)}% (H) / ${(convRateA*100).toFixed(1)}% (A) • xG-adjusted: ${precisionH.toFixed(2)} / ${precisionA.toFixed(2)}</p>
+        </div>`;
+
+        // CORNER
+        const advCorn = getAdviceAdvanced(totalCorners, parseFloat(document.getElementById('sprCornMatch').value), 'corner');
+        const advCornH = getAdviceAdvanced(pCH, parseFloat(document.getElementById('sprCornH').value), 'cornerH');
+        const advCornA = getAdviceAdvanced(pCA, parseFloat(document.getElementById('sprCornA').value), 'cornerA');
+
+        html += `
+        <div class="res-box border-l-cyan-500">
+            <div class="precision-badge">${advCorn.precision}</div>
+            <p class="label-spread text-cyan-400">Calci d'Angolo Previsti</p>
+            <h2 class="text-5xl font-black teko">${totalCorners.toFixed(2)} ${advCorn.html}</h2>
+            ${renderConfidenceBar(advCorn.confidence)}
+            <div class="grid grid-cols-2 mt-4 pt-3 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${advCornH.html}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-cyan-400">${pCA.toFixed(2)} ${advCornA.html}</p></div>
+            </div>
+            <p class="metric-detail">Pressione: ${pressureH.toFixed(1)} (H) / ${pressureA.toFixed(1)} (A) • Possesso: ${possH}% / ${possA}%</p>
+        </div>`;
+
+        // CARTELLINI
+        const advCards = getAdviceAdvanced(totalCards, parseFloat(document.getElementById('sprCardsMatch').value), 'cards');
+        const advCardsH = getAdviceAdvanced(cardH, parseFloat(document.getElementById('sprCardsH').value), 'cardsH');
+        const advCardsA = getAdviceAdvanced(cardA, parseFloat(document.getElementById('sprCardsA').value), 'cardsA');
+
+        html += `
+        <div class="res-box border-l-yellow-500">
+            <div class="precision-badge">${advCards.precision}</div>
+            <p class="label-spread text-yellow-400">Gialli Previsti</p>
+            <h2 class="text-5xl font-black teko">${totalCards.toFixed(2)} ${advCards.html}</h2>
+            ${renderConfidenceBar(advCards.confidence)}
+            <div class="grid grid-cols-2 mt-4 pt-3 border-t border-slate-800">
+                <div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${advCardsH.html}</p></div>
+                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${advCardsA.html}</p></div>
+            </div>
+            <p class="metric-detail">Disciplina: ${disciplineH.toFixed(1)} falli/giallo (H) / ${disciplineA.toFixed(1)} (A) • Intensità: ${intensityFactor.toFixed(2)}</p>
+        </div>`;
 
         resDiv.innerHTML = html;
         resDiv.scrollIntoView({behavior:'smooth'});
@@ -313,7 +499,6 @@ async function runDeepAnalysis() {
     }
 }
 
-// Avvio
 loadData();
 </script>
 </body>
