@@ -3,10 +3,6 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="PROBET AI V4 - TOTAL ANALYST", layout="wide")
 
-API_KEY = "75e4107623c05bb4bca2ac8b78b28dca"
-BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/"
-REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv"
-
 html_code = """
 <!DOCTYPE html>
 <html>
@@ -21,41 +17,28 @@ html_code = """
         .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
         select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 14px; outline: none; }
         .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
-        .btn-analizza:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4); }
         .res-box { background: #0f172a; border-radius: 20px; padding: 20px; border-left: 5px solid #3b82f6; margin-bottom: 15px; }
         .advice-tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 900; margin-left: 10px; }
         .over-tag { background: #10b981; color: #020617; }
         .under-tag { background: #ef4444; color: white; }
         .label-spread { font-size: 10px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; transition: all 0.3s; }
+        .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; }
         .league-active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
         .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 15px; border-top: 1px solid #334155; margin-bottom: 15px; }
-        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2,6,23,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-        .spinner { width: 50px; height: 50px; border: 4px solid #1e293b; border-top: 4px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .error-box { background: #7f1d1d; border: 1px solid #ef4444; border-radius: 12px; padding: 16px; color: #fca5a5; }
-        .stat-detail { font-size: 11px; color: #64748b; margin-top: 4px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div id="loadingOverlay" class="loading-overlay hidden">
-        <div class="text-center">
-            <div class="spinner mx-auto mb-4"></div>
-            <p class="text-blue-400 font-bold teko text-xl tracking-widest">CARICAMENTO DATI...</p>
-        </div>
-    </div>
-
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
-            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Elite Multi-League Analysis System</p>
+            <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic">Elite Multi-League Analysis System - Stagione 2025/2026</p>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div id="btn-135" class="league-btn league-active" onclick="switchLeague(135)">SERIE A</div>
-            <div id="btn-39" class="league-btn" onclick="switchLeague(39)">PREMIER LEAGUE</div>
-            <div id="btn-78" class="league-btn" onclick="switchLeague(78)">BUNDESLIGA</div>
-            <div id="btn-140" class="league-btn" onclick="switchLeague(140)">LA LIGA</div>
+            <div id="btn-7286" class="league-btn league-active" onclick="switchLeague(7286)">SERIE A</div>
+            <div id="btn-7293" class="league-btn" onclick="switchLeague(7293)">PREMIER LEAGUE</div>
+            <div id="btn-7338" class="league-btn" onclick="switchLeague(7338)">BUNDESLIGA</div>
+            <div id="btn-7351" class="league-btn" onclick="switchLeague(7351)">LA LIGA</div>
         </div>
 
         <div class="card-premium mb-8">
@@ -88,7 +71,7 @@ html_code = """
                 <div><label class="label-spread text-cyan-400">Spread Corner Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
                 <div><label class="label-spread text-cyan-400">Spread Corner Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
             </div>
-            
+
             <div class="grid-spreads">
                 <div><label class="label-spread text-yellow-400">Spread Gialli Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
                 <div><label class="label-spread text-yellow-400">Spread Gialli Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
@@ -105,54 +88,34 @@ html_code = """
     </div>
 
 <script>
-const API_KEY = "75e4107623c05bb4bca2ac8b78b28dca";
+const API_KEY = "8546a3b44515070cb8e4b6a8f620ab5b";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
-let currentLeague = 135, dbXG = [];
-const SEASON = 2024;
-let apiTeamsMap = {}; // Mappa: nome squadra (lowercase) -> ID API corretto
+let currentLeague = 7286, dbXG = [];
 
-function showLoading(show) {
-    document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
-}
+// Mappatura ID campionati stagione 2025/2026
+const LEAGUE_DATA = {
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140 }
+};
 
-function setError(msg) {
-    const resDiv = document.getElementById('results');
-    resDiv.innerHTML = `<div class="error-box"><strong>ERRORE:</strong> ${msg}</div>`;
-    resDiv.classList.remove('hidden');
-    resDiv.scrollIntoView({behavior:'smooth'});
-}
-
-async function fetchWithRetry(url, options, retries = 2) {
-    for (let i = 0; i <= retries; i++) {
-        try {
-            const res = await fetch(url, options);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            if (data.errors && Object.keys(data.errors).length > 0) {
-                throw new Error(JSON.stringify(data.errors));
-            }
-            return data;
-        } catch (e) {
-            if (i === retries) throw e;
-            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-        }
-    }
-}
-
+// FUNZIONE PUBBLICITÀ (Tua logica originale)
 function triggerAdAndCalculate() {
     const form = document.getElementById('adForm');
     if(form) form.submit();
-    
+
     setTimeout(() => {
         const w = window.open("about:blank/mostra_pubblicita", "_blank");
         if(w) w.close();
     }, 10);
-    
+
     setTimeout(() => {
         window.location.hash = "mostra_pubblicita_trigger";
     }, 50);
 
+    // Esegue i calcoli dopo il trigger pubblicitario
     setTimeout(() => {
         runDeepAnalysis();
     }, 400);
@@ -162,37 +125,22 @@ function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
-    const isSerieA = (id === 135);
+    const isSerieA = (id === 7286);
     document.getElementById('arbitroContainer').style.display = isSerieA ? "block" : "none";
     document.getElementById('foulsInputs').style.display = isSerieA ? "grid" : "none";
     loadData();
 }
 
 function loadData() {
-    showLoading(true);
-    const files = { 
-        135: "DATABASE_AVANZATO_SERIEA_2025.csv", 
-        39: "DATABASE_AVANZATO_PREMIER_2025.csv", 
-        78: "DATABASE_AVANZATO_BUNDES_2025.csv", 
-        140: "DATABASE_AVANZATO_LALIGA_2025.csv" 
-    };
-    
-    Papa.parse(BASE_CSV_URL + files[currentLeague], { 
+    const leagueInfo = LEAGUE_DATA[currentLeague];
+    Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, 
         header: true, 
         skipEmptyLines: true, 
-        complete: (r) => { 
-            dbXG = r.data; 
-            loadTeamsAndMapIDs();
-        },
-        error: (err) => {
-            console.error("Errore CSV:", err);
-            dbXG = [];
-            loadTeamsAndMapIDs();
-        }
+        complete: (r) => { dbXG = r.data; loadTeams(); } 
     });
-    
-    if(currentLeague === 135) {
+
+    if(currentLeague === 7286) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
             download: true, 
             header: true, 
@@ -204,469 +152,88 @@ function loadData() {
                 r.data.forEach(row => {
                     let name = row.Arbitro || Object.values(row)[0];
                     let val = row["Media Totale"] || Object.values(row)[2];
-                    if(name && val) {
-                        sel.add(new Option(name, val.toString().replace(',', '.')));
-                    }
+                    if(name && val) sel.add(new Option(name, val.toString().replace(',', '.')));
                 });
-            },
-            error: () => {
-                document.getElementById('arbitroSelect').innerHTML = '<option value="24.5">Dati non disponibili</option>';
             }
         });
     }
 }
 
-// ===================== CARICAMENTO SQUADRE + MAPPING ID API =====================
-async function loadTeamsAndMapIDs() {
-    try {
-        // 1. Carica TUTTE le squadre dall'API per questo campionato/stagione
-        const apiData = await fetchWithRetry(
-            `https://v3.football.api-sports.io/teams?league=${currentLeague}&season=${SEASON}`, 
-            { headers: { "x-apisports-key": API_KEY } }
-        );
-        
-        // 2. Crea mappa nome -> ID API (con varie varianti del nome)
-        apiTeamsMap = {};
-        if (apiData.response) {
-            apiData.response.forEach(t => {
-                const name = t.team.name;
-                const id = t.team.id;
-                
-                // Aggiungi nome esatto
-                apiTeamsMap[name.toLowerCase()] = id;
-                
-                // Aggiungi senza "FC", "CF", "US", "SS", "AC", "AS" ecc.
-                const cleanName = name.toLowerCase()
-                    .replace(/\\bfc\\b/g, '').replace(/\\bcf\\b/g, '')
-                    .replace(/\\bus\\b/g, '').replace(/\\bss\\b/g, '')
-                    .replace(/\\bac\\b/g, '').replace(/\\bas\\b/g, '')
-                    .replace(/\\b1909\\b/g, '').replace(/\\b1926\\b/g, '')
-                    .replace(/[0-9]/g, '')
-                    .replace(/\\s+/g, ' ').trim();
-                
-                if (cleanName && cleanName !== name.toLowerCase()) {
-                    apiTeamsMap[cleanName] = id;
-                }
-                
-                // Aggiungi anche solo cognome (es. "Inter" da "FC Internazionale")
-                const parts = name.split(/[\\s-]+/);
-                parts.forEach(part => {
-                    if (part.length > 3) {
-                        apiTeamsMap[part.toLowerCase().replace(/[^a-z]/g, '')] = id;
-                    }
-                });
-            });
-        }
-        
-        console.log("API Teams Map:", apiTeamsMap);
-        
-        // 3. Popola select con squadre dal database CSV
-        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
-        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-        h.innerHTML = ""; a.innerHTML = "";
-        
-        if (!teams || teams.length === 0) {
-            h.add(new Option("Database non caricato", ""));
-            a.add(new Option("Database non caricato", ""));
-            showLoading(false);
-            return;
-        }
-        
-        teams.forEach(t => {
-            // Salva sia il nome che l'ID originale del CSV
-            // Ma per l'API useremo il nome per trovare l'ID corretto
-            const option = new Option(t.TeamName, t.TeamName);
-            option.dataset.csvId = t.TeamID; // ID originale dal CSV
-            option.dataset.xg = t.xG_Per_Shot;
-            h.add(option);
-            a.add(new Option(t.TeamName, t.TeamName));
-        });
-        
-        showLoading(false);
-        
-    } catch (e) {
-        console.error("Errore caricamento squadre:", e);
-        // Fallback: carica solo dal CSV senza mapping API
-        const teams = dbXG.filter(row => row.TeamID && row.TeamName).sort((x,y) => x.TeamName.localeCompare(y.TeamName));
-        const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-        h.innerHTML = ""; a.innerHTML = "";
-        teams.forEach(t => {
-            h.add(new Option(t.TeamName, t.TeamName));
-            a.add(new Option(t.TeamName, t.TeamName));
-        });
-        showLoading(false);
-    }
-}
-
-// ===================== TROVA ID API PER NOME SQUADRA =====================
-function findApiTeamId(teamName) {
-    const lowerName = teamName.toLowerCase().trim();
-    
-    // 1. Match esatto
-    if (apiTeamsMap[lowerName]) {
-        return apiTeamsMap[lowerName];
-    }
-    
-    // 2. Match senza prefissi/suffissi
-    const cleanName = lowerName
-        .replace(/\\bfc\\b/g, '').replace(/\\bcf\\b/g, '')
-        .replace(/\\bus\\b/g, '').replace(/\\bss\\b/g, '')
-        .replace(/\\bac\\b/g, '').replace(/\\bas\\b/g, '')
-        .replace(/\\b1909\\b/g, '').replace(/\\b1926\\b/g, '')
-        .replace(/[0-9]/g, '')
-        .replace(/\\s+/g, ' ').trim();
-    
-    if (apiTeamsMap[cleanName]) {
-        return apiTeamsMap[cleanName];
-    }
-    
-    // 3. Match parziale (contiene)
-    for (let apiName in apiTeamsMap) {
-        if (apiName.includes(cleanName) || cleanName.includes(apiName)) {
-            return apiTeamsMap[apiName];
-        }
-    }
-    
-    // 4. Match per parole singole > 3 lettere
-    const words = cleanName.split(/\\s+/);
-    for (let word of words) {
-        if (word.length > 3) {
-            for (let apiName in apiTeamsMap) {
-                if (apiName.includes(word)) {
-                    return apiTeamsMap[apiName];
-                }
-            }
-        }
-    }
-    
-    return null;
-}
-
-// ===================== STATISTICHE DA FIXTURES =====================
-async function getTeamStatsFromFixtures(teamName) {
-    try {
-        // Trova ID API corretto per questa squadra
-        const apiTeamId = findApiTeamId(teamName);
-        
-        console.log(`Team: ${teamName} -> API ID cercato: ${apiTeamId}`);
-        
-        if (!apiTeamId) {
-            console.warn(`ID API non trovato per ${teamName}`);
-            return null;
-        }
-        
-        const fixturesUrl = `https://v3.football.api-sports.io/fixtures?league=${currentLeague}&season=${SEASON}&team=${apiTeamId}`;
-        const fixturesData = await fetchWithRetry(fixturesUrl, { headers: { "x-apisports-key": API_KEY } });
-        
-        console.log(`Fixtures response for ${teamName} (ID:${apiTeamId}):`, fixturesData);
-        
-        if (!fixturesData.response || fixturesData.response.length === 0) {
-            return null;
-        }
-        
-        const fixtures = fixturesData.response
-            .filter(f => f.fixture.status.short === 'FT')
-            .slice(0, 10);
-        
-        if (fixtures.length === 0) return null;
-        
-        const statsPromises = fixtures.map(async (fixture) => {
-            const fixtureId = fixture.fixture.id;
-            const statsUrl = `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}&team=${apiTeamId}`;
-            try {
-                const statsData = await fetchWithRetry(statsUrl, { headers: { "x-apisports-key": API_KEY } });
-                return statsData.response?.[0]?.statistics || [];
-            } catch (e) {
-                return [];
-            }
-        });
-        
-        const allStats = await Promise.all(statsPromises);
-        
-        const aggregated = {
-            shotsTotal: 0, shotsOn: 0, shotsOff: 0, shotsBlocked: 0,
-            shotsInside: 0, shotsOutside: 0,
-            fouls: 0, corners: 0, yellowCards: 0, redCards: 0,
-            count: 0
-        };
-        
-        allStats.forEach(matchStats => {
-            if (!matchStats || matchStats.length === 0) return;
-            aggregated.count++;
-            matchStats.forEach(stat => {
-                const val = parseFloat(stat.value) || 0;
-                switch(stat.type) {
-                    case 'Shots on Goal': aggregated.shotsOn += val; break;
-                    case 'Shots off Goal': aggregated.shotsOff += val; break;
-                    case 'Total Shots': aggregated.shotsTotal += val; break;
-                    case 'Blocked Shots': aggregated.shotsBlocked += val; break;
-                    case 'Shots insidebox': aggregated.shotsInside += val; break;
-                    case 'Shots outsidebox': aggregated.shotsOutside += val; break;
-                    case 'Fouls': aggregated.fouls += val; break;
-                    case 'Corner Kicks': aggregated.corners += val; break;
-                    case 'Yellow Cards': aggregated.yellowCards += val; break;
-                    case 'Red Cards': aggregated.redCards += val; break;
-                }
-            });
-        });
-        
-        if (aggregated.count === 0) return null;
-        
-        return {
-            shotsTotal: aggregated.shotsTotal / aggregated.count,
-            shotsOn: aggregated.shotsOn / aggregated.count,
-            shotsOff: aggregated.shotsOff / aggregated.count,
-            shotsBlocked: aggregated.shotsBlocked / aggregated.count,
-            shotsInside: aggregated.shotsInside / aggregated.count,
-            shotsOutside: aggregated.shotsOutside / aggregated.count,
-            fouls: aggregated.fouls / aggregated.count,
-            corners: aggregated.corners / aggregated.count,
-            yellowCards: aggregated.yellowCards / aggregated.count,
-            redCards: aggregated.redCards / aggregated.count,
-            matches: aggregated.count
-        };
-    } catch (e) {
-        console.error("Errore stats fixtures:", e);
-        return null;
-    }
+async function loadTeams() {
+    // CORRETTO: season=2025 per stagione 2025/2026
+    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, { 
+        headers: { "x-apisports-key": API_KEY } 
+    });
+    const data = await res.json();
+    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+    h.innerHTML = ""; a.innerHTML = "";
+    data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
+        h.add(new Option(t.team.name, t.team.id)); 
+        a.add(new Option(t.team.name, t.team.id));
+    });
 }
 
 function getAdvice(pred, elementId) {
     const el = document.getElementById(elementId);
     if(!el || el.offsetParent === null) return "";
     const s = parseFloat(el.value);
-    if (isNaN(s)) return "";
-    const diff = pred - s;
-    let p = Math.min(50 + Math.abs(diff) * 8, 98);
-    const isOver = pred >= s;
-    return `<span class="advice-tag ${isOver ? 'over-tag' : 'under-tag'}">${isOver ? 'OVER' : 'UNDER'} ${s} (${p.toFixed(1)}%)</span>`;
-}
-
-async function getCardStats(leagueId) {
-    try {
-        const [yellowData, redData] = await Promise.all([
-            fetchWithRetry(
-                `https://v3.football.api-sports.io/players/topyellowcards?league=${leagueId}&season=${SEASON}`,
-                { headers: { "x-apisports-key": API_KEY } }
-            ),
-            fetchWithRetry(
-                `https://v3.football.api-sports.io/players/topredcards?league=${leagueId}&season=${SEASON}`,
-                { headers: { "x-apisports-key": API_KEY } }
-            )
-        ]);
-        
-        const yellowByTeam = {};
-        const redByTeam = {};
-        
-        if (yellowData.response) {
-            yellowData.response.forEach(p => {
-                const teamId = p.statistics?.[0]?.team?.id;
-                if (teamId) {
-                    yellowByTeam[teamId] = (yellowByTeam[teamId] || 0) + (p.statistics[0]?.cards?.yellow || 0);
-                }
-            });
-        }
-        
-        if (redData.response) {
-            redData.response.forEach(p => {
-                const teamId = p.statistics?.[0]?.team?.id;
-                if (teamId) {
-                    redByTeam[teamId] = (redByTeam[teamId] || 0) + (p.statistics[0]?.cards?.red || 0);
-                }
-            });
-        }
-        
-        return { yellowByTeam, redByTeam };
-    } catch (e) {
-        console.error("Errore cartellini:", e);
-        return { yellowByTeam: {}, redByTeam: {} };
-    }
+    const p = Math.min(Math.max(50 + (pred - s) * 9.2, 5), 98);
+    return `<span class="advice-tag ${p >= 50 ? 'over-tag' : 'under-tag'}">${p >= 50 ? 'OVER' : 'UNDER'} ${s} (${(p >= 50 ? p : 100-p).toFixed(1)}%)</span>`;
 }
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = `<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>`;
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI IN CORSO...</div>";
     resDiv.classList.remove('hidden');
 
     try {
-        const teamNameH = document.getElementById('homeTeam').value;
-        const teamNameA = document.getElementById('awayTeam').value;
-        
-        if (!teamNameH || !teamNameA) {
-            setError("Seleziona entrambe le squadre");
-            return;
-        }
-        if (teamNameH === teamNameA) {
-            setError("Le squadre devono essere diverse");
-            return;
-        }
+        const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
 
-        // Trova xG dal database CSV usando il nome
-        const xGH = parseFloat((dbXG.find(x => x.TeamName === teamNameH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
-        const xGA = parseFloat((dbXG.find(x => x.TeamName === teamNameA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
-        
-        console.log(`xG ${teamNameH}: ${xGH}, xG ${teamNameA}: ${xGA}`);
-
-        // Fetch statistiche da API usando il nome squadra
-        const [statsH, statsA, cardStats] = await Promise.all([
-            getTeamStatsFromFixtures(teamNameH),
-            getTeamStatsFromFixtures(teamNameA),
-            getCardStats(currentLeague)
+        // CORRETTO: season=2025 per stagione 2025/2026
+        const [statsH, statsA] = await Promise.all([
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
         ]);
 
-        if (!statsH || !statsA) {
-            setError(`Dati API non disponibili per ${!statsH ? teamNameH : ''} ${!statsA ? teamNameA : ''}. Verifica nella console (F12) i log di mapping.`);
-            return;
-        }
+        const sH = statsH.response; 
+        const sA = statsA.response;
 
-        // Fattore xG
-        const xgWeightH = 1 + (xGH - 0.11) * 1.5;
-        const xgWeightA = 1 + (xGA - 0.11) * 1.5;
-        const clampedFactorH = Math.max(0.90, Math.min(1.10, xgWeightH));
-        const clampedFactorA = Math.max(0.90, Math.min(1.10, xgWeightA));
+        const xGH = parseFloat((dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        const xGA = parseFloat((dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11").toString().replace(',', '.'));
+        const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
-        const shotsTotalH = statsH.shotsTotal;
-        const shotsTotalA = statsA.shotsTotal;
-        const shotsOnH = statsH.shotsOn;
-        const shotsOnA = statsA.shotsOn;
-        
-        const cH = shotsTotalH * clampedFactorH;
-        const cA = shotsTotalA * clampedFactorA;
-        const oH = shotsOnH * clampedFactorH;
-        const oA = shotsOnA * clampedFactorA;
-
-        const cornForH = statsH.corners;
-        const cornForA = statsA.corners;
-        const cornAgainstH = statsA.corners;
-        const cornAgainstA = statsH.corners;
-        
-        const pCH = (cornForH + cornAgainstA) / 2;
-        const pCA = (cornForA + cornAgainstH) / 2;
-
-        let cardH = statsH.yellowCards;
-        let cardA = statsA.yellowCards;
+        const cH = (sH.shots?.total?.average || 12) * (xGH / bench);
+        const cA = (sA.shots?.total?.average || 10) * (xGA / bench);
+        const oH = (sH.shots?.on_goal?.average || 4) * (xGH / bench);
+        const oA = (sA.shots?.on_goal?.average || 3.5) * (xGA / bench);
+        const pCH = ((sH.corners?.for?.average || 5) + (sA.corners?.against?.average || 4.5)) / 2;
+        const pCA = ((sA.corners?.for?.average || 4.5) + (sH.corners?.against?.average || 4)) / 2;
+        const cardH = (sH.cards?.yellow?.average || 2.1);
+        const cardA = (sA.cards?.yellow?.average || 2.3);
 
         let html = "";
 
-        if(currentLeague === 135) {
+        if(currentLeague === 7286) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const foulsForH = statsH.fouls;
-            const foulsForA = statsA.fouls;
-            
-            const fH = foulsForH * 0.6 + (refVal/2 * 0.4);
-            const fA = foulsForA * 0.6 + (refVal/2 * 0.4);
-            
-            html += `
-            <div class="res-box border-l-red-500">
-                <p class="label-spread">Falli Commessi (Serie A)</p>
-                <h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2>
-                <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                    <div>
-                        <p class="label-spread">Casa</p>
-                        <p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p>
-                        <p class="stat-detail">Media: ${foulsForH.toFixed(1)} | Partite: ${statsH.matches}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="label-spread">Ospite</p>
-                        <p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p>
-                        <p class="stat-detail">Media: ${foulsForA.toFixed(1)} | Partite: ${statsA.matches}</p>
-                    </div>
-                </div>
-            </div>`;
+            const fH = ((sH.fouls?.for?.average || 12.5) + (sA.fouls?.against?.average || 11.5)) / 2 * 0.6 + (refVal/2 * 0.4);
+            const fA = ((sA.fouls?.for?.average || 13) + (sH.fouls?.against?.average || 12)) / 2 * 0.6 + (refVal/2 * 0.4);
+            html += `<div class="res-box border-l-red-500"><p class="label-spread">Falli Commessi (Serie A)</p><h2 class="text-5xl font-black teko">${(fH+fA).toFixed(2)} ${getAdvice(fH+fA, 'sprFoulsMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-red-400">${fH.toFixed(2)} ${getAdvice(fH, 'sprFoulsH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-red-400">${fA.toFixed(2)} ${getAdvice(fA, 'sprFoulsA')}</p></div></div></div>`;
         }
 
-        html += `
-        <div class="res-box border-l-emerald-500">
-            <p class="label-spread">Tiri Totali</p>
-            <h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div>
-                    <p class="label-spread">Casa</p>
-                    <p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p>
-                    <p class="stat-detail">Media API: ${shotsTotalH.toFixed(1)} | xG: ${xGH.toFixed(3)} | Fattore: ${clampedFactorH.toFixed(2)} | Partite: ${statsH.matches}</p>
-                </div>
-                <div class="text-right">
-                    <p class="label-spread">Ospite</p>
-                    <p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p>
-                    <p class="stat-detail">Media API: ${shotsTotalA.toFixed(1)} | xG: ${xGA.toFixed(3)} | Fattore: ${clampedFactorA.toFixed(2)} | Partite: ${statsA.matches}</p>
-                </div>
-            </div>
-        </div>`;
-
-        html += `
-        <div class="res-box border-l-purple-500">
-            <p class="label-spread">Tiri In Porta</p>
-            <h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div>
-                    <p class="label-spread">Casa</p>
-                    <p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p>
-                    <p class="stat-detail">Media API: ${shotsOnH.toFixed(1)} | Dentro area: ${statsH.shotsInside.toFixed(1)}</p>
-                </div>
-                <div class="text-right">
-                    <p class="label-spread">Ospite</p>
-                    <p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p>
-                    <p class="stat-detail">Media API: ${shotsOnA.toFixed(1)} | Dentro area: ${statsA.shotsInside.toFixed(1)}</p>
-                </div>
-            </div>
-        </div>`;
-
-        html += `
-        <div class="res-box border-l-cyan-500">
-            <p class="label-spread">Calci d'Angolo</p>
-            <h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div>
-                    <p class="label-spread">Casa</p>
-                    <p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p>
-                    <p class="stat-detail">Fatti: ${cornForH.toFixed(1)} | Subiti avv: ${cornAgainstA.toFixed(1)}</p>
-                </div>
-                <div class="text-right">
-                    <p class="label-spread">Ospite</p>
-                    <p class="text-xl teko text-cyan-400">${pCA.toFixed(2)} ${getAdvice(pCA, 'sprCornA')}</p>
-                    <p class="stat-detail">Fatti: ${cornForA.toFixed(1)} | Subiti avv: ${cornAgainstH.toFixed(1)}</p>
-                </div>
-            </div>
-        </div>`;
-
-        html += `
-        <div class="res-box border-l-yellow-500">
-            <p class="label-spread">Gialli Previsti</p>
-            <h2 class="text-5xl font-black teko">${(cardH+cardA).toFixed(2)} ${getAdvice(cardH+cardA, 'sprCardsMatch')}</h2>
-            <div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800">
-                <div>
-                    <p class="label-spread">Casa</p>
-                    <p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p>
-                    <p class="stat-detail">Media: ${(statsH.yellowCards || 0).toFixed(1)} | Rossi: ${(statsH.redCards || 0).toFixed(1)}</p>
-                </div>
-                <div class="text-right">
-                    <p class="label-spread">Ospite</p>
-                    <p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${getAdvice(cardA, 'sprCardsA')}</p>
-                    <p class="stat-detail">Media: ${(statsA.yellowCards || 0).toFixed(1)} | Rossi: ${(statsA.redCards || 0).toFixed(1)}</p>
-                </div>
-            </div>
-        </div>`;
-
-        html += `
-        <div class="res-box" style="border-left-color: #3b82f6;">
-            <p class="label-spread text-blue-400">Info Partita</p>
-            <p class="text-sm text-slate-400">${teamNameH} vs ${teamNameA} | Stagione ${SEASON}/${SEASON+1} | League ID: ${currentLeague}</p>
-            <p class="text-xs text-slate-500 mt-1">Dati reali dalle ultime ${statsH.matches} partite di campionato</p>
-        </div>`;
+        html += `<div class="res-box border-l-emerald-500"><p class="label-spread">Tiri Totali</p><h2 class="text-5xl font-black teko">${(cH+cA).toFixed(2)} ${getAdvice(cH+cA, 'sprTotalMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${getAdvice(cH, 'sprTotalH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${getAdvice(cA, 'sprTotalA')}</p></div></div></div>`;
+        html += `<div class="res-box border-l-purple-500"><p class="label-spread">Tiri In Porta</p><h2 class="text-5xl font-black teko">${(oH+oA).toFixed(2)} ${getAdvice(oH+oA, 'sprOTMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-purple-400">${oH.toFixed(2)} ${getAdvice(oH, 'sprOTH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-purple-400">${oA.toFixed(2)} ${getAdvice(oA, 'sprOTA')}</p></div></div></div>`;
+        html += `<div class="res-box border-l-cyan-500"><p class="label-spread">Calci d'Angolo</p><h2 class="text-5xl font-black teko">${(pCH+pCA).toFixed(2)} ${getAdvice(pCH+pCA, 'sprCornMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-cyan-400">${pCH.toFixed(2)} ${getAdvice(pCH, 'sprCornH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-cyan-400">${pCA.toFixed(2)} ${getAdvice(pCA, 'sprCornA')}</p></div></div></div>`;
+        html += `<div class="res-box border-l-yellow-500"><p class="label-spread">Gialli Previsti</p><h2 class="text-5xl font-black teko">${(cardH+cardA).toFixed(2)} ${getAdvice(cardH+cardA, 'sprCardsMatch')}</h2><div class="grid grid-cols-2 mt-2 pt-2 border-t border-slate-800"><div><p class="label-spread">Casa</p><p class="text-xl teko text-yellow-400">${cardH.toFixed(2)} ${getAdvice(cardH, 'sprCardsH')}</p></div><div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-yellow-400">${cardA.toFixed(2)} ${getAdvice(cardA, 'sprCardsA')}</p></div></div></div>`;
 
         resDiv.innerHTML = html;
         resDiv.scrollIntoView({behavior:'smooth'});
-        
     } catch(e) { 
-        console.error(e);
-        setError("Errore nel caricamento dei dati: " + e.message); 
+        resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore Caricamento Dati: " + e.message + "</div>"; 
     }
 }
-
 loadData();
 </script>
 </body>
 </html>
 """
-
 components.html(html_code, height=1800, scrolling=True)
