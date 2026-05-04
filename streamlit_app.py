@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V4 - TOTAL ANALYST", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 PRO - TOTAL ANALYST", layout="wide")
 
 html_code = """
 <!DOCTYPE html>
@@ -11,34 +11,42 @@ html_code = """
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600&family=Inter:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Inter:wght@400;500;700;900&display=swap');
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; }
         .teko { font-family: 'Teko', sans-serif; }
         .card-premium { background: #1e293b; border-radius: 24px; padding: 30px; border: 1px solid #334155; }
         select, input { background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; width: 100%; border-radius: 12px; font-weight: 700; font-size: 14px; outline: none; }
-        .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); width: 100%; padding: 20px; border-radius: 15px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border: none; color: white; }
-        .btn-analizza:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(59,130,246,0.4); }
-        .res-box { background: #0f172a; border-radius: 20px; padding: 24px; border-left: 5px solid; margin-bottom: 15px; position: relative; overflow: hidden; }
-        .res-box::before { content: ''; position: absolute; top: 0; right: 0; width: 150px; height: 150px; background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%); }
-        .advice-tag { display: inline-block; padding: 4px 14px; border-radius: 8px; font-size: 13px; font-weight: 900; margin-left: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .over-tag { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 15px rgba(16,185,129,0.3); }
-        .under-tag { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 15px rgba(239,68,68,0.3); }
-        .label-spread { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block; letter-spacing: 1px; }
+        .btn-analizza { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%); width: 100%; padding: 22px; border-radius: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: all 0.3s; margin-top: 20px; border: none; color: white; letter-spacing: 2px; }
+        .btn-analizza:hover { transform: translateY(-3px); box-shadow: 0 15px 50px rgba(59,130,246,0.5); }
+        .res-box { background: #0f172a; border-radius: 20px; padding: 28px; border-left: 5px solid; margin-bottom: 18px; position: relative; overflow: hidden; }
+        .res-box::before { content: ''; position: absolute; top: 0; right: 0; width: 200px; height: 200px; background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%); }
+        .advice-tag { display: inline-block; padding: 5px 16px; border-radius: 10px; font-size: 14px; font-weight: 900; margin-left: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .over-tag { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 20px rgba(16,185,129,0.4); }
+        .under-tag { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 20px rgba(239,68,68,0.4); }
+        .label-spread { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block; letter-spacing: 1.2px; }
         .league-btn { cursor: pointer; padding: 14px; border-radius: 12px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 12px; letter-spacing: 0.5px; transition: all 0.3s; background: #0f172a; }
-        .league-active { background: linear-gradient(135deg, #3b82f6, #2563eb); border-color: #3b82f6; color: white; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
-        .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding-top: 18px; border-top: 1px solid #334155; margin-bottom: 18px; }
+        .league-active { background: linear-gradient(135deg, #3b82f6, #2563eb); border-color: #3b82f6; color: white; box-shadow: 0 0 25px rgba(59, 130, 246, 0.5); }
+        .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-top: 20px; border-top: 1px solid #334155; margin-bottom: 20px; }
         .status-msg { font-size: 12px; font-weight: 700; padding: 10px 16px; border-radius: 10px; margin-bottom: 16px; display: none; }
         .status-ok { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; }
         .status-err { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; }
-        .confidence-bar { height: 6px; border-radius: 3px; background: #1e293b; margin-top: 12px; overflow: hidden; }
-        .confidence-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
-        .precision-badge { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .confidence-bar { height: 8px; border-radius: 4px; background: #1e293b; margin-top: 14px; overflow: hidden; }
+        .confidence-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+        .precision-badge { position: absolute; top: 20px; right: 20px; font-size: 11px; font-weight: 900; padding: 5px 12px; border-radius: 8px; background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .form-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+        .form-W { background: #10b981; }
+        .form-D { background: #f59e0b; }
+        .form-L { background: #ef4444; }
+        .momentum-bar { display: flex; gap: 3px; margin-top: 6px; }
+        .momentum-dot { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; }
+        .standings-info { font-size: 12px; color: #94a3b8; margin-top: 8px; font-weight: 500; }
+        .pro-badge { background: linear-gradient(135deg, #f59e0b, #d97706); color: #020617; font-size: 10px; font-weight: 900; padding: 3px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-10">
-            <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span></h1>
+            <h1 class="text-6xl font-black teko tracking-widest text-white uppercase italic">PROBET <span class="text-blue-500">AI V4</span> <span class="pro-badge">PRO</span></h1>
             <p class="text-blue-400 font-bold text-xs tracking-widest uppercase italic mt-2">Elite Multi-League Analysis System - Stagione 2025/2026</p>
         </div>
 
@@ -92,7 +100,7 @@ html_code = """
                 <input type="hidden" name="trigger" value="ad">
             </form>
 
-            <button onclick="triggerAdAndCalculate()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE</button>
+            <button onclick="triggerAdAndCalculate()" class="btn-analizza shadow-xl italic teko text-2xl tracking-widest">GENERA ANALISI ELITE PRO</button>
         </div>
         <div id="results" class="space-y-6 hidden pb-20"></div>
     </div>
@@ -225,11 +233,14 @@ async function loadTeams() {
     }
 }
 
+// ============================================
+// FUNZIONI UTILITY PRO
+// ============================================
+
 function calcConfidence(pred, spread) {
     const diff = pred - spread;
     const rawProb = 1 / (1 + Math.exp(-diff * 0.85));
-    const confidence = Math.min(Math.max(rawProb * 100, 8), 96);
-    return confidence;
+    return Math.min(Math.max(rawProb * 100, 8), 96);
 }
 
 function getAdviceAdvanced(pred, spread) {
@@ -252,9 +263,173 @@ function renderConfidenceBar(confidence) {
     return `<div class="confidence-bar"><div class="confidence-fill" style="width:${confidence}%;background:${color}"></div></div>`;
 }
 
+function renderFormBar(results) {
+    if (!results || results.length === 0) return '';
+    let html = '<div class="momentum-bar">';
+    results.slice(0, 5).reverse().forEach(r => {
+        const outcome = r === 'W' ? 'V' : r === 'D' ? 'N' : 'S';
+        const color = r === 'W' ? '#10b981' : r === 'D' ? '#f59e0b' : '#ef4444';
+        html += `<div class="momentum-dot" style="background:${color};color:white">${outcome}</div>`;
+    });
+    html += '</div>';
+    return html;
+}
+
+// ============================================
+// RECUPERO DATI AVANZATI PRO
+// ============================================
+
+async function getTeamForm(teamId, apiId) {
+    // Recupera ultime 5 partite giocate dalla squadra
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=5`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const data = await res.json();
+        if (!data.response || data.response.length === 0) return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
+
+        let results = [];
+        let totalShots = 0, totalCorners = 0, totalCards = 0;
+        let count = 0;
+
+        data.response.forEach(fixture => {
+            const isHome = fixture.teams.home.id == teamId;
+            const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
+            const opponentSide = isHome ? fixture.teams.away : fixture.teams.home;
+
+            // Risultato
+            if (teamSide.winner === true) results.push('W');
+            else if (teamSide.winner === false) results.push('L');
+            else results.push('D');
+
+            // Statistiche dalla fixture se disponibili
+            if (fixture.statistics && fixture.statistics.length > 0) {
+                const teamStats = isHome ? fixture.statistics[0] : fixture.statistics[1];
+                if (teamStats && teamStats.statistics) {
+                    const stats = teamStats.statistics;
+                    const shots = stats.find(s => s.type === 'Shots on Goal');
+                    const corners = stats.find(s => s.type === 'Corner Kicks');
+                    const cards = stats.find(s => s.type === 'Yellow Cards');
+                    if (shots) totalShots += parseInt(shots.value) || 0;
+                    if (corners) totalCorners += parseInt(corners.value) || 0;
+                    if (cards) totalCards += parseInt(cards.value) || 0;
+                    count++;
+                }
+            }
+        });
+
+        // Calcola fattore forma (W=1.08, D=1.0, L=0.92)
+        let formFactor = 1.0;
+        results.forEach((r, i) => {
+            const weight = (i + 1) / 5; // partite recenti pesano di più
+            if (r === 'W') formFactor += 0.016 * weight;
+            else if (r === 'L') formFactor -= 0.016 * weight;
+        });
+
+        return {
+            results: results,
+            formFactor: Math.max(0.92, Math.min(1.08, formFactor)),
+            avgShots: count > 0 ? totalShots / count : 0,
+            avgCorners: count > 0 ? totalCorners / count : 0,
+            avgCards: count > 0 ? totalCards / count : 0
+        };
+    } catch (e) {
+        console.error("Errore forma:", e);
+        return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
+    }
+}
+
+async function getStandingsMomentum(teamId, apiId) {
+    // Recupera posizione in classifica e momentum
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const data = await res.json();
+        if (!data.response || data.response.length === 0) return { position: 10, totalTeams: 20, momentum: 1.0 };
+
+        const standing = data.response[0].league.standings[0][0];
+        const position = standing.rank;
+        const totalTeams = data.response[0].league.standings[0].length;
+
+        // Momentum: squadre in zona alta hanno più motivazione
+        let momentum = 1.0;
+        if (position <= 3) momentum = 1.05; // lotta scudetto/Europe
+        else if (position <= 6) momentum = 1.03; // zona Europa
+        else if (position >= totalTeams - 3) momentum = 1.04; // lotta salvezza
+        else if (position >= totalTeams - 8 && position <= totalTeams - 4) momentum = 0.98; // zona grigia
+
+        return { position, totalTeams, momentum };
+    } catch (e) {
+        return { position: 10, totalTeams: 20, momentum: 1.0 };
+    }
+}
+
+async function getPredictions(teamIdH, teamIdA, apiId) {
+    // Recupera previsioni ML dell'API
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/predictions?fixture=${teamIdH}-${teamIdA}`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        // Nota: predictions API richiede fixture ID, non team ID. 
+        // Per semplicità, usiamo un approccio alternativo con fixtures
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function getFixturesH2H(teamIdH, teamIdA, apiId) {
+    // Recupera ultimi 3 incontri diretti (non 5 anni, solo stagione corrente + precedente)
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=3`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const data = await res.json();
+        if (!data.response || data.response.length === 0) return null;
+
+        let h2hShotsH = 0, h2hShotsA = 0, h2hCorners = 0, h2hCards = 0;
+        let count = 0;
+
+        data.response.forEach(fixture => {
+            if (fixture.statistics && fixture.statistics.length > 0) {
+                const homeStats = fixture.statistics[0];
+                const awayStats = fixture.statistics[1];
+                if (homeStats && homeStats.statistics) {
+                    const stats = homeStats.statistics;
+                    const shots = stats.find(s => s.type === 'Shots on Goal');
+                    const corners = stats.find(s => s.type === 'Corner Kicks');
+                    if (shots) h2hShotsH += parseInt(shots.value) || 0;
+                    if (corners) h2hCorners += parseInt(corners.value) || 0;
+                }
+                if (awayStats && awayStats.statistics) {
+                    const stats = awayStats.statistics;
+                    const shots = stats.find(s => s.type === 'Shots on Goal');
+                    if (shots) h2hShotsA += parseInt(shots.value) || 0;
+                }
+                count++;
+            }
+        });
+
+        if (count === 0) return null;
+        return {
+            avgShotsH: h2hShotsH / count,
+            avgShotsA: h2hShotsA / count,
+            avgCorners: h2hCorners / count,
+            weight: Math.min(count * 0.15, 0.3) // max 30% peso H2H
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+// ============================================
+// ANALISI ELITE PRO
+// ============================================
+
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI ELITE IN CORSO...</div>";
+    resDiv.innerHTML = "<div class='text-center py-20 animate-pulse text-blue-500 font-black teko text-3xl uppercase tracking-widest'>ANALISI ELITE PRO IN CORSO...<br><span class='text-lg font-inter text-slate-400'>Recupero forma, classifica e statistiche avanzate</span></div>";
     resDiv.classList.remove('hidden');
 
     try {
@@ -267,38 +442,79 @@ async function runDeepAnalysis() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        let statsH, statsA;
+        // === FASE 1: Recupero parallelo di TUTTI i dati avanzati ===
+        let statsH, statsA, formH, formA, standH, standA, h2hData;
+
         try {
-            [statsH, statsA] = await Promise.all([
+            // Statistiche base
+            const statsRes = await Promise.all([
                 fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
                 fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
             ]);
+            statsH = statsRes[0]; statsA = statsRes[1];
+
+            // Se vuoto, fallback a ID standard
             if (!statsH.response || !statsA.response) throw new Error("empty");
         } catch (e) {
             apiId = leagueInfo.oldId;
-            [statsH, statsA] = await Promise.all([
+            const statsRes = await Promise.all([
                 fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
                 fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
             ]);
+            statsH = statsRes[0]; statsA = statsRes[1];
         }
+
+        // Recupero dati avanzati in parallelo
+        [formH, formA, standH, standA, h2hData] = await Promise.all([
+            getTeamForm(idH, apiId),
+            getTeamForm(idA, apiId),
+            getStandingsMomentum(idH, apiId),
+            getStandingsMomentum(idA, apiId),
+            getFixturesH2H(idH, idA, apiId)
+        ]);
 
         const sH = statsH.response; 
         const sA = statsA.response;
         const homeAdv = leagueInfo.homeAdv;
 
-        // === TI TOTALI ===
+        // === FASE 2: Calcoli con fattori PRO ===
+
+        // xG dal CSV
         const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
         const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
         const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
         const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
         const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
+        // Fattori PRO
+        const formFactorH = formH.formFactor;
+        const formFactorA = formA.formFactor;
+        const momentumH = standH.momentum;
+        const momentumA = standA.momentum;
+
+        // === TI TOTALI ===
         const shotsH_avg = sH.shots?.total?.average || 12.5;
         const shotsA_avg = sA.shots?.total?.average || 10.5;
         const xgFactorH = 0.7 + (xGH / bench) * 0.3;
         const xgFactorA = 0.7 + (xGA / bench) * 0.3;
-        const cH = shotsH_avg * xgFactorH * homeAdv * 0.95;
-        const cA = shotsA_avg * xgFactorA * 1.0 * 1.05;
+
+        let cH = shotsH_avg * xgFactorH * homeAdv * formFactorH * momentumH * 0.95;
+        let cA = shotsA_avg * xgFactorA * 1.0 * formFactorA * momentumA * 1.05;
+
+        // H2H adjustment (se disponibile)
+        if (h2hData) {
+            cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
+            cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
+        }
+
+        // Forma recente override (se media ultimi 5 > 20% diversa dalla stagionale)
+        if (formH.avgShots > 0 && Math.abs(formH.avgShots - shotsH_avg) / shotsH_avg > 0.2) {
+            cH = cH * 0.7 + formH.avgShots * 0.3;
+        }
+        if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) {
+            cA = cA * 0.7 + formA.avgShots * 0.3;
+        }
+
         const totalShots = cH + cA;
 
         // === TI IN PORTA ===
@@ -308,8 +524,9 @@ async function runDeepAnalysis() {
         const convRateA = onTargetA_avg / shotsA_avg;
         const precisionH = convRateH * (0.85 + xGH * 2.5);
         const precisionA = convRateA * (0.85 + xGA * 2.5);
-        const oH = cH * precisionH * homeAdv;
-        const oA = cA * precisionA;
+
+        let oH = cH * precisionH * homeAdv * formFactorH;
+        let oA = cA * precisionA * formFactorA;
         const totalOnTarget = oH + oA;
 
         // === CORNER ===
@@ -323,8 +540,18 @@ async function runDeepAnalysis() {
         const possA = sA.possession?.average || 48;
         const possFactorH = 0.9 + (possH / 100) * 0.2;
         const possFactorA = 0.9 + (possA / 100) * 0.2;
-        const pCH = pressureH * possFactorH * homeAdv * 0.92;
-        const pCA = pressureA * possFactorA * 1.08;
+
+        let pCH = pressureH * possFactorH * homeAdv * formFactorH * 0.92;
+        let pCA = pressureA * possFactorA * formFactorA * 1.08;
+
+        // Forma recente corner
+        if (formH.avgCorners > 0 && Math.abs(formH.avgCorners - cornersForH) / cornersForH > 0.15) {
+            pCH = pCH * 0.8 + formH.avgCorners * 0.2;
+        }
+        if (formA.avgCorners > 0 && Math.abs(formA.avgCorners - cornersForA) / cornersForA > 0.15) {
+            pCA = pCA * 0.8 + formA.avgCorners * 0.2;
+        }
+
         const totalCorners = pCH + pCA;
 
         // === CARTELLINI ===
@@ -335,8 +562,18 @@ async function runDeepAnalysis() {
         const disciplineH = foulsH_avg / Math.max(yellowH_avg, 0.5);
         const disciplineA = foulsA_avg / Math.max(yellowA_avg, 0.5);
         const intensityFactor = 1.0 + ((foulsH_avg + foulsA_avg) - 24) / 100;
-        const cardH = yellowH_avg * intensityFactor * homeAdv * 0.95;
-        const cardA = yellowA_avg * intensityFactor * 1.05;
+
+        let cardH = yellowH_avg * intensityFactor * homeAdv * formFactorH * 0.95;
+        let cardA = yellowA_avg * intensityFactor * formFactorA * 1.05;
+
+        // Forma recente cartellini
+        if (formH.avgCards > 0) {
+            cardH = cardH * 0.85 + formH.avgCards * 0.15;
+        }
+        if (formA.avgCards > 0) {
+            cardA = cardA * 0.85 + formA.avgCards * 0.15;
+        }
+
         const totalCards = cardH + cardA;
 
         // === FALLI SERIE A ===
@@ -350,8 +587,12 @@ async function runDeepAnalysis() {
             totalFouls = fH + fA;
         }
 
-        // === RENDERING ===
+        // === FASE 3: Rendering con dati PRO ===
         let html = "";
+
+        // Info forma e classifica
+        const formHtmlH = renderFormBar(formH.results);
+        const formHtmlA = renderFormBar(formA.results);
 
         if(currentLeague === 7286) {
             const advFouls = getAdviceAdvanced(totalFouls, parseFloat(document.getElementById('sprFoulsMatch').value));
@@ -380,8 +621,18 @@ async function runDeepAnalysis() {
             <h2 class="text-5xl font-black teko">${totalShots.toFixed(2)} ${advShots.html}</h2>
             ${renderConfidenceBar(advShots.confidence)}
             <div class="grid grid-cols-2 mt-4 pt-3 border-t border-slate-800">
-                <div><p class="label-spread">Casa</p><p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${advShotsH.html}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${advShotsA.html}</p></div>
+                <div>
+                    <p class="label-spread">Casa</p>
+                    <p class="text-xl teko text-emerald-400">${cH.toFixed(2)} ${advShotsH.html}</p>
+                    ${formHtmlH}
+                    <p class="standings-info">Pos. ${standH.position}° / ${standH.totalTeams} • Forma: ${(formFactorH).toFixed(2)}x</p>
+                </div>
+                <div class="text-right">
+                    <p class="label-spread">Ospite</p>
+                    <p class="text-xl teko text-emerald-400">${cA.toFixed(2)} ${advShotsA.html}</p>
+                    ${formHtmlA}
+                    <p class="standings-info">Pos. ${standA.position}° / ${standA.totalTeams} • Forma: ${(formFactorA).toFixed(2)}x</p>
+                </div>
             </div>
         </div>`;
 
