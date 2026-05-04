@@ -25,6 +25,10 @@ html_code = """
         .league-btn { cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 900; border: 1px solid #334155; text-align: center; font-size: 11px; }
         .league-active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
         .grid-spreads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 15px; border-top: 1px solid #334155; margin-bottom: 15px; }
+        .status-msg { font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; }
+        .status-ok { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+        .status-err { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .status-warn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -42,6 +46,8 @@ html_code = """
         </div>
 
         <div class="card-premium mb-8">
+            <div id="statusMessage" class="status-msg status-warn">Inizializzazione...</div>
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div><label class="label-spread text-blue-400">Home Team</label><select id="homeTeam"></select></div>
                 <div><label class="label-spread text-blue-400">Away Team</label><select id="awayTeam"></select></div>
@@ -93,29 +99,31 @@ const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
-// Mappatura ID campionati stagione 2025/2026
+// Mappatura campionati con ID nuovi (v3 stagione 2025) e ID standard fallback
 const LEAGUE_DATA = {
-    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135 },
-    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39 },
-    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140 }
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351 }
 };
 
-// FUNZIONE PUBBLICITÀ (Tua logica originale)
+function setStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg;
+    el.className = 'status-msg status-' + type;
+}
+
+// FUNZIONE PUBBLICITÀ
 function triggerAdAndCalculate() {
     const form = document.getElementById('adForm');
     if(form) form.submit();
-
     setTimeout(() => {
         const w = window.open("about:blank/mostra_pubblicita", "_blank");
         if(w) w.close();
     }, 10);
-
     setTimeout(() => {
         window.location.hash = "mostra_pubblicita_trigger";
     }, 50);
-
-    // Esegue i calcoli dopo il trigger pubblicitario
     setTimeout(() => {
         runDeepAnalysis();
     }, 400);
@@ -133,11 +141,20 @@ function switchLeague(id) {
 
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
+    setStatus(`Caricamento dati ${leagueInfo.name}...`, 'warn');
+
     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, 
         header: true, 
         skipEmptyLines: true, 
-        complete: (r) => { dbXG = r.data; loadTeams(); } 
+        complete: (r) => { 
+            dbXG = r.data; 
+            loadTeams(); 
+        },
+        error: (err) => {
+            console.error("Errore CSV:", err);
+            setStatus("Errore caricamento database CSV", 'err');
+        }
     });
 
     if(currentLeague === 7286) {
@@ -160,17 +177,59 @@ function loadData() {
 }
 
 async function loadTeams() {
-    // CORRETTO: season=2025 per stagione 2025/2026
-    const res = await fetch(`https://v3.football.api-sports.io/teams?league=${currentLeague}&season=2025`, { 
-        headers: { "x-apisports-key": API_KEY } 
-    });
-    const data = await res.json();
     const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-    h.innerHTML = ""; a.innerHTML = "";
-    data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-        h.add(new Option(t.team.name, t.team.id)); 
-        a.add(new Option(t.team.name, t.team.id));
-    });
+    h.innerHTML = '<option>Caricamento squadre...</option>';
+    a.innerHTML = '<option>Caricamento squadre...</option>';
+
+    try {
+        const leagueInfo = LEAGUE_DATA[currentLeague];
+        let apiId = leagueInfo.apiId;
+
+        // TENTATIVO 1: ID nuovo (v3 stagione 2025)
+        setStatus(`Chiamata API con ID ${apiId}...`, 'warn');
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
+            headers: { "x-apisports-key": API_KEY } 
+        });
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
+        let data = await res.json();
+
+        // TENTATIVO 2: Fallback a ID standard se nuovo ID restituisce vuoto
+        if (!data.response || data.response.length === 0) {
+            apiId = leagueInfo.oldId;
+            setStatus(`ID ${leagueInfo.apiId} vuoto, provo ID standard ${apiId}...`, 'warn');
+            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
+                headers: { "x-apisports-key": API_KEY } 
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            data = await res.json();
+        }
+
+        if (!data.response || data.response.length === 0) {
+            throw new Error("Nessuna squadra trovata per questo campionato");
+        }
+
+        // Popola select
+        h.innerHTML = ""; a.innerHTML = "";
+        h.add(new Option("-- Seleziona Casa --", ""));
+        a.add(new Option("-- Seleziona Ospite --", ""));
+
+        data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
+            h.add(new Option(t.team.name, t.team.id)); 
+            a.add(new Option(t.team.name, t.team.id));
+        });
+
+        setStatus(`✓ ${data.response.length} squadre caricate (${leagueInfo.name})`, 'ok');
+
+    } catch (e) {
+        console.error("Errore loadTeams:", e);
+        h.innerHTML = '<option>Errore caricamento squadre</option>';
+        a.innerHTML = '<option>Errore caricamento squadre</option>';
+        setStatus(`✗ Errore API: ${e.message}`, 'err');
+    }
 }
 
 function getAdvice(pred, elementId) {
@@ -187,13 +246,35 @@ async function runDeepAnalysis() {
     resDiv.classList.remove('hidden');
 
     try {
-        const idH = document.getElementById('homeTeam').value, idA = document.getElementById('awayTeam').value;
+        const idH = document.getElementById('homeTeam').value;
+        const idA = document.getElementById('awayTeam').value;
 
-        // CORRETTO: season=2025 per stagione 2025/2026
-        const [statsH, statsA] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?league=${currentLeague}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
-        ]);
+        if (!idH || !idA) {
+            throw new Error("Seleziona entrambe le squadre");
+        }
+        if (idH === idA) {
+            throw new Error("Le squadre devono essere diverse");
+        }
+
+        const leagueInfo = LEAGUE_DATA[currentLeague];
+        let apiId = leagueInfo.apiId;
+
+        // Verifica quale ID funziona per le statistiche
+        let statsH, statsA;
+        try {
+            [statsH, statsA] = await Promise.all([
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+            ]);
+            if (!statsH.response || !statsA.response) throw new Error("empty");
+        } catch (e) {
+            // Fallback a ID standard
+            apiId = leagueInfo.oldId;
+            [statsH, statsA] = await Promise.all([
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+            ]);
+        }
 
         const sH = statsH.response; 
         const sA = statsA.response;
@@ -228,9 +309,11 @@ async function runDeepAnalysis() {
         resDiv.innerHTML = html;
         resDiv.scrollIntoView({behavior:'smooth'});
     } catch(e) { 
-        resDiv.innerHTML = "<div class='p-4 bg-red-900 rounded-xl'>Errore Caricamento Dati: " + e.message + "</div>"; 
+        resDiv.innerHTML = `<div class='p-4 bg-red-900 rounded-xl border border-red-500'><p class="font-bold text-red-400">ERRORE ANALISI</p><p class="text-white">${e.message}</p></div>`; 
     }
 }
+
+// Avvio
 loadData();
 </script>
 </body>
