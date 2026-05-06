@@ -1,414 +1,428 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V4 PRO - TOTAL ANALYST", layout="wide")
+st.set_page_config(page_title="PROBET AI V4 PRO", layout="wide", initial_sidebar_state="collapsed")
 
 html_code = """
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Inter:wght@400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Inter:wght@300;400;600;800&display=swap');
 
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --bg-dark: #020617;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --input-bg: rgba(15, 23, 42, 0.8);
+            --primary-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
 
-        html, body { 
-            background: #020617; 
-            color: white; 
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+
+        body { 
+            background-color: var(--bg-dark);
+            /* Gradiente sottile per profondità */
+            background-image: radial-gradient(circle at top right, #1e3a8a 0%, transparent 40%),
+                              radial-gradient(circle at bottom left, #0f172a 0%, transparent 40%);
+            color: var(--text-main); 
             font-family: 'Inter', sans-serif;
-            height: 100%;
-            min-height: 100vh;
+            min-height: 100dvh; /* Altezza dinamica viewport mobile */
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
-        .teko { font-family: 'Teko', sans-serif; }
+        /* Scrollbar nascosta ma funzionante */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
 
-        .container { 
-            max-width: 900px; 
-            margin: 0 auto; 
-            padding: 16px; 
-            min-height: 100vh;
-            background: #020617;
-            position: relative;
-        }
+        .teko { font-family: 'Teko', sans-serif; letter-spacing: 0.05em; }
 
-        @media (min-width: 768px) {
-            .container { padding: 32px; }
+        .app-wrapper {
+            max-width: 600px; /* Limite larghezza per desktop, full width mobile */
+            margin: 0 auto;
+            padding: 20px 16px 80px 16px; /* Padding bottom extra per scroll finale */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         /* HEADER */
-        .header { text-align: center; margin-bottom: 24px; }
-        .header h1 { 
-            font-size: clamp(2.5rem, 8vw, 4rem); 
-            font-weight: 900; 
-            letter-spacing: 0.15em; 
-            text-transform: uppercase; 
-            font-style: italic;
-            line-height: 1;
+        .header { 
+            text-align: center; 
+            margin-bottom: 10px; 
+            padding-top: 10px;
         }
-        .header p { 
-            font-size: clamp(0.65rem, 2vw, 0.75rem); 
-            color: #60a5fa; 
+        .header h1 { 
+            font-size: 3rem; 
+            line-height: 0.9;
             font-weight: 700; 
-            letter-spacing: 0.2em; 
             text-transform: uppercase; 
             font-style: italic;
-            margin-top: 8px;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+        .header .version {
+            font-size: 0.7rem;
+            color: #60a5fa;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-top: 5px;
+            opacity: 0.8;
         }
 
-        /* LEAGUE BUTTONS */
-        .league-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-bottom: 20px;
+        /* LEAGUE SELECTOR - Horizontal Scroll on Mobile */
+        .league-scroller {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 4px 4px 14px 4px;
+            margin: 0 -10px; /* Bleed to edges */
+            scrollbar-width: none;
         }
-        @media (min-width: 768px) {
-            .league-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; }
-        }
+        .league-scroller::-webkit-scrollbar { display: none; }
 
         .league-btn { 
+            flex: 0 0 auto;
             cursor: pointer; 
-            padding: 12px 8px; 
-            border-radius: 10px; 
-            font-weight: 900; 
-            border: 1px solid #334155; 
-            text-align: center; 
-            font-size: 11px; 
-            letter-spacing: 0.5px; 
-            transition: all 0.3s; 
-            background: #0f172a;
-            color: #94a3b8;
-            white-space: nowrap;
-        }
-        .league-active { 
-            background: linear-gradient(135deg, #3b82f6, #2563eb); 
-            border-color: #3b82f6; 
-            color: white; 
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); 
-        }
-
-        /* CARD PREMIUM */
-        .card-premium { 
-            background: #1e293b; 
-            border-radius: 20px; 
-            padding: 20px; 
-            border: 1px solid #334155;
-            margin-bottom: 20px;
-        }
-        @media (min-width: 768px) {
-            .card-premium { padding: 30px; border-radius: 24px; }
-        }
-
-        /* FORM GRID */
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        @media (min-width: 768px) {
-            .form-grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        }
-
-        /* INPUTS */
-        select, input { 
-            background: #0f172a; 
-            border: 1px solid #475569; 
-            color: white; 
-            padding: 14px 12px; 
-            width: 100%; 
+            padding: 10px 16px; 
             border-radius: 12px; 
             font-weight: 700; 
-            font-size: 14px; 
-            outline: none;
-            appearance: none;
-            -webkit-appearance: none;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.1); 
+            background: rgba(15, 23, 42, 0.6);
+            color: #94a3b8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(4px);
         }
-        select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            padding-right: 32px;
-        }
-        select:focus, input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
-
-        /* SPREAD GRID */
-        .spread-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 12px;
-            padding-top: 16px;
-            border-top: 1px solid #334155;
-            margin-bottom: 16px;
-        }
-        @media (min-width: 640px) {
-            .spread-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        
+        .league-active { 
+            background: var(--primary-blue); 
+            border-color: var(--primary-blue); 
+            color: white; 
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); 
+            transform: scale(1.05);
         }
 
-        /* LABELS */
-        .label-spread { 
-            font-size: 10px; 
-            font-weight: 900; 
-            color: #94a3b8; 
+        /* MAIN CARD CONTAINER */
+        .glass-card { 
+            background: var(--card-bg); 
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px; 
+            padding: 24px 20px; 
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        /* INPUTS AREA */
+        .input-group { margin-bottom: 16px; }
+        .input-label { 
+            font-size: 11px; 
+            font-weight: 700; 
+            color: var(--text-muted); 
             text-transform: uppercase; 
-            margin-bottom: 6px; 
-            display: block; 
-            letter-spacing: 1.2px; 
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            display: block;
         }
 
-        /* BUTTON */
-        .btn-analizza { 
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%); 
+        select, input[type="number"] { 
+            width: 100%; 
+            background: var(--input-bg); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            color: white; 
+            padding: 14px 16px; 
+            border-radius: 14px; 
+            font-size: 15px; 
+            font-weight: 600;
+            transition: all 0.2s;
+            appearance: none;
+        }
+        
+        select:focus, input:focus { 
+            border-color: var(--primary-blue); 
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); 
+            background: #0f172a;
+        }
+
+        /* Custom Select Arrow */
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 16px;
+        }
+
+        /* SPREAD GRID SYSTEM */
+        .spread-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .spread-title {
+            font-size: 12px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .grid-input-item label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            display: block;
+            text-align: center;
+        }
+        .grid-input-item input {
+            padding: 10px 4px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* ACTION BUTTON */
+        .btn-action { 
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
             width: 100%; 
             padding: 18px; 
-            border-radius: 14px; 
-            font-weight: 900; 
+            border-radius: 16px; 
+            font-weight: 800; 
             text-transform: uppercase; 
             cursor: pointer; 
-            transition: all 0.3s; 
-            margin-top: 16px; 
             border: none; 
             color: white; 
-            letter-spacing: 2px;
-            font-size: clamp(1.1rem, 4vw, 1.5rem);
-            font-style: italic;
+            font-size: 1.1rem;
             font-family: 'Teko', sans-serif;
-        }
-        .btn-analizza:active { transform: scale(0.98); }
-        @media (min-width: 768px) {
-            .btn-analizza { padding: 22px; border-radius: 16px; }
-        }
-
-        /* RESULTS */
-        .results-container { 
-            display: none; 
-            padding-bottom: 40px;
-        }
-        .results-container.visible { display: block; }
-
-        .res-box { 
-            background: #0f172a; 
-            border-radius: 16px; 
-            padding: 20px; 
-            border-left: 4px solid; 
-            margin-bottom: 16px; 
+            letter-spacing: 0.1em;
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+            transition: transform 0.1s, box-shadow 0.2s;
             position: relative;
+            overflow: hidden;
         }
-        @media (min-width: 768px) {
-            .res-box { padding: 28px; border-radius: 20px; border-left-width: 5px; }
+        .btn-action:active { transform: scale(0.98); box-shadow: 0 5px 15px -5px rgba(37, 99, 235, 0.5); }
+        
+        /* RESULTS STYLING */
+        .result-card {
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Colored Left Border Glow */
+        .result-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+        }
+        .border-green::before { background: #10b981; box-shadow: 0 0 15px #10b981; }
+        .border-purple::before { background: #a78bfa; box-shadow: 0 0 15px #a78bfa; }
+        .border-cyan::before { background: #22d3ee; box-shadow: 0 0 15px #22d3ee; }
+        .border-yellow::before { background: #fbbf24; box-shadow: 0 0 15px #fbbf24; }
+        .border-red::before { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
+
+        .res-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .res-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-pro { 
+            font-size: 9px; padding: 2px 6px; border-radius: 4px; 
+            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); font-weight: 600;
         }
 
-        .res-box h2 { 
-            font-size: clamp(2rem, 7vw, 3.5rem); 
-            font-weight: 700;
-            line-height: 1.1;
-            word-break: break-word;
+        .res-value {
+            font-family: 'Teko', sans-serif;
+            font-size: 2.8rem;
+            line-height: 1;
+            font-weight: 600;
+            margin-bottom: 4px;
         }
 
-        .advice-tag { 
-            display: inline-block; 
-            padding: 4px 12px; 
-            border-radius: 8px; 
-            font-size: 12px; 
-            font-weight: 900; 
-            margin-left: 8px; 
+        .tag-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
             text-transform: uppercase;
-            white-space: nowrap;
         }
-        @media (min-width: 768px) {
-            .advice-tag { padding: 5px 16px; font-size: 14px; margin-left: 14px; }
-        }
-        .over-tag { background: linear-gradient(135deg, #10b981, #059669); color: white; }
-        .under-tag { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .tag-over { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .tag-under { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 
-        .confidence-bar { 
-            height: 6px; 
-            border-radius: 3px; 
-            background: #1e293b; 
-            margin-top: 12px; 
-            overflow: hidden; 
+        .progress-track {
+            height: 6px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            margin: 12px 0 16px 0;
+            overflow: hidden;
         }
-        .confidence-fill { 
-            height: 100%; 
-            border-radius: 3px; 
-            transition: width 1s ease; 
-        }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
 
-        .precision-badge { 
-            position: absolute; 
-            top: 16px; 
-            right: 16px; 
-            font-size: 10px; 
-            font-weight: 900; 
-            padding: 4px 10px; 
-            border-radius: 6px; 
-            background: rgba(59,130,246,0.15); 
-            color: #60a5fa; 
-            border: 1px solid rgba(59,130,246,0.3); 
-        }
-
-        .split-grid {
+        .split-stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-top: 16px;
             padding-top: 12px;
-            border-top: 1px solid #1e293b;
+            border-top: 1px solid rgba(255,255,255,0.05);
         }
+        .stat-col h4 { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+        .stat-col .val { font-family: 'Teko'; font-size: 1.4rem; font-weight: 500; }
+        .stat-col.right { text-align: right; }
 
-        .standings-info { 
-            font-size: 11px; 
-            color: #64748b; 
-            margin-top: 6px; 
-            font-weight: 500; 
-        }
-
-        .momentum-bar { 
-            display: flex; 
-            gap: 3px; 
-            margin-top: 6px; 
-            justify-content: flex-start;
-        }
-        .momentum-bar.right { justify-content: flex-end; }
-        .momentum-dot { 
-            width: 20px; 
-            height: 20px; 
-            border-radius: 4px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 9px; 
-            font-weight: 900; 
-            color: white;
-        }
-
-        .status-msg { 
-            font-size: 12px; 
-            font-weight: 700; 
-            padding: 10px 14px; 
-            border-radius: 10px; 
-            margin-bottom: 16px; 
-            display: none; 
-        }
-        .status-err { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; }
-
-        /* LOADING */
-        .loading-box {
+        /* LOADING ANIMATION */
+        .loader-container {
             text-align: center;
-            padding: 60px 20px;
+            padding: 40px 0;
         }
-        .loading-box h3 {
-            font-size: clamp(1.5rem, 5vw, 2.5rem);
+        .pulse-text {
+            font-family: 'Teko';
+            font-size: 2rem;
             color: #3b82f6;
-            font-weight: 900;
-            font-style: italic;
-            letter-spacing: 0.1em;
-            animation: pulse 2s infinite;
+            animation: pulse 1.5s infinite;
         }
-        .loading-box p {
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* UTILS */
+        .hidden { display: none !important; }
+        .status-msg {
+            padding: 12px;
+            border-radius: 12px;
             font-size: 13px;
-            color: #64748b;
-            margin-top: 12px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* PRO BADGE */
-        .pro-badge { 
-            background: linear-gradient(135deg, #f59e0b, #d97706); 
-            color: #020617; 
-            font-size: 10px; 
-            font-weight: 900; 
-            padding: 3px 10px; 
-            border-radius: 6px; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            vertical-align: middle;
-            margin-left: 8px;
-        }
-
-        /* Fix per mobile scrolling */
-        @media (max-width: 767px) {
-            .container {
-                padding-bottom: 100px;
-            }
-            body {
-                overflow-y: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-        }
+        .status-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1 class="teko">PROBET <span style="color:#3b82f6">AI V4</span><span class="pro-badge">PRO</span></h1>
-            <p>Elite Multi-League Analysis System - Stagione 2025/2026</p>
-        </div>
 
-        <div class="league-grid">
-            <div id="btn-7286" class="league-btn league-active" onclick="switchLeague(7286)">SERIE A</div>
-            <div id="btn-7293" class="league-btn" onclick="switchLeague(7293)">PREMIER LEAGUE</div>
-            <div id="btn-7338" class="league-btn" onclick="switchLeague(7338)">BUNDESLIGA</div>
-            <div id="btn-7351" class="league-btn" onclick="switchLeague(7351)">LA LIGA</div>
-        </div>
-
-        <div class="card-premium">
-            <div id="statusMessage" class="status-msg"></div>
-
-            <div class="form-grid">
-                <div><label class="label-spread" style="color:#60a5fa">Home Team</label><select id="homeTeam"></select></div>
-                <div><label class="label-spread" style="color:#60a5fa">Away Team</label><select id="awayTeam"></select></div>
-                <div id="arbitroContainer"><label class="label-spread" style="color:#fbbf24">Arbitro (Serie A)</label><select id="arbitroSelect"><option value="24.5">Scegli...</option></select></div>
-            </div>
-
-            <div class="spread-grid">
-                <div><label class="label-spread" style="color:#34d399">Spread Tiri Tot</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
-                <div><label class="label-spread" style="color:#34d399">Spread Tiri Casa</label><input type="number" id="sprTotalH" step="0.5" value="12.5"></div>
-                <div><label class="label-spread" style="color:#34d399">Spread Tiri Osp</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
-            </div>
-
-            <div class="spread-grid">
-                <div><label class="label-spread" style="color:#a78bfa">Spread Porta Tot</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
-                <div><label class="label-spread" style="color:#a78bfa">Spread Porta Casa</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
-                <div><label class="label-spread" style="color:#a78bfa">Spread Porta Osp</label><input type="number" id="sprOTA" step="0.5" value="3.5"></div>
-            </div>
-
-            <div id="foulsInputs" class="spread-grid">
-                <div><label class="label-spread" style="color:#f87171">Spread Falli Tot</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
-                <div><label class="label-spread" style="color:#f87171">Spread Falli Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
-                <div><label class="label-spread" style="color:#f87171">Spread Falli Osp</label><input type="number" id="sprFoulsA" step="0.5" value="11.5"></div>
-            </div>
-
-            <div class="spread-grid">
-                <div><label class="label-spread" style="color:#22d3ee">Spread Corner Tot</label><input type="number" id="sprCornMatch" step="0.5" value="9.5"></div>
-                <div><label class="label-spread" style="color:#22d3ee">Spread Corner Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
-                <div><label class="label-spread" style="color:#22d3ee">Spread Corner Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
-            </div>
-
-            <div class="spread-grid">
-                <div><label class="label-spread" style="color:#fbbf24">Spread Gialli Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
-                <div><label class="label-spread" style="color:#fbbf24">Spread Gialli Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
-                <div><label class="label-spread" style="color:#fbbf24">Spread Gialli Osp</label><input type="number" id="sprCardsA" step="0.5" value="2.5"></div>
-            </div>
-
-            <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
-                <input type="hidden" name="trigger" value="ad">
-            </form>
-
-            <button onclick="triggerAdAndCalculate()" class="btn-analizza">GENERA ANALISI ELITE PRO</button>
-        </div>
-
-        <div id="results" class="results-container"></div>
+<div class="app-wrapper">
+    
+    <!-- Header -->
+    <div class="header">
+        <h1 class="teko">PROBET <span style="color:#3b82f6">AI</span></h1>
+        <div class="version">V4 PRO • ELITE ANALYSIS 2025/26</div>
     </div>
+
+    <!-- League Selector -->
+    <div class="league-scroller">
+        <div id="btn-7286" class="league-btn league-active" onclick="switchLeague(7286)">SERIE A</div>
+        <div id="btn-7293" class="league-btn" onclick="switchLeague(7293)">PREMIER</div>
+        <div id="btn-7338" class="league-btn" onclick="switchLeague(7338)">BUNDES</div>
+        <div id="btn-7351" class="league-btn" onclick="switchLeague(7351)">LA LIGA</div>
+    </div>
+
+    <!-- Input Form Card -->
+    <div class="glass-card">
+        <div id="statusMessage" class="status-msg hidden"></div>
+
+        <!-- Teams & Ref -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom:0">
+                <label class="input-label" style="color:#60a5fa">Home Team</label>
+                <select id="homeTeam"><option>Caricamento...</option></select>
+            </div>
+            <div class="input-group" style="margin-bottom:0">
+                <label class="input-label" style="color:#60a5fa">Away Team</label>
+                <select id="awayTeam"><option>Caricamento...</option></select>
+            </div>
+        </div>
+        
+        <div id="arbitroContainer" class="input-group">
+            <label class="input-label" style="color:#fbbf24">Arbitro (Serie A)</label>
+            <select id="arbitroSelect"><option value="24.5">Seleziona Arbitro...</option></select>
+        </div>
+
+        <!-- Spreads Section -->
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#34d399"></span> Tiri Totali</div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>Tot</label><input type="number" id="sprTotalMatch" step="0.5" value="23.5"></div>
+                <div class="grid-input-item"><label>Casa</label><input type="number" id="sprTotalH" step="0.5" value="12.5"></div>
+                <div class="grid-input-item"><label>Osp</label><input type="number" id="sprTotalA" step="0.5" value="10.5"></div>
+            </div>
+        </div>
+
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#a78bfa"></span> Tiri In Porta</div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>Tot</label><input type="number" id="sprOTMatch" step="0.5" value="8.5"></div>
+                <div class="grid-input-item"><label>Casa</label><input type="number" id="sprOTH" step="0.5" value="4.5"></div>
+                <div class="grid-input-item"><label>Osp</label><input type="number" id="sprOTA" step="0.5" value="3.5"></div>
+            </div>
+        </div>
+
+        <div id="foulsInputs" class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#f87171"></span> Falli Commessi</div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>Tot</label><input type="number" id="sprFoulsMatch" step="0.5" value="24.5"></div>
+                <div class="grid-input-item"><label>Casa</label><input type="number" id="sprFoulsH" step="0.5" value="12.5"></div>
+                <div class="grid-input-item"><label>Osp</label><input type="number" id="sprFoulsA" step="0.5" value="11.5"></div>
+            </div>
+        </div>
+
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#22d3ee"></span> Corner</div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>Tot</label><input type="number" id="sprCornMatch" step="0.5" value="9.5"></div>
+                <div class="grid-input-item"><label>Casa</label><input type="number" id="sprCornH" step="0.5" value="5.5"></div>
+                <div class="grid-input-item"><label>Osp</label><input type="number" id="sprCornA" step="0.5" value="4.5"></div>
+            </div>
+        </div>
+
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#fbbf24"></span> Cartellini Gialli</div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>Tot</label><input type="number" id="sprCardsMatch" step="0.5" value="4.5"></div>
+                <div class="grid-input-item"><label>Casa</label><input type="number" id="sprCardsH" step="0.5" value="2.5"></div>
+                <div class="grid-input-item"><label>Osp</label><input type="number" id="sprCardsA" step="0.5" value="2.5"></div>
+            </div>
+        </div>
+
+        <!-- Hidden Ad Form -->
+        <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
+            <input type="hidden" name="trigger" value="ad">
+        </form>
+
+        <button onclick="triggerAdAndCalculate()" class="btn-action" style="margin-top: 24px;">
+            GENERA ANALISI ELITE PRO
+        </button>
+    </div>
+
+    <!-- Results Container -->
+    <div id="results" class="hidden"></div>
+
+</div>
 
 <script>
 const API_KEY = "8546a3b44515070cb8e4b6a8f620ab5b";
@@ -425,10 +439,10 @@ const LEAGUE_DATA = {
 
 function setStatus(msg, type) {
     const el = document.getElementById('statusMessage');
-    if (!msg) { el.style.display = 'none'; return; }
+    if (!msg) { el.classList.add('hidden'); return; }
     el.textContent = msg;
     el.className = 'status-msg status-' + type;
-    el.style.display = 'block';
+    el.classList.remove('hidden');
 }
 
 function triggerAdAndCalculate() {
@@ -450,9 +464,19 @@ function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
+    
     const isSerieA = (id === 7286);
-    document.getElementById('arbitroContainer').style.display = isSerieA ? "block" : "none";
-    document.getElementById('foulsInputs').style.display = isSerieA ? "grid" : "none";
+    const arbContainer = document.getElementById('arbitroContainer');
+    const foulsContainer = document.getElementById('foulsInputs');
+    
+    if(isSerieA) {
+        arbContainer.classList.remove('hidden');
+        foulsContainer.classList.remove('hidden');
+    } else {
+        arbContainer.classList.add('hidden');
+        foulsContainer.classList.add('hidden');
+    }
+    
     loadData();
 }
 
@@ -480,7 +504,7 @@ function loadData() {
             delimiter: ";", 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
-                sel.innerHTML = '<option value="24.5">Scegli Arbitro...</option>';
+                sel.innerHTML = '<option value="24.5">Seleziona Arbitro...</option>';
                 r.data.forEach(row => {
                     let name = row.Arbitro || Object.values(row)[0];
                     let val = row["Media Totale"] || Object.values(row)[2];
@@ -532,8 +556,8 @@ async function loadTeams() {
         setStatus("", "");
 
     } catch (e) {
-        h.innerHTML = '<option>Errore caricamento</option>';
-        a.innerHTML = '<option>Errore caricamento</option>';
+        h.innerHTML = '<option>Errore</option>';
+        a.innerHTML = '<option>Errore</option>';
         setStatus(`Errore: ${e.message}`, 'err');
     }
 }
@@ -552,7 +576,7 @@ function getAdviceAdvanced(pred, spread) {
     let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
 
     return {
-        html: `<span class="advice-tag ${isOver ? 'over-tag' : 'under-tag'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
+        html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
         confidence: displayConf,
         isOver: isOver,
         precision: precisionLabel
@@ -561,16 +585,16 @@ function getAdviceAdvanced(pred, spread) {
 
 function renderConfidenceBar(confidence) {
     let color = confidence >= 75 ? '#10b981' : confidence >= 60 ? '#f59e0b' : '#ef4444';
-    return `<div class="confidence-bar"><div class="confidence-fill" style="width:${confidence}%;background:${color}"></div></div>`;
+    return `<div class="progress-track"><div class="progress-fill" style="width:${confidence}%;background:${color}"></div></div>`;
 }
 
 function renderFormBar(results, alignRight) {
     if (!results || results.length === 0) return '';
-    let html = `<div class="momentum-bar ${alignRight ? 'right' : ''}">`;
+    let html = `<div style="display:flex; gap:3px; justify-content:${alignRight ? 'flex-end' : 'flex-start'}; margin-top:6px;">`;
     results.slice(0, 5).reverse().forEach(r => {
         const outcome = r === 'W' ? 'V' : r === 'D' ? 'N' : 'S';
         const color = r === 'W' ? '#10b981' : r === 'D' ? '#f59e0b' : '#ef4444';
-        html += `<div class="momentum-dot" style="background:${color}">${outcome}</div>`;
+        html += `<div style="width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;color:white;background:${color}">${outcome}</div>`;
     });
     html += '</div>';
     return html;
@@ -699,14 +723,14 @@ async function getFixturesH2H(teamIdH, teamIdA, apiId) {
 
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
-    resDiv.classList.add('visible');
+    resDiv.classList.remove('hidden');
     resDiv.innerHTML = `
-        <div class="loading-box">
-            <h3 class="teko">ANALISI ELITE PRO IN CORSO</h3>
-            <p>Recupero forma, classifica e statistiche avanzate...</p>
+        <div class="loader-container">
+            <div class="pulse-text teko">ELABORAZIONE DATI...</div>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Analisi forma, classifica e H2H in corso</p>
         </div>
     `;
-    resDiv.scrollIntoView({behavior:'smooth', block:'start'});
+    resDiv.scrollIntoView({behavior:'smooth', block:'center'});
 
     try {
         const idH = document.getElementById('homeTeam').value;
@@ -857,14 +881,16 @@ async function runDeepAnalysis() {
             const advFoulsH = getAdviceAdvanced(fH, parseFloat(document.getElementById('sprFoulsH').value));
             const advFoulsA = getAdviceAdvanced(fA, parseFloat(document.getElementById('sprFoulsA').value));
             html += `
-            <div class="res-box" style="border-left-color:#ef4444">
-                <div class="precision-badge">${advFouls.precision}</div>
-                <p class="label-spread" style="color:#f87171">Falli Commessi (Serie A)</p>
-                <h2 class="teko">${totalFouls.toFixed(2)} ${advFouls.html}</h2>
+            <div class="result-card border-red">
+                <div class="res-header">
+                    <span class="res-label" style="color:#f87171">Falli Commessi</span>
+                    <span class="badge-pro">${advFouls.precision}</span>
+                </div>
+                <div class="res-value" style="color:#f87171">${totalFouls.toFixed(2)} ${advFouls.html}</div>
                 ${renderConfidenceBar(advFouls.confidence)}
-                <div class="split-grid">
-                    <div><p class="label-spread">Casa</p><p class="teko" style="color:#f87171;font-size:1.25rem">${fH.toFixed(2)} ${advFoulsH.html}</p></div>
-                    <div class="text-right"><p class="label-spread">Ospite</p><p class="teko" style="color:#f87171;font-size:1.25rem">${fA.toFixed(2)} ${advFoulsA.html}</p></div>
+                <div class="split-stats">
+                    <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#f87171">${fH.toFixed(2)} <span style="font-size:0.8em">${advFoulsH.html}</span></div></div>
+                    <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#f87171">${fA.toFixed(2)} <span style="font-size:0.8em">${advFoulsA.html}</span></div></div>
                 </div>
             </div>`;
         }
@@ -873,23 +899,25 @@ async function runDeepAnalysis() {
         const advShotsH = getAdviceAdvanced(cH, parseFloat(document.getElementById('sprTotalH').value));
         const advShotsA = getAdviceAdvanced(cA, parseFloat(document.getElementById('sprTotalA').value));
         html += `
-        <div class="res-box" style="border-left-color:#10b981">
-            <div class="precision-badge">${advShots.precision}</div>
-            <p class="label-spread" style="color:#34d399">Tiri Totali Previsti</p>
-            <h2 class="teko">${totalShots.toFixed(2)} ${advShots.html}</h2>
+        <div class="result-card border-green">
+            <div class="res-header">
+                <span class="res-label" style="color:#34d399">Tiri Totali Previsti</span>
+                <span class="badge-pro">${advShots.precision}</span>
+            </div>
+            <div class="res-value" style="color:#34d399">${totalShots.toFixed(2)} ${advShots.html}</div>
             ${renderConfidenceBar(advShots.confidence)}
-            <div class="split-grid">
-                <div>
-                    <p class="label-spread">Casa</p>
-                    <p class="teko" style="color:#34d399;font-size:1.25rem">${cH.toFixed(2)} ${advShotsH.html}</p>
+            <div class="split-stats">
+                <div class="stat-col">
+                    <h4>Casa</h4>
+                    <div class="val" style="color:#34d399">${cH.toFixed(2)} <span style="font-size:0.8em">${advShotsH.html}</span></div>
                     ${formHtmlH}
-                    <p class="standings-info">Pos. ${standH.position}° • Forma ${(formFactorH).toFixed(2)}x</p>
+                    <div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standH.position}° • Forma ${(formFactorH).toFixed(2)}x</div>
                 </div>
-                <div class="text-right">
-                    <p class="label-spread">Ospite</p>
-                    <p class="teko" style="color:#34d399;font-size:1.25rem">${cA.toFixed(2)} ${advShotsA.html}</p>
+                <div class="stat-col right">
+                    <h4>Ospite</h4>
+                    <div class="val" style="color:#34d399">${cA.toFixed(2)} <span style="font-size:0.8em">${advShotsA.html}</span></div>
                     ${formHtmlA}
-                    <p class="standings-info">Pos. ${standA.position}° • Forma ${(formFactorA).toFixed(2)}x</p>
+                    <div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standA.position}° • Forma ${(formFactorA).toFixed(2)}x</div>
                 </div>
             </div>
         </div>`;
@@ -898,14 +926,16 @@ async function runDeepAnalysis() {
         const advOTH = getAdviceAdvanced(oH, parseFloat(document.getElementById('sprOTH').value));
         const advOTA = getAdviceAdvanced(oA, parseFloat(document.getElementById('sprOTA').value));
         html += `
-        <div class="res-box" style="border-left-color:#a78bfa">
-            <div class="precision-badge">${advOT.precision}</div>
-            <p class="label-spread" style="color:#a78bfa">Tiri In Porta Previsti</p>
-            <h2 class="teko">${totalOnTarget.toFixed(2)} ${advOT.html}</h2>
+        <div class="result-card border-purple">
+            <div class="res-header">
+                <span class="res-label" style="color:#a78bfa">Tiri In Porta Previsti</span>
+                <span class="badge-pro">${advOT.precision}</span>
+            </div>
+            <div class="res-value" style="color:#a78bfa">${totalOnTarget.toFixed(2)} ${advOT.html}</div>
             ${renderConfidenceBar(advOT.confidence)}
-            <div class="split-grid">
-                <div><p class="label-spread">Casa</p><p class="teko" style="color:#a78bfa;font-size:1.25rem">${oH.toFixed(2)} ${advOTH.html}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="teko" style="color:#a78bfa;font-size:1.25rem">${oA.toFixed(2)} ${advOTA.html}</p></div>
+            <div class="split-stats">
+                <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#a78bfa">${oH.toFixed(2)} <span style="font-size:0.8em">${advOTH.html}</span></div></div>
+                <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#a78bfa">${oA.toFixed(2)} <span style="font-size:0.8em">${advOTA.html}</span></div></div>
             </div>
         </div>`;
 
@@ -913,14 +943,16 @@ async function runDeepAnalysis() {
         const advCornH = getAdviceAdvanced(pCH, parseFloat(document.getElementById('sprCornH').value));
         const advCornA = getAdviceAdvanced(pCA, parseFloat(document.getElementById('sprCornA').value));
         html += `
-        <div class="res-box" style="border-left-color:#22d3ee">
-            <div class="precision-badge">${advCorn.precision}</div>
-            <p class="label-spread" style="color:#22d3ee">Calci d'Angolo Previsti</p>
-            <h2 class="teko">${totalCorners.toFixed(2)} ${advCorn.html}</h2>
+        <div class="result-card border-cyan">
+            <div class="res-header">
+                <span class="res-label" style="color:#22d3ee">Calci d'Angolo Previsti</span>
+                <span class="badge-pro">${advCorn.precision}</span>
+            </div>
+            <div class="res-value" style="color:#22d3ee">${totalCorners.toFixed(2)} ${advCorn.html}</div>
             ${renderConfidenceBar(advCorn.confidence)}
-            <div class="split-grid">
-                <div><p class="label-spread">Casa</p><p class="teko" style="color:#22d3ee;font-size:1.25rem">${pCH.toFixed(2)} ${advCornH.html}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="teko" style="color:#22d3ee;font-size:1.25rem">${pCA.toFixed(2)} ${advCornA.html}</p></div>
+            <div class="split-stats">
+                <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#22d3ee">${pCH.toFixed(2)} <span style="font-size:0.8em">${advCornH.html}</span></div></div>
+                <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#22d3ee">${pCA.toFixed(2)} <span style="font-size:0.8em">${advCornA.html}</span></div></div>
             </div>
         </div>`;
 
@@ -928,21 +960,23 @@ async function runDeepAnalysis() {
         const advCardsH = getAdviceAdvanced(cardH, parseFloat(document.getElementById('sprCardsH').value));
         const advCardsA = getAdviceAdvanced(cardA, parseFloat(document.getElementById('sprCardsA').value));
         html += `
-        <div class="res-box" style="border-left-color:#fbbf24">
-            <div class="precision-badge">${advCards.precision}</div>
-            <p class="label-spread" style="color:#fbbf24">Gialli Previsti</p>
-            <h2 class="teko">${totalCards.toFixed(2)} ${advCards.html}</h2>
+        <div class="result-card border-yellow">
+            <div class="res-header">
+                <span class="res-label" style="color:#fbbf24">Gialli Previsti</span>
+                <span class="badge-pro">${advCards.precision}</span>
+            </div>
+            <div class="res-value" style="color:#fbbf24">${totalCards.toFixed(2)} ${advCards.html}</div>
             ${renderConfidenceBar(advCards.confidence)}
-            <div class="split-grid">
-                <div><p class="label-spread">Casa</p><p class="teko" style="color:#fbbf24;font-size:1.25rem">${cardH.toFixed(2)} ${advCardsH.html}</p></div>
-                <div class="text-right"><p class="label-spread">Ospite</p><p class="teko" style="color:#fbbf24;font-size:1.25rem">${cardA.toFixed(2)} ${advCardsA.html}</p></div>
+            <div class="split-stats">
+                <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#fbbf24">${cardH.toFixed(2)} <span style="font-size:0.8em">${advCardsH.html}</span></div></div>
+                <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#fbbf24">${cardA.toFixed(2)} <span style="font-size:0.8em">${advCardsA.html}</span></div></div>
             </div>
         </div>`;
 
         resDiv.innerHTML = html;
         resDiv.scrollIntoView({behavior:'smooth', block:'start'});
     } catch(e) { 
-        resDiv.innerHTML = `<div class="res-box" style="border-left-color:#ef4444"><p style="font-weight:900;color:#ef4444">ERRORE ANALISI</p><p style="color:white">${e.message}</p></div>`; 
+        resDiv.innerHTML = `<div class="result-card border-red"><p style="font-weight:900;color:#ef4444">ERRORE ANALISI</p><p style="color:white;font-size:13px">${e.message}</p></div>`; 
     }
 }
 
@@ -951,6 +985,4 @@ loadData();
 </body>
 </html>
 """
-
-# Modifica l'altezza per adattarsi meglio al contenuto
-components.html(html_code, height=1400, scrolling=False)
+components.html(html_code, height=1200, scrolling=True)
