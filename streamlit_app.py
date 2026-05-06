@@ -20,6 +20,7 @@ html_code = """
             background: #020617; 
             color: white; 
             font-family: 'Inter', sans-serif;
+            height: 100%;
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
@@ -31,6 +32,9 @@ html_code = """
             max-width: 900px; 
             margin: 0 auto; 
             padding: 16px; 
+            min-height: 100vh;
+            background: #020617;
+            position: relative;
         }
 
         @media (min-width: 768px) {
@@ -329,6 +333,17 @@ html_code = """
             letter-spacing: 1px; 
             vertical-align: middle;
             margin-left: 8px;
+        }
+
+        /* Fix per mobile scrolling */
+        @media (max-width: 767px) {
+            .container {
+                padding-bottom: 100px;
+            }
+            body {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
         }
     </style>
 </head>
@@ -936,4 +951,6 @@ loadData();
 </body>
 </html>
 """
-components.html(html_code, height=1200, scrolling=True)
+
+# Modifica l'altezza per adattarsi meglio al contenuto
+components.html(html_code, height=1400, scrolling=False)
