@@ -1,30 +1,27 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Configurazione pagina ottimizzata per nascondere elementi Streamlit
 st.set_page_config(
     page_title="PROBET AI V4 PRO", 
     layout="wide", 
     initial_sidebar_state="collapsed",
-    menu_items=None # Rimuove il menu items se possibile
+    menu_items=None
 )
 
-# CSS INIETTATO PER PULIRE STREAMLIT
-# Questo rimuove lo sfondo bianco, l'header e i margini di Streamlit
+# CSS INIETTATO PER PULIRE STREAMLIT E OTTIMIZZARE LO SCROLL
 hide_streamlit_style = """
 <style>
-    /* Nasconde l'header di Streamlit */
+    /* Nasconde elementi Streamlit */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Forza lo sfondo scuro su tutto il container di Streamlit */
+    /* Sfondo Globale Scuro */
     .stApp {
         background-color: #020617 !important;
-        color: white !important;
     }
     
-    /* Rimuove il padding default di Streamlit che crea i bordi bianchi */
+    /* Rimuove padding e margini di Streamlit */
     .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
@@ -33,12 +30,12 @@ hide_streamlit_style = """
         max-width: 100% !important;
     }
     
-    /* Nasconde eventuali scrollbar native di Streamlit */
+    /* Scrollbar nascosta ma funzionale */
     ::-webkit-scrollbar {
         display: none;
     }
     
-    /* Assicura che l'iframe o il container HTML occupino tutto */
+    /* Container Streamlit trasparente */
     div[data-testid="stAppViewContainer"] {
         background-color: #020617 !important;
     }
@@ -68,9 +65,13 @@ html_code = """
 
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
+        html {
+            /* SCROLL FLUIDO GLOBALE */
+            scroll-behavior: smooth;
+        }
+
         body { 
             background-color: var(--bg-dark);
-            /* Gradiente sottile per profondità */
             background-image: radial-gradient(circle at top right, #1e3a8a 0%, transparent 40%),
                               radial-gradient(circle at bottom left, #0f172a 0%, transparent 40%);
             color: var(--text-main); 
@@ -78,287 +79,132 @@ html_code = """
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            /* MOMENTUM SCROLLING PER IOS */
+            -webkit-overflow-scrolling: touch; 
         }
 
-        /* Scrollbar nascosta */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
 
         .teko { font-family: 'Teko', sans-serif; letter-spacing: 0.05em; }
 
         .app-wrapper {
             width: 100%;
-            max-width: 600px; /* Limite larghezza per desktop */
+            max-width: 600px;
             margin: 0 auto;
             padding: 20px 16px 80px 16px;
             display: flex;
             flex-direction: column;
             gap: 20px;
+            /* Assicura che il wrapper non crei conflitti di scroll */
+            position: relative;
+            z-index: 1;
         }
 
         /* HEADER */
-        .header { 
-            text-align: center; 
-            margin-bottom: 10px; 
-            padding-top: 10px;
-        }
+        .header { text-align: center; margin-bottom: 10px; padding-top: 10px; }
         .header h1 { 
-            font-size: 3rem; 
-            line-height: 0.9;
-            font-weight: 700; 
-            text-transform: uppercase; 
-            font-style: italic;
+            font-size: 3rem; line-height: 0.9; font-weight: 700; text-transform: uppercase; font-style: italic;
             background: linear-gradient(to right, #fff, #94a3b8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             text-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
         }
         .header .version {
-            font-size: 0.7rem;
-            color: #60a5fa;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-top: 5px;
-            opacity: 0.8;
+            font-size: 0.7rem; color: #60a5fa; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 5px; opacity: 0.8;
         }
 
         /* LEAGUE SELECTOR */
         .league-scroller {
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            padding: 4px 4px 14px 4px;
-            margin: 0 -10px;
-            scrollbar-width: none;
+            display: flex; gap: 10px; overflow-x: auto; padding: 4px 4px 14px 4px; margin: 0 -10px; scrollbar-width: none;
         }
         .league-scroller::-webkit-scrollbar { display: none; }
-
         .league-btn { 
-            flex: 0 0 auto;
-            cursor: pointer; 
-            padding: 10px 16px; 
-            border-radius: 12px; 
-            font-weight: 700; 
-            font-size: 12px;
-            border: 1px solid rgba(255,255,255,0.1); 
-            background: rgba(15, 23, 42, 0.6);
-            color: #94a3b8;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(4px);
+            flex: 0 0 auto; cursor: pointer; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.6); color: #94a3b8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px);
         }
-        
         .league-active { 
-            background: var(--primary-blue); 
-            border-color: var(--primary-blue); 
-            color: white; 
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); 
-            transform: scale(1.05);
+            background: var(--primary-blue); border-color: var(--primary-blue); color: white; 
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transform: scale(1.05);
         }
 
-        /* MAIN CARD CONTAINER */
+        /* MAIN CARD */
         .glass-card { 
-            background: var(--card-bg); 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 24px; 
-            padding: 24px 20px; 
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-            margin-bottom: 20px;
+            background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px; padding: 24px 20px; border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); margin-bottom: 20px;
         }
 
-        /* INPUTS AREA */
+        /* INPUTS */
         .input-group { margin-bottom: 16px; }
-        .input-label { 
-            font-size: 11px; 
-            font-weight: 700; 
-            color: var(--text-muted); 
-            text-transform: uppercase; 
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-            display: block;
-        }
-
+        .input-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
         select, input[type="number"] { 
-            width: 100%; 
-            background: var(--input-bg); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            color: white; 
-            padding: 14px 16px; 
-            border-radius: 14px; 
-            font-size: 15px; 
-            font-weight: 600;
-            transition: all 0.2s;
-            appearance: none;
+            width: 100%; background: var(--input-bg); border: 1px solid rgba(255,255,255,0.1); color: white; 
+            padding: 14px 16px; border-radius: 14px; font-size: 15px; font-weight: 600; transition: all 0.2s; appearance: none;
         }
-        
-        select:focus, input:focus { 
-            border-color: var(--primary-blue); 
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); 
-            background: #0f172a;
-        }
-
+        select:focus, input:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); background: #0f172a; }
         select {
             background-image: url("image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 16px center;
-            background-size: 16px;
+            background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;
         }
 
-        /* SPREAD GRID SYSTEM */
-        .spread-section {
-            margin-top: 24px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
-        .spread-title {
-            font-size: 12px;
-            font-weight: 800;
-            color: white;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        /* SPREAD GRID */
+        .spread-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .spread-title { font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .grid-input-item label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; display: block; text-align: center; }
+        .grid-input-item input { padding: 10px 4px; text-align: center; font-size: 14px; }
 
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-        }
-
-        .grid-input-item label {
-            font-size: 9px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin-bottom: 4px;
-            display: block;
-            text-align: center;
-        }
-        .grid-input-item input {
-            padding: 10px 4px;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        /* ACTION BUTTON */
+        /* BUTTON */
         .btn-action { 
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
-            width: 100%; 
-            padding: 18px; 
-            border-radius: 16px; 
-            font-weight: 800; 
-            text-transform: uppercase; 
-            cursor: pointer; 
-            border: none; 
-            color: white; 
-            font-size: 1.1rem;
-            font-family: 'Teko', sans-serif;
-            letter-spacing: 0.1em;
-            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
-            transition: transform 0.1s, box-shadow 0.2s;
-            position: relative;
-            overflow: hidden;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 100%; padding: 18px; border-radius: 16px; 
+            font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; color: white; font-size: 1.1rem;
+            font-family: 'Teko', sans-serif; letter-spacing: 0.1em; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+            transition: transform 0.1s, box-shadow 0.2s; position: relative; overflow: hidden;
         }
         .btn-action:active { transform: scale(0.98); box-shadow: 0 5px 15px -5px rgba(37, 99, 235, 0.5); }
         
-        /* RESULTS STYLING */
+        /* RESULTS */
         .result-card {
-            background: rgba(15, 23, 42, 0.9);
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 16px;
-            border: 1px solid rgba(255,255,255,0.05);
-            position: relative;
-            overflow: hidden;
+            background: rgba(15, 23, 42, 0.9); border-radius: 20px; padding: 20px; margin-bottom: 16px;
+            border: 1px solid rgba(255,255,255,0.05); position: relative; overflow: hidden;
+            /* Animazione entrata risultati */
+            animation: slideUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
         }
-        
-        .result-card::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0; bottom: 0;
-            width: 4px;
-        }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        .result-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
         .border-green::before { background: #10b981; box-shadow: 0 0 15px #10b981; }
         .border-purple::before { background: #a78bfa; box-shadow: 0 0 15px #a78bfa; }
         .border-cyan::before { background: #22d3ee; box-shadow: 0 0 15px #22d3ee; }
         .border-yellow::before { background: #fbbf24; box-shadow: 0 0 15px #fbbf24; }
         .border-red::before { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
 
-        .res-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        .res-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .res-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-        .badge-pro { 
-            font-size: 9px; padding: 2px 6px; border-radius: 4px; 
-            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); font-weight: 600;
-        }
-
-        .res-value {
-            font-family: 'Teko', sans-serif;
-            font-size: 2.8rem;
-            line-height: 1;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .tag-pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
+        .badge-pro { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); font-weight: 600; }
+        .res-value { font-family: 'Teko', sans-serif; font-size: 2.8rem; line-height: 1; font-weight: 600; margin-bottom: 4px; }
+        
+        .tag-pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
         .tag-over { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
         .tag-under { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 
-        .progress-track {
-            height: 6px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 3px;
-            margin: 12px 0 16px 0;
-            overflow: hidden;
-        }
+        .progress-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; margin: 12px 0 16px 0; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
 
-        .split-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
+        .split-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
         .stat-col h4 { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
         .stat-col .val { font-family: 'Teko'; font-size: 1.4rem; font-weight: 500; }
         .stat-col.right { text-align: right; }
 
-        .loader-container {
-            text-align: center;
-            padding: 40px 0;
-        }
-        .pulse-text {
-            font-family: 'Teko';
-            font-size: 2rem;
-            color: #3b82f6;
-            animation: pulse 1.5s infinite;
-        }
+        .loader-container { text-align: center; padding: 40px 0; }
+        .pulse-text { font-family: 'Teko'; font-size: 2rem; color: #3b82f6; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
         .hidden { display: none !important; }
-        .status-msg {
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            text-align: center;
-        }
+        .status-msg { padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-bottom: 16px; text-align: center; }
         .status-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
     </style>
 </head>
@@ -366,13 +212,11 @@ html_code = """
 
 <div class="app-wrapper">
     
-    <!-- Header -->
     <div class="header">
         <h1 class="teko">PROBET <span style="color:#3b82f6">AI</span></h1>
         <div class="version">V4 PRO • ELITE ANALYSIS 2025/26</div>
     </div>
 
-    <!-- League Selector -->
     <div class="league-scroller">
         <div id="btn-7286" class="league-btn league-active" onclick="switchLeague(7286)">SERIE A</div>
         <div id="btn-7293" class="league-btn" onclick="switchLeague(7293)">PREMIER</div>
@@ -380,11 +224,9 @@ html_code = """
         <div id="btn-7351" class="league-btn" onclick="switchLeague(7351)">LA LIGA</div>
     </div>
 
-    <!-- Input Form Card -->
     <div class="glass-card">
         <div id="statusMessage" class="status-msg hidden"></div>
 
-        <!-- Teams & Ref -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div class="input-group" style="margin-bottom:0">
                 <label class="input-label" style="color:#60a5fa">Home Team</label>
@@ -401,7 +243,6 @@ html_code = """
             <select id="arbitroSelect"><option value="24.5">Seleziona Arbitro...</option></select>
         </div>
 
-        <!-- Spreads Section -->
         <div class="spread-section">
             <div class="spread-title"><span class="dot" style="background:#34d399"></span> Tiri Totali</div>
             <div class="grid-3">
@@ -447,7 +288,6 @@ html_code = """
             </div>
         </div>
 
-        <!-- Hidden Ad Form -->
         <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
             <input type="hidden" name="trigger" value="ad">
         </form>
@@ -457,7 +297,6 @@ html_code = """
         </button>
     </div>
 
-    <!-- Results Container -->
     <div id="results" class="hidden"></div>
 
 </div>
@@ -521,25 +360,14 @@ function switchLeague(id) {
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
-        download: true, 
-        header: true, 
-        skipEmptyLines: true, 
-        complete: (r) => { 
-            dbXG = r.data; 
-            loadTeams(); 
-        },
-        error: (err) => {
-            console.error("Errore CSV:", err);
-            setStatus("Errore caricamento database CSV", 'err');
-        }
+        download: true, header: true, skipEmptyLines: true, 
+        complete: (r) => { dbXG = r.data; loadTeams(); },
+        error: (err) => { console.error("Errore CSV:", err); setStatus("Errore caricamento database CSV", 'err'); }
     });
 
     if(currentLeague === 7286) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
-            download: true, 
-            header: true, 
-            skipEmptyLines: true, 
-            delimiter: ";", 
+            download: true, header: true, skipEmptyLines: true, delimiter: ";", 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
                 sel.innerHTML = '<option value="24.5">Seleziona Arbitro...</option>';
@@ -562,25 +390,18 @@ async function loadTeams() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
-            headers: { "x-apisports-key": API_KEY } 
-        });
-
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let data = await res.json();
 
         if (!data.response || data.response.length === 0) {
             apiId = leagueInfo.oldId;
-            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
-                headers: { "x-apisports-key": API_KEY } 
-            });
+            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             data = await res.json();
         }
 
-        if (!data.response || data.response.length === 0) {
-            throw new Error("Nessuna squadra trovata");
-        }
+        if (!data.response || data.response.length === 0) throw new Error("Nessuna squadra trovata");
 
         h.innerHTML = ""; a.innerHTML = "";
         h.add(new Option("-- Seleziona Casa --", ""));
@@ -590,9 +411,7 @@ async function loadTeams() {
             h.add(new Option(t.team.name, t.team.id)); 
             a.add(new Option(t.team.name, t.team.id));
         });
-
         setStatus("", "");
-
     } catch (e) {
         h.innerHTML = '<option>Errore</option>';
         a.innerHTML = '<option>Errore</option>';
@@ -612,12 +431,9 @@ function getAdviceAdvanced(pred, spread) {
     const displayConf = isOver ? conf : 100 - conf;
     const direction = isOver ? 'OVER' : 'UNDER';
     let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
-
     return {
         html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
-        confidence: displayConf,
-        isOver: isOver,
-        precision: precisionLabel
+        confidence: displayConf, isOver: isOver, precision: precisionLabel
     };
 }
 
@@ -640,20 +456,15 @@ function renderFormBar(results, alignRight) {
 
 async function getTeamForm(teamId, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=5`, {
-            headers: { "x-apisports-key": API_KEY }
-        });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=5`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
 
-        let results = [];
-        let totalShots = 0, totalCorners = 0, totalCards = 0;
-        let count = 0;
+        let results = [], totalShots = 0, totalCorners = 0, totalCards = 0, count = 0;
 
         data.response.forEach(fixture => {
             const isHome = fixture.teams.home.id == teamId;
             const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
-
             if (teamSide.winner === true) results.push('W');
             else if (teamSide.winner === false) results.push('L');
             else results.push('D');
@@ -687,16 +498,12 @@ async function getTeamForm(teamId, apiId) {
             avgCorners: count > 0 ? totalCorners / count : 0,
             avgCards: count > 0 ? totalCards / count : 0
         };
-    } catch (e) {
-        return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
-    }
+    } catch (e) { return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 }; }
 }
 
 async function getStandingsMomentum(teamId, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, {
-            headers: { "x-apisports-key": API_KEY }
-        });
+        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return { position: 10, totalTeams: 20, momentum: 1.0 };
 
@@ -711,21 +518,16 @@ async function getStandingsMomentum(teamId, apiId) {
         else if (position >= totalTeams - 8 && position <= totalTeams - 4) momentum = 0.98;
 
         return { position, totalTeams, momentum };
-    } catch (e) {
-        return { position: 10, totalTeams: 20, momentum: 1.0 };
-    }
+    } catch (e) { return { position: 10, totalTeams: 20, momentum: 1.0 }; }
 }
 
 async function getFixturesH2H(teamIdH, teamIdA, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=3`, {
-            headers: { "x-apisports-key": API_KEY }
-        });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=3`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return null;
 
-        let h2hShotsH = 0, h2hShotsA = 0, h2hCorners = 0;
-        let count = 0;
+        let h2hShotsH = 0, h2hShotsA = 0, h2hCorners = 0, count = 0;
 
         data.response.forEach(fixture => {
             if (fixture.statistics && fixture.statistics.length > 0) {
@@ -748,15 +550,8 @@ async function getFixturesH2H(teamIdH, teamIdA, apiId) {
         });
 
         if (count === 0) return null;
-        return {
-            avgShotsH: h2hShotsH / count,
-            avgShotsA: h2hShotsA / count,
-            avgCorners: h2hCorners / count,
-            weight: Math.min(count * 0.15, 0.3)
-        };
-    } catch (e) {
-        return null;
-    }
+        return { avgShotsH: h2hShotsH / count, avgShotsA: h2hShotsA / count, avgCorners: h2hCorners / count, weight: Math.min(count * 0.15, 0.3) };
+    } catch (e) { return null; }
 }
 
 async function runDeepAnalysis() {
@@ -768,6 +563,8 @@ async function runDeepAnalysis() {
             <p style="font-size:12px;color:#64748b;margin-top:8px">Analisi forma, classifica e H2H in corso</p>
         </div>
     `;
+    
+    // SCROLL FLUIDO VERSO IL LOADER
     resDiv.scrollIntoView({behavior:'smooth', block:'center'});
 
     try {
@@ -799,15 +596,12 @@ async function runDeepAnalysis() {
         }
 
         [formH, formA, standH, standA, h2hData] = await Promise.all([
-            getTeamForm(idH, apiId),
-            getTeamForm(idA, apiId),
-            getStandingsMomentum(idH, apiId),
-            getStandingsMomentum(idA, apiId),
+            getTeamForm(idH, apiId), getTeamForm(idA, apiId),
+            getStandingsMomentum(idH, apiId), getStandingsMomentum(idA, apiId),
             getFixturesH2H(idH, idA, apiId)
         ]);
 
-        const sH = statsH.response; 
-        const sA = statsA.response;
+        const sH = statsH.response; const sA = statsA.response;
         const homeAdv = leagueInfo.homeAdv;
 
         const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
@@ -816,12 +610,10 @@ async function runDeepAnalysis() {
         const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
         const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
-        const formFactorH = formH.formFactor;
-        const formFactorA = formA.formFactor;
-        const momentumH = standH.momentum;
-        const momentumA = standA.momentum;
+        const formFactorH = formH.formFactor; const formFactorA = formA.formFactor;
+        const momentumH = standH.momentum; const momentumA = standA.momentum;
 
-        // TI TOTALI
+        // CALCOLI (Invariati)
         const shotsH_avg = sH.shots?.total?.average || 12.5;
         const shotsA_avg = sA.shots?.total?.average || 10.5;
         const xgFactorH = 0.7 + (xGH / bench) * 0.3;
@@ -834,29 +626,20 @@ async function runDeepAnalysis() {
             cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
             cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
         }
-
-        if (formH.avgShots > 0 && Math.abs(formH.avgShots - shotsH_avg) / shotsH_avg > 0.2) {
-            cH = cH * 0.7 + formH.avgShots * 0.3;
-        }
-        if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) {
-            cA = cA * 0.7 + formA.avgShots * 0.3;
-        }
-
+        if (formH.avgShots > 0 && Math.abs(formH.avgShots - shotsH_avg) / shotsH_avg > 0.2) cH = cH * 0.7 + formH.avgShots * 0.3;
+        if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) cA = cA * 0.7 + formA.avgShots * 0.3;
         const totalShots = cH + cA;
 
-        // TI IN PORTA
         const onTargetH_avg = sH.shots?.on_goal?.average || 4.2;
         const onTargetA_avg = sA.shots?.on_goal?.average || 3.6;
         const convRateH = onTargetH_avg / shotsH_avg;
         const convRateA = onTargetA_avg / shotsA_avg;
         const precisionH = convRateH * (0.85 + xGH * 2.5);
         const precisionA = convRateA * (0.85 + xGA * 2.5);
-
         let oH = cH * precisionH * homeAdv * formFactorH;
         let oA = cA * precisionA * formFactorA;
         const totalOnTarget = oH + oA;
 
-        // CORNER
         const cornersForH = sH.corners?.for?.average || 5.2;
         const cornersAgainstH = sH.corners?.against?.average || 4.1;
         const cornersForA = sA.corners?.for?.average || 4.8;
@@ -867,37 +650,23 @@ async function runDeepAnalysis() {
         const possA = sA.possession?.average || 48;
         const possFactorH = 0.9 + (possH / 100) * 0.2;
         const possFactorA = 0.9 + (possA / 100) * 0.2;
-
         let pCH = pressureH * possFactorH * homeAdv * formFactorH * 0.92;
         let pCA = pressureA * possFactorA * formFactorA * 1.08;
-
-        if (formH.avgCorners > 0 && Math.abs(formH.avgCorners - cornersForH) / cornersForH > 0.15) {
-            pCH = pCH * 0.8 + formH.avgCorners * 0.2;
-        }
-        if (formA.avgCorners > 0 && Math.abs(formA.avgCorners - cornersForA) / cornersForA > 0.15) {
-            pCA = pCA * 0.8 + formA.avgCorners * 0.2;
-        }
-
+        if (formH.avgCorners > 0 && Math.abs(formH.avgCorners - cornersForH) / cornersForH > 0.15) pCH = pCH * 0.8 + formH.avgCorners * 0.2;
+        if (formA.avgCorners > 0 && Math.abs(formA.avgCorners - cornersForA) / cornersForA > 0.15) pCA = pCA * 0.8 + formA.avgCorners * 0.2;
         const totalCorners = pCH + pCA;
 
-        // CARTELLINI
         const yellowH_avg = sH.cards?.yellow?.average || 2.1;
         const yellowA_avg = sA.cards?.yellow?.average || 2.3;
         const foulsH_avg = sH.fouls?.for?.average || 12.5;
         const foulsA_avg = sA.fouls?.for?.average || 13.0;
-        const disciplineH = foulsH_avg / Math.max(yellowH_avg, 0.5);
-        const disciplineA = foulsA_avg / Math.max(yellowA_avg, 0.5);
         const intensityFactor = 1.0 + ((foulsH_avg + foulsA_avg) - 24) / 100;
-
         let cardH = yellowH_avg * intensityFactor * homeAdv * formFactorH * 0.95;
         let cardA = yellowA_avg * intensityFactor * formFactorA * 1.05;
-
         if (formH.avgCards > 0) cardH = cardH * 0.85 + formH.avgCards * 0.15;
         if (formA.avgCards > 0) cardA = cardA * 0.85 + formA.avgCards * 0.15;
-
         const totalCards = cardH + cardA;
 
-        // FALLI SERIE A
         let totalFouls = 0, fH = 0, fA = 0;
         if(currentLeague === 7286) {
             const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
@@ -910,7 +679,6 @@ async function runDeepAnalysis() {
 
         // RENDERING
         let html = "";
-
         const formHtmlH = renderFormBar(formH.results, false);
         const formHtmlA = renderFormBar(formA.results, true);
 
@@ -918,101 +686,37 @@ async function runDeepAnalysis() {
             const advFouls = getAdviceAdvanced(totalFouls, parseFloat(document.getElementById('sprFoulsMatch').value));
             const advFoulsH = getAdviceAdvanced(fH, parseFloat(document.getElementById('sprFoulsH').value));
             const advFoulsA = getAdviceAdvanced(fA, parseFloat(document.getElementById('sprFoulsA').value));
-            html += `
-            <div class="result-card border-red">
-                <div class="res-header">
-                    <span class="res-label" style="color:#f87171">Falli Commessi</span>
-                    <span class="badge-pro">${advFouls.precision}</span>
-                </div>
-                <div class="res-value" style="color:#f87171">${totalFouls.toFixed(2)} ${advFouls.html}</div>
-                ${renderConfidenceBar(advFouls.confidence)}
-                <div class="split-stats">
-                    <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#f87171">${fH.toFixed(2)} <span style="font-size:0.8em">${advFoulsH.html}</span></div></div>
-                    <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#f87171">${fA.toFixed(2)} <span style="font-size:0.8em">${advFoulsA.html}</span></div></div>
-                </div>
-            </div>`;
+            html += `<div class="result-card border-red"><div class="res-header"><span class="res-label" style="color:#f87171">Falli Commessi</span><span class="badge-pro">${advFouls.precision}</span></div><div class="res-value" style="color:#f87171">${totalFouls.toFixed(2)} ${advFouls.html}</div>${renderConfidenceBar(advFouls.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#f87171">${fH.toFixed(2)} <span style="font-size:0.8em">${advFoulsH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#f87171">${fA.toFixed(2)} <span style="font-size:0.8em">${advFoulsA.html}</span></div></div></div></div>`;
         }
 
         const advShots = getAdviceAdvanced(totalShots, parseFloat(document.getElementById('sprTotalMatch').value));
         const advShotsH = getAdviceAdvanced(cH, parseFloat(document.getElementById('sprTotalH').value));
         const advShotsA = getAdviceAdvanced(cA, parseFloat(document.getElementById('sprTotalA').value));
-        html += `
-        <div class="result-card border-green">
-            <div class="res-header">
-                <span class="res-label" style="color:#34d399">Tiri Totali Previsti</span>
-                <span class="badge-pro">${advShots.precision}</span>
-            </div>
-            <div class="res-value" style="color:#34d399">${totalShots.toFixed(2)} ${advShots.html}</div>
-            ${renderConfidenceBar(advShots.confidence)}
-            <div class="split-stats">
-                <div class="stat-col">
-                    <h4>Casa</h4>
-                    <div class="val" style="color:#34d399">${cH.toFixed(2)} <span style="font-size:0.8em">${advShotsH.html}</span></div>
-                    ${formHtmlH}
-                    <div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standH.position}° • Forma ${(formFactorH).toFixed(2)}x</div>
-                </div>
-                <div class="stat-col right">
-                    <h4>Ospite</h4>
-                    <div class="val" style="color:#34d399">${cA.toFixed(2)} <span style="font-size:0.8em">${advShotsA.html}</span></div>
-                    ${formHtmlA}
-                    <div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standA.position}° • Forma ${(formFactorA).toFixed(2)}x</div>
-                </div>
-            </div>
-        </div>`;
+        html += `<div class="result-card border-green"><div class="res-header"><span class="res-label" style="color:#34d399">Tiri Totali Previsti</span><span class="badge-pro">${advShots.precision}</span></div><div class="res-value" style="color:#34d399">${totalShots.toFixed(2)} ${advShots.html}</div>${renderConfidenceBar(advShots.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#34d399">${cH.toFixed(2)} <span style="font-size:0.8em">${advShotsH.html}</span></div>${formHtmlH}<div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standH.position}° • Forma ${(formFactorH).toFixed(2)}x</div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#34d399">${cA.toFixed(2)} <span style="font-size:0.8em">${advShotsA.html}</span></div>${formHtmlA}<div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standA.position}° • Forma ${(formFactorA).toFixed(2)}x</div></div></div></div>`;
 
         const advOT = getAdviceAdvanced(totalOnTarget, parseFloat(document.getElementById('sprOTMatch').value));
         const advOTH = getAdviceAdvanced(oH, parseFloat(document.getElementById('sprOTH').value));
         const advOTA = getAdviceAdvanced(oA, parseFloat(document.getElementById('sprOTA').value));
-        html += `
-        <div class="result-card border-purple">
-            <div class="res-header">
-                <span class="res-label" style="color:#a78bfa">Tiri In Porta Previsti</span>
-                <span class="badge-pro">${advOT.precision}</span>
-            </div>
-            <div class="res-value" style="color:#a78bfa">${totalOnTarget.toFixed(2)} ${advOT.html}</div>
-            ${renderConfidenceBar(advOT.confidence)}
-            <div class="split-stats">
-                <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#a78bfa">${oH.toFixed(2)} <span style="font-size:0.8em">${advOTH.html}</span></div></div>
-                <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#a78bfa">${oA.toFixed(2)} <span style="font-size:0.8em">${advOTA.html}</span></div></div>
-            </div>
-        </div>`;
+        html += `<div class="result-card border-purple"><div class="res-header"><span class="res-label" style="color:#a78bfa">Tiri In Porta Previsti</span><span class="badge-pro">${advOT.precision}</span></div><div class="res-value" style="color:#a78bfa">${totalOnTarget.toFixed(2)} ${advOT.html}</div>${renderConfidenceBar(advOT.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#a78bfa">${oH.toFixed(2)} <span style="font-size:0.8em">${advOTH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#a78bfa">${oA.toFixed(2)} <span style="font-size:0.8em">${advOTA.html}</span></div></div></div></div>`;
 
         const advCorn = getAdviceAdvanced(totalCorners, parseFloat(document.getElementById('sprCornMatch').value));
         const advCornH = getAdviceAdvanced(pCH, parseFloat(document.getElementById('sprCornH').value));
         const advCornA = getAdviceAdvanced(pCA, parseFloat(document.getElementById('sprCornA').value));
-        html += `
-        <div class="result-card border-cyan">
-            <div class="res-header">
-                <span class="res-label" style="color:#22d3ee">Calci d'Angolo Previsti</span>
-                <span class="badge-pro">${advCorn.precision}</span>
-            </div>
-            <div class="res-value" style="color:#22d3ee">${totalCorners.toFixed(2)} ${advCorn.html}</div>
-            ${renderConfidenceBar(advCorn.confidence)}
-            <div class="split-stats">
-                <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#22d3ee">${pCH.toFixed(2)} <span style="font-size:0.8em">${advCornH.html}</span></div></div>
-                <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#22d3ee">${pCA.toFixed(2)} <span style="font-size:0.8em">${advCornA.html}</span></div></div>
-            </div>
-        </div>`;
+        html += `<div class="result-card border-cyan"><div class="res-header"><span class="res-label" style="color:#22d3ee">Calci d'Angolo Previsti</span><span class="badge-pro">${advCorn.precision}</span></div><div class="res-value" style="color:#22d3ee">${totalCorners.toFixed(2)} ${advCorn.html}</div>${renderConfidenceBar(advCorn.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#22d3ee">${pCH.toFixed(2)} <span style="font-size:0.8em">${advCornH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#22d3ee">${pCA.toFixed(2)} <span style="font-size:0.8em">${advCornA.html}</span></div></div></div></div>`;
 
         const advCards = getAdviceAdvanced(totalCards, parseFloat(document.getElementById('sprCardsMatch').value));
         const advCardsH = getAdviceAdvanced(cardH, parseFloat(document.getElementById('sprCardsH').value));
         const advCardsA = getAdviceAdvanced(cardA, parseFloat(document.getElementById('sprCardsA').value));
-        html += `
-        <div class="result-card border-yellow">
-            <div class="res-header">
-                <span class="res-label" style="color:#fbbf24">Gialli Previsti</span>
-                <span class="badge-pro">${advCards.precision}</span>
-            </div>
-            <div class="res-value" style="color:#fbbf24">${totalCards.toFixed(2)} ${advCards.html}</div>
-            ${renderConfidenceBar(advCards.confidence)}
-            <div class="split-stats">
-                <div class="stat-col"><h4>Casa</h4><div class="val" style="color:#fbbf24">${cardH.toFixed(2)} <span style="font-size:0.8em">${advCardsH.html}</span></div></div>
-                <div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#fbbf24">${cardA.toFixed(2)} <span style="font-size:0.8em">${advCardsA.html}</span></div></div>
-            </div>
-        </div>`;
+        html += `<div class="result-card border-yellow"><div class="res-header"><span class="res-label" style="color:#fbbf24">Gialli Previsti</span><span class="badge-pro">${advCards.precision}</span></div><div class="res-value" style="color:#fbbf24">${totalCards.toFixed(2)} ${advCards.html}</div>${renderConfidenceBar(advCards.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#fbbf24">${cardH.toFixed(2)} <span style="font-size:0.8em">${advCardsH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#fbbf24">${cardA.toFixed(2)} <span style="font-size:0.8em">${advCardsA.html}</span></div></div></div></div>`;
 
         resDiv.innerHTML = html;
-        resDiv.scrollIntoView({behavior:'smooth', block:'start'});
+        
+        // SCROLL FLUIDO FINALE AI RISULTATI
+        // Usiamo requestAnimationFrame per assicurarci che il DOM sia renderizzato prima dello scroll
+        requestAnimationFrame(() => {
+            resDiv.scrollIntoView({behavior:'smooth', block:'start'});
+        });
+
     } catch(e) { 
         resDiv.innerHTML = `<div class="result-card border-red"><p style="font-weight:900;color:#ef4444">ERRORE ANALISI</p><p style="color:white;font-size:13px">${e.message}</p></div>`; 
     }
@@ -1024,5 +728,4 @@ loadData();
 </html>
 """
 
-# Usiamo scrolling=True per permettere allo scroll nativo del browser di gestire la pagina
 components.html(html_code, height=1200, scrolling=True)
