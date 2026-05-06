@@ -1,7 +1,50 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="PROBET AI V4 PRO", layout="wide", initial_sidebar_state="collapsed")
+# Configurazione pagina ottimizzata per nascondere elementi Streamlit
+st.set_page_config(
+    page_title="PROBET AI V4 PRO", 
+    layout="wide", 
+    initial_sidebar_state="collapsed",
+    menu_items=None # Rimuove il menu items se possibile
+)
+
+# CSS INIETTATO PER PULIRE STREAMLIT
+# Questo rimuove lo sfondo bianco, l'header e i margini di Streamlit
+hide_streamlit_style = """
+<style>
+    /* Nasconde l'header di Streamlit */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Forza lo sfondo scuro su tutto il container di Streamlit */
+    .stApp {
+        background-color: #020617 !important;
+        color: white !important;
+    }
+    
+    /* Rimuove il padding default di Streamlit che crea i bordi bianchi */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* Nasconde eventuali scrollbar native di Streamlit */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Assicura che l'iframe o il container HTML occupino tutto */
+    div[data-testid="stAppViewContainer"] {
+        background-color: #020617 !important;
+    }
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 html_code = """
 <!DOCTYPE html>
@@ -19,8 +62,6 @@ html_code = """
             --card-bg: rgba(30, 41, 59, 0.7);
             --input-bg: rgba(15, 23, 42, 0.8);
             --primary-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-red: #ef4444;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
         }
@@ -34,20 +75,21 @@ html_code = """
                               radial-gradient(circle at bottom left, #0f172a 0%, transparent 40%);
             color: var(--text-main); 
             font-family: 'Inter', sans-serif;
-            min-height: 100dvh; /* Altezza dinamica viewport mobile */
+            min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Scrollbar nascosta ma funzionante */
+        /* Scrollbar nascosta */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
 
         .teko { font-family: 'Teko', sans-serif; letter-spacing: 0.05em; }
 
         .app-wrapper {
-            max-width: 600px; /* Limite larghezza per desktop, full width mobile */
+            width: 100%;
+            max-width: 600px; /* Limite larghezza per desktop */
             margin: 0 auto;
-            padding: 20px 16px 80px 16px; /* Padding bottom extra per scroll finale */
+            padding: 20px 16px 80px 16px;
             display: flex;
             flex-direction: column;
             gap: 20px;
@@ -80,13 +122,13 @@ html_code = """
             opacity: 0.8;
         }
 
-        /* LEAGUE SELECTOR - Horizontal Scroll on Mobile */
+        /* LEAGUE SELECTOR */
         .league-scroller {
             display: flex;
             gap: 10px;
             overflow-x: auto;
             padding: 4px 4px 14px 4px;
-            margin: 0 -10px; /* Bleed to edges */
+            margin: 0 -10px;
             scrollbar-width: none;
         }
         .league-scroller::-webkit-scrollbar { display: none; }
@@ -156,9 +198,8 @@ html_code = """
             background: #0f172a;
         }
 
-        /* Custom Select Arrow */
         select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-image: url("image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 16px center;
             background-size: 16px;
@@ -233,7 +274,6 @@ html_code = """
             overflow: hidden;
         }
         
-        /* Colored Left Border Glow */
         .result-card::before {
             content: '';
             position: absolute;
@@ -298,7 +338,6 @@ html_code = """
         .stat-col .val { font-family: 'Teko'; font-size: 1.4rem; font-weight: 500; }
         .stat-col.right { text-align: right; }
 
-        /* LOADING ANIMATION */
         .loader-container {
             text-align: center;
             padding: 40px 0;
@@ -311,7 +350,6 @@ html_code = """
         }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* UTILS */
         .hidden { display: none !important; }
         .status-msg {
             padding: 12px;
@@ -985,4 +1023,6 @@ loadData();
 </body>
 </html>
 """
+
+# Usiamo scrolling=True per permettere allo scroll nativo del browser di gestire la pagina
 components.html(html_code, height=1200, scrolling=True)
