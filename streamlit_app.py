@@ -166,11 +166,19 @@ html_code = """
         .status-msg { padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-bottom: 16px; text-align: center; }
         .status-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
         .status-ok { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .status-warn { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
         
         .engine-badge {
             display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 9px; font-weight: 800;
             background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; letter-spacing: 0.08em;
         }
+        
+        .data-source-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 700;
+            margin-left: 6px;
+        }
+        .source-csv { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+        .source-api { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     </style>
 </head>
 <body>
@@ -271,25 +279,17 @@ const API_KEY = "f51c8f78f3478d58a4a206b726cc97a9";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
+let currentDataSource = 'csv'; // 'csv' o 'api' — traccia la fonte attiva
 
 // ============================================================
-// ENGINE POISSON-BAYES V2 — PARAMETRI CALIBRATI SU DATI REALI
+// ENGINE POISSON-BAYES V2 — PARAMETRI CALIBRATI
 // ============================================================
 
-// Deviazioni standard empiriche per ciascuna metrica (da analisi storica)
 const STD_DEVS = {
-    totalShots: 4.2,      // tiri totali match
-    teamShots: 3.1,       // tiri squadra singola
-    totalSOT: 2.8,        // tiri in porta totali
-    teamSOT: 2.0,         // tiri in porta squadra
-    totalCorners: 2.4,    // corner totali
-    teamCorners: 1.8,      // corner squadra
-    totalCards: 1.9,       // cartellini totali
-    teamCards: 1.4,        // cartellini squadra
-    totalFouls: 4.5        // falli totali
+    totalShots: 4.2, teamShots: 3.1, totalSOT: 2.8, teamSOT: 2.0,
+    totalCorners: 2.4, teamCorners: 1.8, totalCards: 1.9, teamCards: 1.4, totalFouls: 4.5
 };
 
-// Medie campionato per lega (dati storici 2023-2025)
 const LEAGUE_BASELINES = {
     7286: { shots: 24.8, sot: 8.2, corners: 9.6, cards: 4.4, fouls: 24.2, homeAdv: 1.07 },
     7293: { shots: 25.4, sot: 8.8, corners: 10.2, cards: 3.8, fouls: 21.5, homeAdv: 1.05 },
@@ -297,34 +297,25 @@ const LEAGUE_BASELINES = {
     7351: { shots: 24.2, sot: 8.0, corners: 9.4, cards: 5.2, fouls: 25.1, homeAdv: 1.06 }
 };
 
-// Costante di regressione alla media (shrinkage Bayesiano)
-const K_REGRESSION = 6; // partite dopo cui i dati reali pesano 50%
+const K_REGRESSION = 6;
 
-// Decadimento esponenziale per forma (più recente = più peso)
 function expDecayWeight(idx, total, lambda = 0.3) {
-    // idx: 0 = più vecchio, total-1 = più recente
     const recency = idx / (total - 1 || 1);
     return Math.exp(lambda * recency);
 }
 
-// Shrinkage Bayesiano: stima verso la media campionato
 function bayesianShrink(observed, baseline, nGames, k = K_REGRESSION) {
     const weightReal = nGames / (nGames + k);
     const weightBaseline = k / (nGames + k);
     return observed * weightReal + baseline * weightBaseline;
 }
 
-// Modello Poisson per attacco/difesa corretto
 function poissonAttackDefense(homeAttack, homeDefense, awayAttack, awayDefense, baseline, homeAdv) {
-    // homeAttack: forza offensiva casa (tiri fatti / media)
-    // awayDefense: forza difensiva ospite (tiri subiti / media)
-    // CORRETTO: attacco forte × difesa debole = MOLTI tiri
     const homeExpected = baseline * homeAttack * awayDefense * homeAdv;
     const awayExpected = baseline * awayAttack * homeDefense * (2 - homeAdv);
     return { home: homeExpected, away: awayExpected };
 }
 
-// Calibrazione probabilità con CDF normale (approssimazione di Abramowitz & Stegun)
 function normalCDF(z) {
     const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
     const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
@@ -335,7 +326,6 @@ function normalCDF(z) {
     return 0.5 * (1 + sign * y);
 }
 
-// Confidence calibrata: probabilità che il risultato sia OVER/UNDER dato lo spread
 function calcCalibratedConfidence(prediction, spread, stdDev) {
     const z = (prediction - spread) / stdDev;
     const pOver = normalCDF(z);
@@ -360,7 +350,7 @@ function renderConfidenceBar(confidence) {
 }
 
 // ============================================================
-// FALLBACK E UTILITÀ (tuo codice, invariato)
+// FALLBACK E CONFIGURAZIONE LEGA
 // ============================================================
 
 const FALLBACK_REFS = [
@@ -375,19 +365,13 @@ const FALLBACK_REFS = [
     { name: "RAPUANO Antonio", total: 25.8, home: 12.2, away: 13.6 }
 ];
 
-const FALLBACK_TEAMS = {
+// SOLO squadre che NON sono in Serie A 2025/26 — usate solo se API fallisce DOPO giornata 4
+const FALLBACK_TEAMS_RETROCESSE = {
     7286: [
-        {id: 505, name: "Inter"}, {id: 496, name: "Juventus"}, {id: 489, name: "Milan"},
-        {id: 492, name: "Napoli"}, {id: 497, name: "Roma"}, {id: 487, name: "Lazio"},
-        {id: 502, name: "Fiorentina"}, {id: 499, name: "Atalanta"}, {id: 500, name: "Bologna"},
-        {id: 503, name: "Torino"}, {id: 490, name: "Cagliari"}, {id: 495, name: "Genoa"},
-        {id: 498, name: "Sampdoria"}, {id: 504, name: "Verona"}, {id: 501, name: "Udinese"},
-        {id: 2687, name: "Monza"}, {id: 494, name: "Parma"}, {id: 491, name: "Empoli"}
+        {id: 488, name: "Sassuolo"}, {id: 511, name: "Salernitana"}, {id: 514, name:"Crotone"}
     ],
     7293: [
-        {id: 33, name: "Arsenal"}, {id: 34, name: "Aston Villa"}, {id: 39, name: "Chelsea"},
-        {id: 40, name: "Liverpool"}, {id: 50, name: "Manchester City"}, {id: 35, name: "Bournemouth"},
-        {id: 42, name: "Arsenal"}, {id: 47, name: "Tottenham"}, {id: 46, name: "Leicester"}
+        {id: 44, name: "Burnley"}, {id: 52, name: "Luton"}, {id: 45, name:"Sheffield Utd"}
     ]
 };
 
@@ -422,19 +406,138 @@ function switchLeague(id) {
     loadData();
 }
 
+// ============================================================
+// CARICAMENTO DATI: CSV-FIRST PER NEO-PROMOSSE
+// ============================================================
+
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
+    
+    // SEMPRE carica il CSV prima — contiene le squadre aggiornate (neo-promosse)
     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
-        complete: (r) => { dbXG = r.data; loadTeams(); },
-        error: (err) => { dbXG = []; loadTeams(); }
+        complete: (r) => { 
+            dbXG = r.data; 
+            // Dopo il CSV, controlla se l'API ha abbastanza dati
+            checkApiAndLoadTeams();
+        },
+        error: (err) => { 
+            console.warn("CSV non disponibile, passo ad API:", err);
+            dbXG = []; 
+            loadTeamsFromApi();
+        }
     });
+
     if(currentLeague === 7286) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
             download: true, header: true, skipEmptyLines: true,
             complete: (r) => { populateArbitri(r.data); },
             error: () => { populateArbitri([]); }
         });
+    }
+}
+
+// Controlla se l'API ha abbastanza partite giocate per essere affidabile
+async function checkApiAndLoadTeams() {
+    const leagueInfo = LEAGUE_DATA[currentLeague];
+    let apiId = leagueInfo.apiId;
+    
+    try {
+        // Prova a prendere una squadra dal CSV e controllare quante partite ha giocato
+        const sampleTeam = dbXG.find(x => x.TeamID);
+        if (!sampleTeam) {
+            currentDataSource = 'csv';
+            loadTeamsFromCsv();
+            return;
+        }
+        
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${sampleTeam.TeamID}&season=2025&league=${apiId}&status=FT`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const data = await res.json();
+        const playedGames = data.response ? data.response.length : 0;
+        
+        // SE MENO DI 4 PARTITE: usa CSV (neo-promosse, inizio stagione)
+        // SE 4 O PIÙ: usa API (dati stagionali disponibili)
+        if (playedGames < 4) {
+            currentDataSource = 'csv';
+            setStatus(`Stagione in corso • G${playedGames} — Squadre da database aggiornato <span class="data-source-badge source-csv">CSV</span>`, 'warn');
+            loadTeamsFromCsv();
+        } else {
+            currentDataSource = 'api';
+            setStatus(`Dati stagionali disponibili • G${playedGames} — Live API <span class="data-source-badge source-api">API</span>`, 'ok');
+            loadTeamsFromApi();
+        }
+    } catch (e) {
+        // Se l'API fallisce, resta su CSV
+        currentDataSource = 'csv';
+        setStatus(`Connessione API instabile — Uso database aggiornato <span class="data-source-badge source-csv">CSV</span>`, 'warn');
+        loadTeamsFromCsv();
+    }
+}
+
+// Carica squadre dal CSV (neo-promosse, inizio stagione)
+function loadTeamsFromCsv() {
+    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+    h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
+    a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
+    
+    // Estrai squadre uniche dal CSV
+    const teams = [];
+    const seen = new Set();
+    dbXG.forEach(row => {
+        if (row.TeamID && row.TeamName && !seen.has(row.TeamID)) {
+            seen.add(row.TeamID);
+            teams.push({ id: parseInt(row.TeamID), name: row.TeamName });
+        }
+    });
+    
+    teams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
+        h.add(new Option(t.name + ' 📋', t.id));
+        a.add(new Option(t.name + ' 📋', t.id));
+    });
+}
+
+// Carica squadre dall'API (dopo giornata 4)
+async function loadTeamsFromApi() {
+    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+    h.innerHTML = '<option value="">Caricamento API...</option>';
+    a.innerHTML = '<option value="">Caricamento API...</option>';
+    
+    try {
+        const leagueInfo = LEAGUE_DATA[currentLeague];
+        let apiId = leagueInfo.apiId;
+        
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
+            headers: { "x-apisports-key": API_KEY } 
+        });
+        let data = await res.json();
+        
+        if (!data.response || data.response.length === 0) {
+            apiId = leagueInfo.oldId;
+            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
+                headers: { "x-apisports-key": API_KEY } 
+            });
+            data = await res.json();
+        }
+        
+        h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
+        a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
+        
+        if (data.response && data.response.length > 0) {
+            const teams = data.response.map(t => ({ id: t.team.id, name: t.team.name }));
+            teams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
+                h.add(new Option(t.name + ' ⚡', t.id));
+                a.add(new Option(t.name + ' ⚡', t.id));
+            });
+        } else {
+            throw new Error("Nessuna squadra dall'API");
+        }
+    } catch (e) {
+        // Fallback: se API fallisce, prova CSV
+        console.warn("API fallita, fallback a CSV:", e);
+        currentDataSource = 'csv';
+        loadTeamsFromCsv();
     }
 }
 
@@ -464,66 +567,61 @@ function populateArbitri(data) {
     }
 }
 
-async function loadTeams() {
-    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-    h.innerHTML = '<option value="">Seleziona...</option>';
-    a.innerHTML = '<option value="">Seleziona...</option>';
-    try {
-        const leagueInfo = LEAGUE_DATA[currentLeague];
-        let apiId = leagueInfo.apiId;
-        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
-        let data = await res.json();
-        if (!data.response || data.response.length === 0) {
-            apiId = leagueInfo.oldId;
-            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
-            data = await res.json();
-        }
-        h.innerHTML = ""; a.innerHTML = "";
-        h.add(new Option("-- Seleziona Casa --", "")); a.add(new Option("-- Seleziona Ospite --", ""));
-        let mergedTeams = [];
-        if (data.response && data.response.length > 0) {
-            data.response.forEach(t => { mergedTeams.push({ id: t.team.id, name: t.team.name }); });
-        }
-        if (mergedTeams.length === 0) mergedTeams = FALLBACK_TEAMS[currentLeague] || FALLBACK_TEAMS[7286];
-        mergedTeams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
-            h.add(new Option(t.name, t.id)); a.add(new Option(t.name, t.id));
-        });
-    } catch (e) {
-        const fbList = FALLBACK_TEAMS[currentLeague] || FALLBACK_TEAMS[7286];
-        h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
-        a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
-        fbList.forEach(t => { h.add(new Option(t.name, t.id)); a.add(new Option(t.name, t.id)); });
-    }
-}
-
 // ============================================================
-// NUOVO MOTORE: RACCOLTA DATI AVANZATA
+// METRICHE AVANZATE — ADATTIVE ALLA FONTE DATI
 // ============================================================
 
 async function getAdvancedMetrics(teamId, apiId) {
+    const baseline = LEAGUE_BASELINES[currentLeague];
+    
+    // Se siamo in fase CSV (prime giornate), usa dati storici dal CSV con shrinkage massimo
+    if (currentDataSource === 'csv') {
+        const row = dbXG.find(x => x.TeamID == teamId);
+        if (row) {
+            // Dati dal CSV — regressione forte verso baseline (poche partite giocate)
+            const csvShotsFor = parseFloat((row.ShotsFor || row.shotsFor || "12").toString().replace(',','.')) || baseline.shots/2;
+            const csvShotsAgainst = parseFloat((row.ShotsAgainst || row.shotsAgainst || "12").toString().replace(',','.')) || baseline.shots/2;
+            const csvSOT = parseFloat((row.SOTFor || row.sotFor || "4").toString().replace(',','.')) || baseline.sot/2;
+            const csvCorners = parseFloat((row.CornersFor || row.cornersFor || "5").toString().replace(',','.')) || baseline.corners/2;
+            const csvCards = parseFloat((row.Cards || row.cards || "2.2").toString().replace(',','.')) || baseline.cards/2;
+            
+            return {
+                played: 2, // Stima: poche partite giocate
+                shotsFor: bayesianShrink(csvShotsFor, baseline.shots/2, 2, 8), // shrinkage più forte
+                shotsAgainst: bayesianShrink(csvShotsAgainst, baseline.shots/2, 2, 8),
+                sotFor: bayesianShrink(csvSOT, baseline.sot/2, 2, 8),
+                cornersFor: bayesianShrink(csvCorners, baseline.corners/2, 2, 8),
+                cornersAgainst: bayesianShrink(csvCorners * 0.95, baseline.corners/2, 2, 8),
+                cards: bayesianShrink(csvCards, baseline.cards/2, 2, 8),
+                fouls: bayesianShrink(csvCards * 5.2, baseline.fouls/2, 2, 8),
+                formFactor: 1.0, // Neutro all'inizio stagione
+                results: ['D','D','W','L','D'] // Forma neutrale
+            };
+        }
+    }
+    
+    // Fase API: dati live con shrinkage normale
     try {
         const [fReq, sReq] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}`, { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2025&league=${apiId}`, { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null)
+            fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&status=FT`, 
+                { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null),
+            fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2025&league=${apiId}`, 
+                { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null)
         ]);
 
         let played = 0, shotsFor = 0, shotsAgainst = 0, sotFor = 0, sotAgainst = 0;
         let cornersFor = 0, cornersAgainst = 0, yellowCards = 0, foulsFor = 0;
         let results = [], matchCount = 0;
 
-        // Estrazione fixture con peso esponenziale sulla forma
         if (fReq && fReq.response) {
-            const ftMatches = fReq.response.filter(f => f.fixture.status.short === "FT");
-            played = ftMatches.length;
-            
-            ftMatches.forEach((fixture, idx) => {
+            fReq.response.forEach((fixture, idx) => {
                 const isHome = fixture.teams.home.id == teamId;
                 const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
                 if (teamSide.winner === true) results.push('W');
                 else if (teamSide.winner === false) results.push('L');
                 else results.push('D');
+                played++;
 
-                // Estrazione statistiche se disponibili
                 if (fixture.statistics && fixture.statistics.length >= 2) {
                     const stats = isHome ? fixture.statistics[0].statistics : fixture.statistics[1].statistics;
                     const oppStats = isHome ? fixture.statistics[1].statistics : fixture.statistics[0].statistics;
@@ -547,30 +645,24 @@ async function getAdvancedMetrics(teamId, apiId) {
             });
         }
 
-        // Fallback da statistics API
         let statsShotsFor = 0, statsShotsAgainst = 0, statsSOTFor = 0, statsPlayed = 0;
         if (sReq && sReq.response) {
             const s = sReq.response;
             statsPlayed = s.fixtures?.played?.total || 0;
             if (s.shots?.total) statsShotsFor = s.shots.total;
             if (s.shots?.on_goal) statsSOTFor = s.shots.on_goal;
-            // goals against come proxy per shots against
             if (s.goals?.against?.total) statsShotsAgainst = s.goals.against.total * 3.5;
         }
 
-        // Calcolo medie con Bayesian shrinkage
-        const baseline = LEAGUE_BASELINES[currentLeague];
         const n = Math.max(matchCount, statsPlayed, 1);
-        
-        const rawShotsFor = matchCount > 0 ? shotsFor / matchCount : (statsPlayed > 0 ? statsShotsFor / statsPlayed : baseline.shots / 2);
-        const rawShotsAgainst = matchCount > 0 ? shotsAgainst / matchCount : (statsPlayed > 0 ? statsShotsAgainst / statsPlayed : baseline.shots / 2);
-        const rawSOTFor = matchCount > 0 ? sotFor / matchCount : (statsPlayed > 0 ? statsSOTFor / statsPlayed : baseline.sot / 2);
-        const rawCornersFor = matchCount > 0 ? cornersFor / matchCount : baseline.corners / 2;
-        const rawCornersAgainst = matchCount > 0 ? cornersAgainst / matchCount : baseline.corners / 2;
-        const rawCards = matchCount > 0 ? yellowCards / matchCount : baseline.cards / 2;
-        const rawFouls = matchCount > 0 ? foulsFor / matchCount : baseline.fouls / 2;
+        const rawShotsFor = matchCount > 0 ? shotsFor / matchCount : (statsPlayed > 0 ? statsShotsFor / statsPlayed : baseline.shots/2);
+        const rawShotsAgainst = matchCount > 0 ? shotsAgainst / matchCount : (statsPlayed > 0 ? statsShotsAgainst / statsPlayed : baseline.shots/2);
+        const rawSOTFor = matchCount > 0 ? sotFor / matchCount : (statsPlayed > 0 ? statsSOTFor / statsPlayed : baseline.sot/2);
+        const rawCornersFor = matchCount > 0 ? cornersFor / matchCount : baseline.corners/2;
+        const rawCornersAgainst = matchCount > 0 ? cornersAgainst / matchCount : baseline.corners/2;
+        const rawCards = matchCount > 0 ? yellowCards / matchCount : baseline.cards/2;
+        const rawFouls = matchCount > 0 ? foulsFor / matchCount : baseline.fouls/2;
 
-        // Fattore forma con decadimento esponenziale
         let formFactor = 1.0;
         const recentResults = results.slice(-5);
         recentResults.forEach((r, i) => {
@@ -581,18 +673,18 @@ async function getAdvancedMetrics(teamId, apiId) {
 
         return {
             played: n,
-            shotsFor: bayesianShrink(rawShotsFor, baseline.shots / 2, n),
-            shotsAgainst: bayesianShrink(rawShotsAgainst, baseline.shots / 2, n),
-            sotFor: bayesianShrink(rawSOTFor, baseline.sot / 2, n),
-            cornersFor: bayesianShrink(rawCornersFor, baseline.corners / 2, n),
-            cornersAgainst: bayesianShrink(rawCornersAgainst, baseline.corners / 2, n),
-            cards: bayesianShrink(rawCards, baseline.cards / 2, n),
-            fouls: bayesianShrink(rawFouls, baseline.fouls / 2, n),
+            shotsFor: bayesianShrink(rawShotsFor, baseline.shots/2, n),
+            shotsAgainst: bayesianShrink(rawShotsAgainst, baseline.shots/2, n),
+            sotFor: bayesianShrink(rawSOTFor, baseline.sot/2, n),
+            cornersFor: bayesianShrink(rawCornersFor, baseline.corners/2, n),
+            cornersAgainst: bayesianShrink(rawCornersAgainst, baseline.corners/2, n),
+            cards: bayesianShrink(rawCards, baseline.cards/2, n),
+            fouls: bayesianShrink(rawFouls, baseline.fouls/2, n),
             formFactor: Math.max(0.88, Math.min(1.12, formFactor)),
             results: results.length ? results : ['W','D','W','L','D']
         };
     } catch (e) {
-        const b = LEAGUE_BASELINES[currentLeague];
+        const b = baseline;
         return { played: 6, shotsFor: b.shots/2, shotsAgainst: b.shots/2, sotFor: b.sot/2, 
                  cornersFor: b.corners/2, cornersAgainst: b.corners/2, cards: b.cards/2, fouls: b.fouls/2,
                  formFactor: 1.0, results: ['W','D','W','L','D'] };
@@ -601,7 +693,8 @@ async function getAdvancedMetrics(teamId, apiId) {
 
 async function getStandingsMomentum(teamId, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, 
+            { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return { position: 10, totalTeams: 20, momentum: 1.0 };
         const standing = data.response[0].league.standings[0][0];
@@ -617,7 +710,7 @@ async function getStandingsMomentum(teamId, apiId) {
 }
 
 // ============================================================
-// ANALISI PRINCIPALE — ENGINE POISSON-BAYES
+// ANALISI PRINCIPALE
 // ============================================================
 
 async function runDeepAnalysis() {
@@ -626,7 +719,7 @@ async function runDeepAnalysis() {
     resDiv.innerHTML = `
         <div class="loader-container">
             <div class="pulse-text teko">ENGINE POISSON-BAYES V2</div>
-            <p style="font-size:12px;color:#64748b;margin-top:8px">Calibrazione regressione, shrinkage e CDF normale in corso...</p>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Fonte: ${currentDataSource.toUpperCase()} • Calibrazione in corso...</p>
         </div>
     `;
     resDiv.scrollIntoView({behavior:'smooth', block:'center'});
@@ -641,7 +734,6 @@ async function runDeepAnalysis() {
         let apiId = leagueInfo.apiId;
         const baseline = LEAGUE_BASELINES[currentLeague];
 
-        // Dati squadre in parallelo
         const [metricsH, metricsA, standH, standA] = await Promise.all([
             getAdvancedMetrics(idH, apiId),
             getAdvancedMetrics(idA, apiId),
@@ -649,30 +741,25 @@ async function runDeepAnalysis() {
             getStandingsMomentum(idA, apiId)
         ]);
 
-        // Calcolo forze attacco/difesa normalizzate
         const halfBaseShots = baseline.shots / 2;
         const halfBaseSOT = baseline.sot / 2;
         const halfBaseCorners = baseline.corners / 2;
 
-        // Forze tiri: >1 = sopra media, <1 = sotto media
         const homeAttackShots = metricsH.shotsFor / halfBaseShots;
         const homeDefenseShots = metricsH.shotsAgainst / halfBaseShots;
         const awayAttackShots = metricsA.shotsFor / halfBaseShots;
         const awayDefenseShots = metricsA.shotsAgainst / halfBaseShots;
 
-        // Modello Poisson per tiri
         const shotsPoisson = poissonAttackDefense(
             homeAttackShots, homeDefenseShots, 
             awayAttackShots, awayDefenseShots, 
             halfBaseShots, baseline.homeAdv
         );
 
-        // Applica forma e momentum
         let cH = shotsPoisson.home * metricsH.formFactor * standH.momentum;
         let cA = shotsPoisson.away * metricsA.formFactor * standA.momentum;
         const totalShots = cH + cA;
 
-        // Tiri in porta: precisione basata su xG
         let teamH_row = dbXG.find(x => x.TeamID == idH);
         let teamA_row = dbXG.find(x => x.TeamID == idA);
         const xGH_raw = teamH_row ? (teamH_row.xG_Per_Shot || "0.11") : "0.11";
@@ -680,14 +767,12 @@ async function runDeepAnalysis() {
         const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
         const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
 
-        // Precisione tiri in porta: base 32% + bonus xG
         const precisionH = 0.32 + (xGH - 0.10) * 1.5;
         const precisionA = 0.32 + (xGA - 0.10) * 1.5;
         let s_cH = cH * Math.max(0.22, Math.min(0.48, precisionH));
         let s_cA = cA * Math.max(0.22, Math.min(0.48, precisionA));
         const totalSOT = s_cH + s_cA;
 
-        // Corner: modello Poisson con forze incrociate
         const homeAttackCorners = metricsH.cornersFor / halfBaseCorners;
         const homeDefenseCorners = metricsH.cornersAgainst / halfBaseCorners;
         const awayAttackCorners = metricsA.cornersFor / halfBaseCorners;
@@ -702,7 +787,6 @@ async function runDeepAnalysis() {
         let pCornA = cornerPoisson.away * metricsA.formFactor * standA.momentum;
         const totalCorners = pCornH + pCornA;
 
-        // Cartellini: modello diretto con fattore arbitro
         const cardsH = metricsH.cards * (2.0 - metricsH.formFactor) * standH.momentum;
         const cardsA = metricsA.cards * (2.0 - metricsA.formFactor) * standA.momentum;
         let refFactorCards = 1.0;
@@ -715,25 +799,19 @@ async function runDeepAnalysis() {
         let pCardsA = cardsA * refFactorCards;
         const totalCards = pCardsH + pCardsA;
 
-        // Falli (Serie A): proxy da cartellini × rapporto campionato
         let totalFouls = 0, pFoulsH = 0, pFoulsA = 0;
         if (currentLeague === 7286) {
             const refVal = document.getElementById('arbitroSelect').value;
             const refParts = refVal.split(',');
             const refHome = parseFloat(refParts[1]) || baseline.fouls / 2;
             const refAway = parseFloat(refParts[2]) || baseline.fouls / 2;
-            
-            // Falli stimati: cartellini × (falli/cartellino medio campionato)
             const foulsPerCard = baseline.fouls / baseline.cards;
             pFoulsH = pCardsH * foulsPerCard * (refHome / (baseline.fouls / 2));
             pFoulsA = pCardsA * foulsPerCard * (refAway / (baseline.fouls / 2));
             totalFouls = pFoulsH + pFoulsA;
         }
 
-        // ============================================================
-        // RENDER RISULTATI
-        // ============================================================
-
+        // Spread
         const sprTotalMatch = parseFloat(document.getElementById('sprTotalMatch').value);
         const sprTotalH = parseFloat(document.getElementById('sprTotalH').value);
         const sprTotalA = parseFloat(document.getElementById('sprTotalA').value);
@@ -760,9 +838,13 @@ async function runDeepAnalysis() {
         const advCardsH = getAdviceAdvanced(pCardsH, sprCardsH, STD_DEVS.teamCards);
         const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA, STD_DEVS.teamCards);
 
+        const sourceBadge = currentDataSource === 'csv' 
+            ? '<span class="data-source-badge source-csv">CSV</span>' 
+            : '<span class="data-source-badge source-api">API LIVE</span>';
+
         let finalHTML = `
             <div style="text-align:center; font-size:10px; color:#a78bfa; font-weight:800; text-transform:uppercase; margin-bottom:16px; letter-spacing:0.08em;">
-                POISSON-BAYES V2 • n=${Math.max(metricsH.played, metricsA.played)}G • SHRINKAGE k=${K_REGRESSION}
+                POISSON-BAYES V2 • ${sourceBadge} • n=${Math.max(metricsH.played, metricsA.played)}G • k=${K_REGRESSION}
             </div>
 
             <div class="result-card border-green">
