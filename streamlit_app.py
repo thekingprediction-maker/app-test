@@ -8,15 +8,37 @@ st.set_page_config(
     menu_items=None
 )
 
+# CSS INIETTATO PER PULIRE STREAMLIT E OTTIMIZZARE LO SCROLL
 hide_streamlit_style = """
 <style>
+    /* Nasconde elementi Streamlit */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
-    .stApp { background-color: #020617 !important; }
-    .block-container { padding: 0 !important; max-width: 100% !important; }
-    ::-webkit-scrollbar { display: none; }
-    div[data-testid="stAppViewContainer"] { background-color: #020617 !important; }
+    
+    /* Sfondo Globale Scuro */
+    .stApp {
+        background-color: #020617 !important;
+    }
+    
+    /* Rimuove padding e margini di Streamlit */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* Scrollbar nascosta ma funzionale */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Container Streamlit trasparente */
+    div[data-testid="stAppViewContainer"] {
+        background-color: #020617 !important;
+    }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -43,6 +65,10 @@ html_code = """
 
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body { 
             background-color: var(--bg-dark);
             background-image: radial-gradient(circle at top right, #1e3a8a 0%, transparent 40%),
@@ -52,6 +78,7 @@ html_code = """
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            -webkit-overflow-scrolling: touch; 
         }
 
         ::-webkit-scrollbar { width: 0px; background: transparent; }
@@ -70,6 +97,7 @@ html_code = """
             z-index: 1;
         }
 
+        /* HEADER */
         .header { text-align: center; margin-bottom: 10px; padding-top: 10px; }
         .header h1 { 
             font-size: 3rem; line-height: 0.9; font-weight: 700; text-transform: uppercase; font-style: italic;
@@ -81,9 +109,11 @@ html_code = """
             font-size: 0.7rem; color: #60a5fa; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 5px; opacity: 0.8;
         }
 
+        /* LEAGUE SELECTOR */
         .league-scroller {
             display: flex; gap: 10px; overflow-x: auto; padding: 4px 4px 14px 4px; margin: 0 -10px; scrollbar-width: none;
         }
+        .league-scroller::-webkit-scrollbar { display: none; }
         .league-btn { 
             flex: 0 0 auto; cursor: pointer; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: 12px;
             border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.6); color: #94a3b8;
@@ -94,12 +124,14 @@ html_code = """
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transform: scale(1.05);
         }
 
+        /* MAIN CARD */
         .glass-card { 
             background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-radius: 24px; padding: 24px 20px; border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); margin-bottom: 20px;
         }
 
+        /* INPUTS */
         .input-group { margin-bottom: 16px; }
         .input-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
         select, input[type="number"] { 
@@ -112,6 +144,7 @@ html_code = """
             background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;
         }
 
+        /* SPREAD GRID */
         .spread-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
         .spread-title { font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -119,6 +152,7 @@ html_code = """
         .grid-input-item label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; display: block; text-align: center; }
         .grid-input-item input { padding: 10px 4px; text-align: center; font-size: 14px; }
 
+        /* BUTTON */
         .btn-action { 
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 100%; padding: 18px; border-radius: 16px; 
             font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; color: white; font-size: 1.1rem;
@@ -127,10 +161,13 @@ html_code = """
         }
         .btn-action:active { transform: scale(0.98); box-shadow: 0 5px 15px -5px rgba(37, 99, 235, 0.5); }
         
+        /* RESULTS */
         .result-card {
             background: rgba(15, 23, 42, 0.9); border-radius: 20px; padding: 20px; margin-bottom: 16px;
             border: 1px solid rgba(255,255,255,0.05); position: relative; overflow: hidden;
-            animation: slideUp 0.5s ease-out forwards; opacity: 0; transform: translateY(20px);
+            animation: slideUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
         }
         @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
 
@@ -165,11 +202,6 @@ html_code = """
         .hidden { display: none !important; }
         .status-msg { padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-bottom: 16px; text-align: center; }
         .status-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
-        
-        .engine-badge {
-            display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 9px; font-weight: 800;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; letter-spacing: 0.08em;
-        }
     </style>
 </head>
 <body>
@@ -178,7 +210,7 @@ html_code = """
     
     <div class="header">
         <h1 class="teko">PROBET <span style="color:#3b82f6">AI</span></h1>
-        <div class="version">V4 PRO <span class="engine-badge">ENGINE POISSON BAYES V2</span></div>
+        <div class="version">V4 PRO • ELITE ANALYSIS 2025/26</div>
     </div>
 
     <div class="league-scroller">
@@ -194,17 +226,17 @@ html_code = """
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div class="input-group" style="margin-bottom:0">
                 <label class="input-label" style="color:#60a5fa">Home Team</label>
-                <select id="homeTeam"><option value="">Caricamento...</option></select>
+                <select id="homeTeam"><option>Caricamento...</option></select>
             </div>
             <div class="input-group" style="margin-bottom:0">
                 <label class="input-label" style="color:#60a5fa">Away Team</label>
-                <select id="awayTeam"><option value="">Caricamento...</option></select>
+                <select id="awayTeam"><option>Caricamento...</option></select>
             </div>
         </div>
         
         <div id="arbitroContainer" class="input-group">
             <label class="input-label" style="color:#fbbf24">Arbitro (Serie A)</label>
-            <select id="arbitroSelect"><option value="24.5,11,13.5">Seleziona Arbitro...</option></select>
+            <select id="arbitroSelect"><option value="24.5">Seleziona Arbitro...</option></select>
         </div>
 
         <div class="spread-section">
@@ -268,370 +300,608 @@ html_code = """
 <script>
 const API_KEY = "f51c8f78f3478d58a4a206b726cc97a9";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
-const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
+const REFS_FILE = "ARBITRI_SERIE_A - Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
-// ============================================================
-// NEO-PROMOSSE PER CAMPIONATO (nome minuscolo per match)
-// ============================================================
-
-const NEO_PROMOSSE = {
-    7286: ["monza", "frosinone", "venezia"],
-    7293: ["hull city", "coventry", "ipswich"],
-    7338: ["schalke", "elversberg", "paderborn"],
-    7351: ["malaga", "racing santander", "deportivo la coruna"]
-};
-
-// ============================================================
-// ENGINE POISSON-BAYES V2
-// ============================================================
-
-const STD_DEVS = {
-    totalShots: 4.2, teamShots: 3.1, totalSOT: 2.8, teamSOT: 2.0,
-    totalCorners: 2.4, teamCorners: 1.8, totalCards: 1.9, teamCards: 1.4, totalFouls: 4.5
-};
-
-const LEAGUE_BASELINES = {
-    7286: { shots: 24.8, sot: 8.2, corners: 9.6, cards: 4.4, fouls: 24.2, homeAdv: 1.07 },
-    7293: { shots: 25.4, sot: 8.8, corners: 10.2, cards: 3.8, fouls: 21.5, homeAdv: 1.05 },
-    7338: { shots: 26.1, sot: 9.1, corners: 10.8, cards: 4.1, fouls: 23.8, homeAdv: 1.10 },
-    7351: { shots: 24.2, sot: 8.0, corners: 9.4, cards: 5.2, fouls: 25.1, homeAdv: 1.06 }
-};
-
-const K_REGRESSION = 6;
-
-function expDecayWeight(idx, total, lambda = 0.3) {
-    const recency = idx / (total - 1 || 1);
-    return Math.exp(lambda * recency);
-}
-
-function bayesianShrink(observed, baseline, nGames, k = K_REGRESSION) {
-    const weightReal = nGames / (nGames + k);
-    const weightBaseline = k / (nGames + k);
-    return observed * weightReal + baseline * weightBaseline;
-}
-
-function poissonAttackDefense(homeAttack, homeDefense, awayAttack, awayDefense, baseline, homeAdv) {
-    const homeExpected = baseline * homeAttack * awayDefense * homeAdv;
-    const awayExpected = baseline * awayAttack * homeDefense * (2 - homeAdv);
-    return { home: homeExpected, away: awayExpected };
-}
-
-function normalCDF(z) {
-    const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
-    const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-    const sign = z < 0 ? -1 : 1;
-    const x = Math.abs(z) / Math.sqrt(2);
-    const t = 1 / (1 + p * x);
-    const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-    return 0.5 * (1 + sign * y);
-}
-
-function calcCalibratedConfidence(prediction, spread, stdDev) {
-    const z = (prediction - spread) / stdDev;
-    const pOver = normalCDF(z);
-    const confidence = Math.max(pOver, 1 - pOver) * 100;
-    return Math.min(Math.max(confidence, 12), 94);
-}
-
-function getAdviceAdvanced(pred, spread, stdDev) {
-    const conf = calcCalibratedConfidence(pred, spread, stdDev);
-    const isOver = pred >= spread;
-    const direction = isOver ? 'OVER' : 'UNDER';
-    let precisionLabel = conf >= 78 ? 'ELITE' : conf >= 65 ? 'ALTA' : conf >= 52 ? 'MEDIA' : 'BASE';
-    return {
-        html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${conf.toFixed(1)}%)</span>`,
-        confidence: conf, isOver: isOver, precision: precisionLabel
-    };
-}
-
-function renderConfidenceBar(confidence) {
-    let color = confidence >= 78 ? '#10b981' : confidence >= 65 ? '#f59e0b' : '#ef4444';
-    return `<div class="progress-track"><div class="progress-fill" style="width:${confidence}%;background:${color}"></div></div>`;
-}
-
-// ============================================================
-// FALLBACK E CONFIGURAZIONE
-// ============================================================
-
-const FALLBACK_REFS = [
-    { name: "GUIDA Marco", total: 23.8, home: 11.2, away: 12.6 },
-    { name: "MASSA Davide", total: 24.5, home: 11.5, away: 13.0 },
-    { name: "MARIANI Maurizio", total: 25.1, home: 12.0, away: 13.1 },
-    { name: "MARESCA Fabio", total: 26.2, home: 12.5, away: 13.7 },
-    { name: "DOVERI Daniele", total: 22.9, home: 10.8, away: 12.1 },
-    { name: "CHIFFI Daniele", total: 23.1, home: 11.0, away: 12.1 },
-    { name: "DI BELLO Marco", total: 24.0, home: 11.4, away: 12.6 },
-    { name: "SOZZA Simone", total: 23.5, home: 11.1, away: 12.4 },
-    { name: "RAPUANO Antonio", total: 25.8, home: 12.2, away: 13.6 }
-];
-
 const LEAGUE_DATA = {
-    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286 },
-    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293 },
-    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351 }
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.08 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.05 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.12 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 }
 };
 
-function setStatus(msg) {
+function setStatus(msg, type) {
     const el = document.getElementById('statusMessage');
     if (!msg) { el.classList.add('hidden'); return; }
     el.textContent = msg;
-    el.className = 'status-msg status-err';
+    el.className = 'status-msg status-' + type;
     el.classList.remove('hidden');
 }
 
 function triggerAdAndCalculate() {
-    try { const form = document.getElementById('adForm'); if(form) form.submit(); } catch(e) {}
-    try { const w = window.open("https://probetai.com/mostra_pubblicita", "_blank"); if(w) setTimeout(() => { w.blur(); window.focus(); }, 100); } catch(e) {}
-    setTimeout(() => { runDeepAnalysis(); }, 150);
+    const form = document.getElementById('adForm');
+    if(form) form.submit();
+    setTimeout(() => {
+        const w = window.open("about:blank/mostra_pubblicita", "_blank");
+        if(w) w.close();
+    }, 10);
+    setTimeout(() => {
+        window.location.hash = "mostra_pubblicita_trigger";
+    }, 50);
+    setTimeout(() => {
+        runDeepAnalysis();
+    }, 400);
 }
 
 function switchLeague(id) {
     currentLeague = id;
     document.querySelectorAll('.league-btn').forEach(b => b.classList.remove('league-active'));
     document.getElementById(`btn-${id}`).classList.add('league-active');
+    
     const isSerieA = (id === 7286);
-    document.getElementById('arbitroContainer').classList.toggle('hidden', !isSerieA);
-    document.getElementById('foulsInputs').classList.toggle('hidden', !isSerieA);
+    const arbContainer = document.getElementById('arbitroContainer');
+    const foulsContainer = document.getElementById('foulsInputs');
+    
+    if(isSerieA) {
+        arbContainer.classList.remove('hidden');
+        foulsContainer.classList.remove('hidden');
+    } else {
+        arbContainer.classList.add('hidden');
+        foulsContainer.classList.add('hidden');
+    }
+    
     loadData();
 }
 
-// ============================================================
-// CARICAMENTO: API per tutte le squadre (stagione corrente)
-// ============================================================
-
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
-    // Carica xG dal CSV
-    Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
+     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
-        complete: (r) => { dbXG = r.data; },
-        error: () => { dbXG = []; }
+        complete: (r) => { dbXG = r.data; loadTeams(); },
+        error: (err) => { console.error("Errore CSV:", err); setStatus("Errore caricamento database CSV", 'err'); }
     });
-    // Carica arbitri
+
     if(currentLeague === 7286) {
+        // CORRETTO: Adesso usiamo "BASE_CSV_URL + REFS_FILE" per scaricare il file online su GitHub!
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
-            download: true, header: true, skipEmptyLines: true,
-            complete: (r) => { populateArbitri(r.data); },
-            error: () => { populateArbitri([]); }
-        });
-    }
-    // Carica squadre dall'API
-    loadTeamsFromApi();
-}
+            download: true, 
+            header: false, 
+            skipEmptyLines: true, 
+            complete: (r) => {
+                const sel = document.getElementById('arbitroSelect'); 
+                sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
+                
+                const rows = r.data.slice(1);
 
-async function loadTeamsFromApi() {
-    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-    h.innerHTML = '<option value="">Caricamento...</option>';
-    a.innerHTML = '<option value="">Caricamento...</option>';
-    try {
-        const leagueInfo = LEAGUE_DATA[currentLeague];
-        let apiId = leagueInfo.apiId;
-        // STAGIONE CORRENTE (2025)
-        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
-            headers: { "x-apisports-key": API_KEY } 
-        });
-        let data = await res.json();
-        if (!data.response || data.response.length === 0) {
-            apiId = leagueInfo.oldId;
-            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
-                headers: { "x-apisports-key": API_KEY } 
-            });
-            data = await res.json();
-        }
-        h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
-        a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
-        if (data.response && data.response.length > 0) {
-            const teams = data.response.map(t => ({ id: t.team.id, name: t.team.name }));
-            teams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
-                h.add(new Option(t.name, t.id));
-                a.add(new Option(t.name, t.id));
-            });
-        }
-    } catch (e) {
-        setStatus("Errore caricamento squadre");
-    }
-}
+                rows.forEach(row => {
+                    if (row.length >= 5) {
+                        let name = row[0]; 
+                        let valTotal = row[2]; 
+                        let valHome = row[3]; 
+                        let valAway = row[4]; 
 
-function populateArbitri(data) {
-    const sel = document.getElementById('arbitroSelect'); 
-    sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
-    let loadedCount = 0;
-    if (data && data.length > 0) {
-        data.forEach(row => {
-            let name = row.Arbitro || row.arbitro || Object.values(row)[0];
-            let valTotal = row["Media Totale"] || Object.values(row)[2];
-            let valHome = row["Falli Casa"] || Object.values(row)[3];
-            let valAway = row["Falli Ospite"] || Object.values(row)[4];
-            if (name && valTotal && valHome && valAway) {
-                let t = parseFloat(valTotal.toString().replace(',','.'));
-                let h = parseFloat(valHome.toString().replace(',','.'));
-                let a = parseFloat(valAway.toString().replace(',','.'));
-                if (!isNaN(t) && !isNaN(h) && !isNaN(a)) {
-                    sel.add(new Option(name.trim(), `${t},${h},${a}`));
-                    loadedCount++;
-                }
+                        if(name && valTotal && valHome && valAway) {
+                            let cleanName = name.toString().trim();
+                            let cleanTotal = valTotal.toString().replace(',', '.').trim();
+                            let cleanHome = valHome.toString().replace(',', '.').trim();
+                            let cleanAway = valAway.toString().replace(',', '.').trim();
+
+                            if (cleanName !== "") {
+                                let optionValue = `${cleanTotal},${cleanHome},${cleanAway}`;
+                                sel.add(new Option(cleanName, optionValue));
+                            }
+                        }
+                    }
+                });
+            },
+            error: (err) => {
+                console.error("Errore nel caricamento del file degli arbitri:", err);
             }
         });
     }
-    if (loadedCount === 0) {
-        FALLBACK_REFS.forEach(ref => { sel.add(new Option(ref.name, `${ref.total},${ref.home},${ref.away}`)); });
-    }
 }
 
-// ============================================================
-// CHECK NEO-PROMOSSA
-// ============================================================
+async function loadTeams() {
+    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+    h.innerHTML = '<option>Caricamento...</option>';
+    a.innerHTML = '<option>Caricamento...</option>';
 
-function isNeoPromossa(teamName) {
-    if (!teamName) return false;
-    const neoList = NEO_PROMOSSE[currentLeague] || [];
-    return neoList.includes(teamName.toLowerCase().trim());
-}
-
-// ============================================================
-// METRICHE: API per tutti, STIME per neo-promosse
-// ============================================================
-
-async function getAdvancedMetrics(teamId, apiId, teamName) {
-    const baseline = LEAGUE_BASELINES[currentLeague];
-    const neo = isNeoPromossa(teamName);
-    
-    // === NEO-PROMOSSA: stime dal modello ===
-    if (neo) {
-        const seed = teamName.split('').reduce((a,b) => a + b.charCodeAt(0), 0);
-        const var1 = 0.92 + (seed % 16) / 100; // 0.92 - 1.07
-        const var2 = 0.88 + (seed % 24) / 100; // 0.88 - 1.11
-        
-        return {
-            played: 0,
-            isNeo: true,
-            shotsFor: baseline.shots/2 * var1,
-            shotsAgainst: baseline.shots/2 * var2,
-            sotFor: baseline.sot/2 * var1,
-            cornersFor: baseline.corners/2 * var1,
-            cornersAgainst: baseline.corners/2 * var2,
-            cards: baseline.cards/2 * var2,
-            fouls: baseline.fouls/2 * var1,
-            formFactor: 1.0,
-            results: ['D','D','D','D','D']
-        };
-    }
-    
-    // === SQUADRA NORMALE: dati API stagione 2025 ===
     try {
-        const [fReq, sReq] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&status=FT`, 
-                { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2025&league=${apiId}`, 
-                { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null)
-        ]);
+        const leagueInfo = LEAGUE_DATA[currentLeague];
+        let apiId = leagueInfo.apiId;
 
-        let played = 0, shotsFor = 0, shotsAgainst = 0, sotFor = 0, sotAgainst = 0;
-        let cornersFor = 0, cornersAgainst = 0, yellowCards = 0;
-        let results = [], matchCount = 0;
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let data = await res.json();
 
-        if (fReq && fReq.response) {
-            fReq.response.forEach((fixture) => {
-                const isHome = fixture.teams.home.id == teamId;
-                const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
-                if (teamSide.winner === true) results.push('W');
-                else if (teamSide.winner === false) results.push('L');
-                else results.push('D');
-                played++;
+        if (!data.response || data.response.length === 0) {
+            apiId = leagueInfo.oldId;
+            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            data = await res.json();
+        }
 
-                if (fixture.statistics && fixture.statistics.length >= 2) {
-                    const stats = isHome ? fixture.statistics[0].statistics : fixture.statistics[1].statistics;
-                    const oppStats = isHome ? fixture.statistics[1].statistics : fixture.statistics[0].statistics;
-                    
-                    stats.forEach(s => {
-                        const val = parseInt(s.value) || 0;
-                        if (s.type === 'Shots on Goal') sotFor += val;
-                        if (s.type === 'Total Shots') shotsFor += val;
-                        if (s.type === 'Corner Kicks') cornersFor += val;
-                        if (s.type === 'Yellow Cards') yellowCards += val;
-                    });
-                    oppStats.forEach(s => {
-                        const val = parseInt(s.value) || 0;
-                        if (s.type === 'Total Shots') shotsAgainst += val;
-                        if (s.type === 'Shots on Goal') sotAgainst += val;
-                        if (s.type === 'Corner Kicks') cornersAgainst += val;
-                    });
-                    matchCount++;
+        if (!data.response || data.response.length === 0) throw new Error("Nessuna squadra trovata");
+
+        h.innerHTML = ""; a.innerHTML = "";
+        h.add(new Option("-- Seleziona Casa --", ""));
+        a.add(new Option("-- Seleziona Ospite --", ""));
+
+        let mergedTeams = [];
+        let csvTeamNames = dbXG.map(row => row.TeamName.toLowerCase().trim());
+
+        data.response.forEach(t => {
+            const apiTeamName = t.team.name.toLowerCase().trim();
+            if(csvTeamNames.includes(apiTeamName)) {
+                mergedTeams.push({ id: t.team.id, name: t.team.name });
+            }
+        });
+
+        let addedIds = new Set(mergedTeams.map(x => x.id.toString()));
+        dbXG.forEach(row => {
+            if (row.TeamID && !addedIds.has(row.TeamID.toString())) {
+                mergedTeams.push({ id: parseInt(row.TeamID), name: row.TeamName });
+                addedIds.add(row.TeamID.toString());
+            }
+        });
+
+        mergedTeams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
+            h.add(new Option(t.name, t.id)); 
+            a.add(new Option(t.name, t.id));
+        });
+        setStatus("", "");
+    } catch (e) {
+        h.innerHTML = '<option>Errore</option>';
+        a.innerHTML = '<option>Errore</option>';
+        setStatus(`Errore caricamento squadre: ${e.message}`, 'err');
+    }
+}
+
+function calcConfidence(pred, spread) {
+    const diff = pred - spread;
+    const rawProb = 1 / (1 + Math.exp(-diff * 0.85));
+    return Math.min(Math.max(rawProb * 100, 8), 96);
+}
+
+function getAdviceAdvanced(pred, spread) {
+    const conf = calcConfidence(pred, spread);
+    const isOver = conf >= 50;
+    const displayConf = isOver ? conf : 100 - conf;
+    const direction = isOver ? 'OVER' : 'UNDER';
+    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
+    return {
+        html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
+        confidence: displayConf, isOver: isOver, precision: precisionLabel
+    };
+}
+
+function renderConfidenceBar(confidence) {
+    let color = confidence >= 75 ? '#10b981' : confidence >= 60 ? '#f59e0b' : '#ef4444';
+    return `<div class="progress-track"><div class="progress-fill" style="width:${confidence}%;background:${color}"></div></div>`;
+}
+
+function renderFormBar(results, alignRight) {
+    if (!results || results.length === 0) return '';
+    let html = `<div style="display:flex; gap:3px; justify-content:${alignRight ? 'flex-end' : 'flex-start'}; margin-top:6px;">`;
+    results.slice(0, 5).reverse().forEach(r => {
+        const outcome = r === 'W' ? 'V' : r === 'D' ? 'N' : 'S';
+        const color = r === 'W' ? '#10b981' : r === 'D' ? '#f59e0b' : '#ef4444';
+        html += `<div style="width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;color:white;background:${color}">${outcome}</div>`;
+    });
+    html += '</div>';
+    return html;
+}
+
+async function getTeamForm(teamId, apiId) {
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=5`, { headers: { "x-apisports-key": API_KEY } });
+        const data = await res.json();
+        if (!data.response || data.response.length === 0) return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
+
+        let results = [], totalShots = 0, totalCorners = 0, totalCards = 0, count = 0;
+
+        data.response.forEach(fixture => {
+            const isHome = fixture.teams.home.id == teamId;
+            const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
+            if (teamSide.winner === true) results.push('W');
+            else if (teamSide.winner === false) results.push('L');
+            else results.push('D');
+
+            if (fixture.statistics && fixture.statistics.length > 0) {
+                const teamStats = isHome ? fixture.statistics[0] : fixture.statistics[1];
+                if (teamStats && teamStats.statistics) {
+                    const stats = teamStats.statistics;
+                    const shots = stats.find(s => s.type === 'Shots on Goal');
+                    const corners = stats.find(s => s.type === 'Corner Kicks');
+                    const cards = stats.find(s => s.type === 'Yellow Cards');
+                    if (shots) totalShots += parseInt(shots.value) || 0;
+                    if (corners) totalCorners += parseInt(corners.value) || 0;
+                    if (cards) totalCards += parseInt(cards.value) || 0;
+                    count++;
                 }
-            });
-        }
-
-        let statsShotsFor = 0, statsSOTFor = 0, statsCorners = 0, statsCards = 0, statsPlayed = 0;
-        if (sReq && sReq.response) {
-            const s = sReq.response;
-            statsPlayed = s.fixtures?.played?.total || 0;
-            if (s.shots?.total) statsShotsFor = s.shots.total;
-            if (s.shots?.on_goal) statsSOTFor = s.shots.on_goal;
-            if (s.corner_kicks) statsCorners = s.corner_kicks;
-            if (s.cards?.yellow) statsCards = s.cards.yellow;
-        }
-
-        const n = Math.max(matchCount, statsPlayed, 1);
-        const rawShotsFor = matchCount > 0 ? shotsFor / matchCount : (statsPlayed > 0 ? statsShotsFor / statsPlayed : baseline.shots/2);
-        const rawShotsAgainst = matchCount > 0 ? shotsAgainst / matchCount : baseline.shots/2;
-        const rawSOTFor = matchCount > 0 ? sotFor / matchCount : (statsPlayed > 0 ? statsSOTFor / statsPlayed : baseline.sot/2);
-        const rawCornersFor = matchCount > 0 ? cornersFor / matchCount : (statsPlayed > 0 ? statsCorners / statsPlayed : baseline.corners/2);
-        const rawCornersAgainst = matchCount > 0 ? cornersAgainst / matchCount : baseline.corners/2;
-        const rawCards = matchCount > 0 ? yellowCards / matchCount : (statsPlayed > 0 ? statsCards / statsPlayed : baseline.cards/2);
-        const rawFouls = baseline.fouls/2; // stima base
+            }
+        });
 
         let formFactor = 1.0;
-        const recentResults = results.slice(-5);
-        recentResults.forEach((r, i) => {
-            const w = expDecayWeight(i, recentResults.length, 0.5);
-            if (r === 'W') formFactor += 0.018 * w;
-            else if (r === 'L') formFactor -= 0.018 * w;
+        results.forEach((r, i) => {
+            const weight = (i + 1) / 5;
+            if (r === 'W') formFactor += 0.016 * weight;
+            else if (r === 'L') formFactor -= 0.016 * weight;
         });
 
         return {
-            played: n,
-            isNeo: false,
-            shotsFor: bayesianShrink(rawShotsFor, baseline.shots/2, n),
-            shotsAgainst: bayesianShrink(rawShotsAgainst, baseline.shots/2, n),
-            sotFor: bayesianShrink(rawSOTFor, baseline.sot/2, n),
-            cornersFor: bayesianShrink(rawCornersFor, baseline.corners/2, n),
-            cornersAgainst: bayesianShrink(rawCornersAgainst, baseline.corners/2, n),
-            cards: bayesianShrink(rawCards, baseline.cards/2, n),
-            fouls: bayesianShrink(rawFouls, baseline.fouls/2, n),
-            formFactor: Math.max(0.88, Math.min(1.12, formFactor)),
-            results: results.length ? results : ['W','D','W','L','D']
+            results: results,
+            formFactor: Math.max(0.92, Math.min(1.08, formFactor)),
+            avgShots: count > 0 ? totalShots / count : 0,
+            avgCorners: count > 0 ? totalCorners / count : 0,
+            avgCards: count > 0 ? totalCards / count : 0
         };
-    } catch (e) {
-        const b = baseline;
-        return { played: 6, isNeo: false, shotsFor: b.shots/2, shotsAgainst: b.shots/2, sotFor: b.sot/2, 
-                 cornersFor: b.corners/2, cornersAgainst: b.corners/2, cards: b.cards/2, fouls: b.fouls/2,
-                 formFactor: 1.0, results: ['W','D','W','L','D'] };
-    }
+    } catch (e) { return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 }; }
 }
 
 async function getStandingsMomentum(teamId, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, 
-            { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return { position: 10, totalTeams: 20, momentum: 1.0 };
+
         const standing = data.response[0].league.standings[0][0];
-        const pos = standing.rank;
-        const total = data.response[0].league.standings[0].length;
+        const position = standing.rank;
+        const totalTeams = data.response[0].league.standings[0].length;
+
         let momentum = 1.0;
-        if (pos <= 3) momentum = 1.04;
-        else if (pos <= 6) momentum = 1.025;
-        else if (pos >= total - 2) momentum = 1.03;
-        else if (pos >= total - 6) momentum = 0.985;
-        return { position: pos, totalTeams: total, momentum };
+        if (position <= 3) momentum = 1.05;
+        else if (position <= 6) momentum = 1.03;
+        else if (position >= totalTeams - 3) momentum = 1.04;
+        else if (position >= totalTeams - 8 && position <= totalTeams - 4) momentum = 0.98;
+
+        return { position, totalTeams, momentum };
     } catch (e) { return { position: 10, totalTeams: 20, momentum: 1.0 }; }
 }
 
-// ============================================================
-// ANALISI PRINCIPALE
-// =====================================
+async function getFixturesH2H(teamIdH, teamIdA, apiId) {
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=3`, { headers: { "x-apisports-key": API_KEY } });
+        const data = await res.json();
+        if (!data.response || data.response.length === 0) return null;
+
+        let h2hShotsH = 0, h2hShotsA = 0, h2hCorners = 0, count = 0;
+
+        data.response.forEach(fixture => {
+            if (fixture.statistics && fixture.statistics.length > 0) {
+                const homeStats = fixture.statistics[0];
+                const awayStats = fixture.statistics[1];
+                if (homeStats && homeStats.statistics) {
+                    const stats = homeStats.statistics;
+                    const shots = stats.find(s => s.type === 'Shots on Goal');
+                    const corners = stats.find(s => s.type === 'Corner Kicks');
+                    if (shots) h2hShotsH += parseInt(shots.value) || 0;
+                    if (corners) h2hCorners += parseInt(corners.value) || 0;
+                }
+                if (awayStats && awayStats.statistics) {
+                    const stats = awayStats.statistics;
+                    const shots = stats.find(s => s.type === 'Shots on Goal');
+                    if (shots) h2hShotsA += parseInt(shots.value) || 0;
+                }
+                count++;
+            }
+        });
+
+        if (count === 0) return null;
+        return { avgShotsH: h2hShotsH / count, avgShotsA: h2hShotsA / count, avgCorners: h2hCorners / count, weight: Math.min(count * 0.15, 0.3) };
+    } catch (e) { return null; }
+}
+
+async function runDeepAnalysis() {
+    const resDiv = document.getElementById('results');
+    resDiv.classList.remove('hidden');
+    resDiv.innerHTML = `
+        <div class="loader-container">
+            <div class="pulse-text teko">ELABORAZIONE DATI...</div>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Analisi forma, classifica e H2H in corso</p>
+        </div>
+    `;
+    
+    resDiv.scrollIntoView({behavior:'smooth', block:'center'});
+
+    try {
+        const idH = document.getElementById('homeTeam').value;
+        const idA = document.getElementById('awayTeam').value;
+
+        if (!idH || !idA) throw new Error("Seleziona entrambe le squadre");
+        if (idH === idA) throw new Error("Le squadre devono essere diverse");
+
+        const leagueInfo = LEAGUE_DATA[currentLeague];
+        let apiId = leagueInfo.apiId;
+
+        let statsH, statsA, formH, formA, standH, standA, h2hData;
+
+        try {
+            const statsRes = await Promise.all([
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+            ]);
+            statsH = statsRes[0]; statsA = statsRes[1];
+            if (!statsH.response || !statsA.response) throw new Error("empty");
+        } catch (e) {
+            apiId = leagueInfo.oldId;
+            const statsRes = await Promise.all([
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+            ]);
+            statsH = statsRes[0]; statsA = statsRes[1];
+        }
+
+        [formH, formA, standH, standA, h2hData] = await Promise.all([
+            getTeamForm(idH, apiId), getTeamForm(idA, apiId),
+            getStandingsMomentum(idH, apiId), getStandingsMomentum(idA, apiId),
+            getFixturesH2H(idH, idA, apiId)
+        ]);
+
+        const sH = statsH.response; const sA = statsA.response;
+        const homeAdv = leagueInfo.homeAdv;
+
+        const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
+        const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
+        const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
+        const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
+        const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
+
+        const formFactorH = formH.formFactor; const formFactorA = formA.formFactor;
+        const momentumH = standH.momentum; const momentumA = standA.momentum;
+
+        const shotsH_avg = sH?.shots?.total?.average || 10.5;
+        const shotsA_avg = sA?.shots?.total?.average || 9.5;
+        const xgFactorH = 0.7 + (xGH / bench) * 0.3;
+        const xgFactorA = 0.7 + (xGA / bench) * 0.3;
+
+        let cH = shotsH_avg * xgFactorH * homeAdv * formFactorH * momentumH * 0.95;
+        let cA = shotsA_avg * xgFactorA * 1.0 * formFactorA * momentumA * 1.05;
+
+        if (h2hData) {
+            cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
+            cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
+        }
+        if (formH.avgShots > 0 && Math.abs(formH.avgShots - shotsH_avg) / shotsH_avg > 0.2) cH = cH * 0.7 + formH.avgShots * 0.3;
+        if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) cA = cA * 0.7 + formA.avgShots * 0.3;
+        const totalShots = cH + cA;
+
+        const onTargetH_avg = sH?.shots?.on_goal?.average || (shotsH_avg * 0.34);
+        const onTargetA_avg = sA?.shots?.on_goal?.average || (shotsA_avg * 0.34);
+        const convRateH = onTargetH_avg / shotsH_avg;
+        const convRateA = onTargetA_avg / shotsA_avg;
+        const precisionH = convRateH * (0.85 + xGH * 2.5);
+        const precisionA = convRateA * (0.85 + xGA * 2.5);
+
+        let s_cH = cH * precisionH;
+        let s_cA = cA * precisionA;
+        const totalSOT = s_cH + s_cA;
+
+        // CALCOLO CORNER
+        const cornersH_avg = sH?.corners?.average || 5.2;
+        const cornersA_avg = sA?.corners?.average || 4.4;
+        let pCornH = cornersH_avg * homeAdv * formFactorH * momentumH;
+        let pCornA = cornersA_avg * 1.0 * formFactorA * momentumA;
+        if (h2hData) {
+            pCornH = pCornH * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.55;
+            pCornA = pCornA * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.45;
+        }
+        const totalCorners = pCornH + pCornA;
+
+        // CALCOLO CARTELLINI (CON SUPPORTO VALORE ARBITRO)
+        const cardsH_avg = sH?.cards?.yellow?.average || 2.1;
+        const cardsA_avg = sA?.cards?.yellow?.average || 2.4;
+        let refFactor = 1.0;
+        if (currentLeague === 7286) {
+            const refSelectedVal = document.getElementById('arbitroSelect').value;
+            const refParts = refSelectedVal.split(',');
+            const refTotal = parseFloat(refParts[0]) || 24.5;
+            refFactor = refTotal / 24.5;
+        }
+        let pCardsH = cardsH_avg * refFactor * (2.0 - formFactorH);
+        let pCardsA = cardsA_avg * refFactor * (2.0 - formFactorA);
+        const totalCards = pCardsH + pCardsA;
+
+        // CALCOLO FALLI CON NUOVE METRICHE DETTAGLIATE ARBITRO (SOLO SERIE A)
+        let totalFouls = 0, pFoulsH = 0, pFoulsA = 0;
+        if (currentLeague === 7286) {
+            const foulsH_avg = sH?.fouls?.committed?.average || 12.5;
+            const foulsA_avg = sA?.fouls?.committed?.average || 11.8;
+            
+            const refSelectedVal = document.getElementById('arbitroSelect').value;
+            const refParts = refSelectedVal.split(',');
+            
+            const refHomeAverage = parseFloat(refParts[1]) || 11.0;
+            const refAwayAverage = parseFloat(refParts[2]) || 13.5;
+            
+            const refHomeMultiplier = refHomeAverage / 11.5; 
+            const refAwayMultiplier = refAwayAverage / 12.5; 
+
+            pFoulsH = foulsH_avg * refHomeMultiplier * (2.0 - formFactorH);
+            pFoulsA = foulsA_avg * refAwayMultiplier * (2.0 - formFactorA);
+            totalFouls = pFoulsH + pFoulsA;
+        }
+
+        // LETTURA INPUT DEGLI SPREAD CORRENTI DELL'UTENTE
+        const sprTotalMatch = parseFloat(document.getElementById('sprTotalMatch').value);
+        const sprTotalH = parseFloat(document.getElementById('sprTotalH').value);
+        const sprTotalA = parseFloat(document.getElementById('sprTotalA').value);
+
+        const sprOTMatch = parseFloat(document.getElementById('sprOTMatch').value);
+        const sprOTH = parseFloat(document.getElementById('sprOTH').value);
+        const sprOTA = parseFloat(document.getElementById('sprOTA').value);
+
+        const sprCornMatch = parseFloat(document.getElementById('sprCornMatch').value);
+        const sprCornH = parseFloat(document.getElementById('sprCornH').value);
+        const sprCornA = parseFloat(document.getElementById('sprCornA').value);
+
+        const sprCardsMatch = parseFloat(document.getElementById('sprCardsMatch').value);
+        const sprCardsH = parseFloat(document.getElementById('sprCardsH').value);
+        const sprCardsA = parseFloat(document.getElementById('sprCardsA').value);
+
+        // STRUTTURAZIONE PREVISIONI E CREAZIONE HTML RISULTATI
+        const advTotal = getAdviceAdvanced(totalShots, sprTotalMatch);
+        const advTotalH = getAdviceAdvanced(cH, sprTotalH);
+        const advTotalA = getAdviceAdvanced(cA, sprTotalA);
+
+        const advOT = getAdviceAdvanced(totalSOT, sprOTMatch);
+        const advOTH = getAdviceAdvanced(s_cH, sprOTH);
+        const advOTA = getAdviceAdvanced(s_cA, sprOTA);
+
+        const advCorn = getAdviceAdvanced(totalCorners, sprCornMatch);
+        const advCornH = getAdviceAdvanced(pCornH, sprCornH);
+        const advCornA = getAdviceAdvanced(pCornA, sprCornA);
+
+        const advCards = getAdviceAdvanced(totalCards, sprCardsMatch);
+        const advCardsH = getAdviceAdvanced(pCardsH, sprCardsH);
+        const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA);
+
+        let finalHTML = `
+            <div class="result-card border-green">
+                <div class="res-header">
+                    <span class="res-label" style="color:#10b981">Tiri Totali Match</span>
+                    <span class="badge-pro">PRECISIONE ${advTotal.precision}</span>
+                </div>
+                <div class="res-value">${totalShots.toFixed(2)}</div>
+                <div class="mb-2">${advTotal.html}</div>
+                ${renderConfidenceBar(advTotal.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home Prediction</h4>
+                        <div class="val">${cH.toFixed(1)}</div>
+                        <div class="mt-1">${advTotalH.html}</div>
+                        ${renderFormBar(formH.results, false)}
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away Prediction</h4>
+                        <div class="val">${cA.toFixed(1)}</div>
+                        <div class="mt-1">${advTotalA.html}</div>
+                        ${renderFormBar(formA.results, true)}
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-card border-purple">
+                <div class="res-header">
+                    <span class="res-label" style="color:#a78bfa">Tiri In Porta</span>
+                    <span class="badge-pro">PRECISIONE ${advOT.precision}</span>
+                </div>
+                <div class="res-value">${totalSOT.toFixed(2)}</div>
+                <div class="mb-2">${advOT.html}</div>
+                ${renderConfidenceBar(advOT.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home SOT</h4>
+                        <div class="val">${s_cH.toFixed(1)}</div>
+                        <div class="mt-1">${advOTH.html}</div>
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away SOT</h4>
+                        <div class="val">${s_cA.toFixed(1)}</div>
+                        <div class="mt-1">${advOTA.html}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // INNESTO CARD FALLI SOLO SE SERIE A ATTIVA
+        if (currentLeague === 7286) {
+            const sprFoulsMatch = parseFloat(document.getElementById('sprFoulsMatch').value);
+            const sprFoulsH = parseFloat(document.getElementById('sprFoulsH').value);
+            const sprFoulsA = parseFloat(document.getElementById('sprFoulsA').value);
+
+            const advFouls = getAdviceAdvanced(totalFouls, sprFoulsMatch);
+            const advFoulsH = getAdviceAdvanced(pFoulsH, sprFoulsH);
+            const advFoulsA = getAdviceAdvanced(pFoulsA, sprFoulsA);
+
+            finalHTML += `
+                <div class="result-card border-red">
+                    <div class="res-header">
+                        <span class="res-label" style="color:#f87171">Falli Commessi</span>
+                        <span class="badge-pro">PRECISIONE ${advFouls.precision}</span>
+                    </div>
+                    <div class="res-value">${totalFouls.toFixed(2)}</div>
+                    <div class="mb-2">${advFouls.html}</div>
+                    ${renderConfidenceBar(advFouls.confidence)}
+                    <div class="split-stats">
+                        <div class="stat-col">
+                            <h4>Home Fouls</h4>
+                            <div class="val">${pFoulsH.toFixed(1)}</div>
+                            <div class="mt-1">${advFoulsH.html}</div>
+                        </div>
+                        <div class="stat-col right">
+                            <h4>Away Fouls</h4>
+                            <div class="val">${pFoulsA.toFixed(1)}</div>
+                            <div class="mt-1">${advFoulsA.html}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // AGGIUNTA CARDS CORNER E CARTELLINI
+        finalHTML += `
+            <div class="result-card border-cyan">
+                <div class="res-header">
+                    <span class="res-label" style="color:#22d3ee">Corner Totali</span>
+                    <span class="badge-pro">PRECISIONE ${advCorn.precision}</span>
+                </div>
+                <div class="res-value">${totalCorners.toFixed(2)}</div>
+                <div class="mb-2">${advCorn.html}</div>
+                ${renderConfidenceBar(advCorn.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home Corners</h4>
+                        <div class="val">${pCornH.toFixed(1)}</div>
+                        <div class="mt-1">${advCornH.html}</div>
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away Corners</h4>
+                        <div class="val">${pCornA.toFixed(1)}</div>
+                        <div class="mt-1">${advCornA.html}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-card border-yellow">
+                <div class="res-header">
+                    <span class="res-label" style="color:#fbbf24">Cartellini Gialli</span>
+                    <span class="badge-pro">PRECISIONE ${advCards.precision}</span>
+                </div>
+                <div class="res-value">${totalCards.toFixed(2)}</div>
+                <div class="mb-2">${advCards.html}</div>
+                ${renderConfidenceBar(advCards.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home Cards</h4>
+                        <div class="val">${pCardsH.toFixed(1)}</div>
+                        <div class="mt-1">${advCardsH.html}</div>
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away Cards</h4>
+                        <div class="val">${pCardsA.toFixed(1)}</div>
+                        <div class="mt-1">${advCardsA.html}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        resDiv.innerHTML = finalHTML;
+    } catch (e) {
+        resDiv.innerHTML = `
+            <div class="status-msg status-err" style="margin:20px 0">
+                Errore Analisi: ${e.message}
+            </div>
+        `;
+    }
+}
+
+// Avvio Iniziale automatico
+loadData();
+</script>
+
+</body>
+</html>
 """
 
-components.html(html_code, height=1200, scrolling=True)
+components.html(html_code, height=1800, scrolling=True)
