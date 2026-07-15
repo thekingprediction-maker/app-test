@@ -270,9 +270,10 @@ const API_KEY = "f51c8f78f3478d58a4a206b726cc97a9";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
+let currentDataSource = 'csv';
 
 // ============================================================
-// ENGINE POISSON-BAYES V2 — PARAMETRI CALIBRATI
+// ENGINE POISSON-BAYES V2
 // ============================================================
 
 const STD_DEVS = {
@@ -340,7 +341,7 @@ function renderConfidenceBar(confidence) {
 }
 
 // ============================================================
-// FALLBACK E CONFIGURAZIONE LEGA
+// FALLBACK E CONFIGURAZIONE
 // ============================================================
 
 const FALLBACK_REFS = [
@@ -354,22 +355,6 @@ const FALLBACK_REFS = [
     { name: "SOZZA Simone", total: 23.5, home: 11.1, away: 12.4 },
     { name: "RAPUANO Antonio", total: 25.8, home: 12.2, away: 13.6 }
 ];
-
-const FALLBACK_TEAMS = {
-    7286: [
-        {id: 505, name: "Inter"}, {id: 496, name: "Juventus"}, {id: 489, name: "Milan"},
-        {id: 492, name: "Napoli"}, {id: 497, name: "Roma"}, {id: 487, name: "Lazio"},
-        {id: 502, name: "Fiorentina"}, {id: 499, name: "Atalanta"}, {id: 500, name: "Bologna"},
-        {id: 503, name: "Torino"}, {id: 490, name: "Cagliari"}, {id: 495, name: "Genoa"},
-        {id: 498, name: "Sampdoria"}, {id: 504, name: "Verona"}, {id: 501, name: "Udinese"},
-        {id: 2687, name: "Monza"}, {id: 494, name: "Parma"}, {id: 491, name: "Empoli"}
-    ],
-    7293: [
-        {id: 33, name: "Arsenal"}, {id: 34, name: "Aston Villa"}, {id: 39, name: "Chelsea"},
-        {id: 40, name: "Liverpool"}, {id: 50, name: "Manchester City"}, {id: 35, name: "Bournemouth"},
-        {id: 42, name: "Arsenal"}, {id: 47, name: "Tottenham"}, {id: 46, name: "Leicester"}
-    ]
-};
 
 const LEAGUE_DATA = {
     7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286 },
@@ -403,18 +388,23 @@ function switchLeague(id) {
 }
 
 // ============================================================
-// CARICAMENTO: CSV (xG + arbitri) + API (squadre + stats)
+// CARICAMENTO: CSV-FIRST (squadre + xG), poi API check
 // ============================================================
 
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
-    // Carica CSV per xG
+    // Carica CSV per xG e SQUADRE NEO-PROMOSSE
     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
-        complete: (r) => { dbXG = r.data; },
-        error: () => { dbXG = []; }
+        complete: (r) => { 
+            dbXG = r.data; 
+            checkApiAndLoadTeams();
+        },
+        error: (err) => { 
+            dbXG = []; 
+            loadTeamsFromApi();
+        }
     });
-    // Carica arbitri (Serie A)
     if(currentLeague === 7286) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
             download: true, header: true, skipEmptyLines: true,
@@ -422,14 +412,61 @@ function loadData() {
             error: () => { populateArbitri([]); }
         });
     }
-    // Carica squadre dall'API
-    loadTeamsFromApi();
 }
 
+async function checkApiAndLoadTeams() {
+    const leagueInfo = LEAGUE_DATA[currentLeague];
+    let apiId = leagueInfo.apiId;
+    try {
+        // Prendi prima squadra dal CSV e controlla se API ha dati
+        const sampleTeam = dbXG.find(x => x.TeamID);
+        if (!sampleTeam) {
+            currentDataSource = 'csv';
+            loadTeamsFromCsv();
+            return;
+        }
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${sampleTeam.TeamID}&season=2025&league=${apiId}&status=FT`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
+        const data = await res.json();
+        const playedGames = data.response ? data.response.length : 0;
+        if (playedGames < 4) {
+            currentDataSource = 'csv';
+            loadTeamsFromCsv();
+        } else {
+            currentDataSource = 'api';
+            loadTeamsFromApi();
+        }
+    } catch (e) {
+        currentDataSource = 'csv';
+        loadTeamsFromCsv();
+    }
+}
+
+// Carica squadre dal CSV (neo-promosse, inizio stagione)
+function loadTeamsFromCsv() {
+    const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
+    h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
+    a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
+    const teams = [];
+    const seen = new Set();
+    dbXG.forEach(row => {
+        if (row.TeamID && row.TeamName && !seen.has(row.TeamID)) {
+            seen.add(row.TeamID);
+            teams.push({ id: parseInt(row.TeamID), name: row.TeamName });
+        }
+    });
+    teams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
+        h.add(new Option(t.name, t.id));
+        a.add(new Option(t.name, t.id));
+    });
+}
+
+// Carica squadre dall'API (dopo giornata 4)
 async function loadTeamsFromApi() {
     const h = document.getElementById('homeTeam'), a = document.getElementById('awayTeam');
-    h.innerHTML = '<option value="">Caricamento...</option>';
-    a.innerHTML = '<option value="">Caricamento...</option>';
+    h.innerHTML = '<option value="">Caricamento API...</option>';
+    a.innerHTML = '<option value="">Caricamento API...</option>';
     try {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
@@ -456,14 +493,8 @@ async function loadTeamsFromApi() {
             throw new Error("Nessuna squadra");
         }
     } catch (e) {
-        // Fallback a squadre hardcoded
-        const fbList = FALLBACK_TEAMS[currentLeague] || FALLBACK_TEAMS[7286];
-        h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
-        a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
-        fbList.forEach(t => {
-            h.add(new Option(t.name, t.id));
-            a.add(new Option(t.name, t.id));
-        });
+        currentDataSource = 'csv';
+        loadTeamsFromCsv();
     }
 }
 
@@ -494,11 +525,43 @@ function populateArbitri(data) {
 }
 
 // ============================================================
-// METRICHE AVANZATE — TUTTO DALL'API (tranne xG dal CSV)
+// METRICHE: CSV (prime G) → API (dopo G4)
 // ============================================================
 
 async function getAdvancedMetrics(teamId, apiId) {
     const baseline = LEAGUE_BASELINES[currentLeague];
+    
+    // === FASE CSV: dati pre-stagionali dal file ===
+    if (currentDataSource === 'csv') {
+        const row = dbXG.find(x => x.TeamID == teamId);
+        if (row) {
+            // Tiri dal CSV (unici dati reali che hai)
+            const csvShotsFor = parseFloat((row.ShotsFor || row.shotsFor || "12").toString().replace(',','.')) || baseline.shots/2;
+            const csvShotsAgainst = parseFloat((row.ShotsAgainst || row.shotsAgainst || "12").toString().replace(',','.')) || baseline.shots/2;
+            const csvSOT = parseFloat((row.SOTFor || row.sotFor || "4").toString().replace(',','.')) || baseline.sot/2;
+            
+            // Corner/Cards/Fouls = STIME dal modello (non hai dati)
+            // Uso baseline con piccola variazione casuale basata sul nome squadra per coerenza
+            const seed = (row.TeamName || "").split('').reduce((a,b) => a + b.charCodeAt(0), 0);
+            const variation = 0.9 + (seed % 20) / 100; // 0.9 - 1.09
+            
+            return {
+                played: 2,
+                shotsFor: bayesianShrink(csvShotsFor, baseline.shots/2, 2, 8),
+                shotsAgainst: bayesianShrink(csvShotsAgainst, baseline.shots/2, 2, 8),
+                sotFor: bayesianShrink(csvSOT, baseline.sot/2, 2, 8),
+                // STIME per corner/cards/fouls (nessun dato reale)
+                cornersFor: baseline.corners/2 * variation,
+                cornersAgainst: baseline.corners/2 * (2 - variation),
+                cards: baseline.cards/2 * variation,
+                fouls: baseline.fouls/2 * variation,
+                formFactor: 1.0,
+                results: ['D','D','W','L','D']
+            };
+        }
+    }
+    
+    // === FASE API: dati live ===
     try {
         const [fReq, sReq] = await Promise.all([
             fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&status=FT`, 
@@ -507,11 +570,11 @@ async function getAdvancedMetrics(teamId, apiId) {
                 { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null)
         ]);
 
-        let played = 0, shotsFor = 0, shotsAgainst = 0, sotFor = 0, sotAgainst = 0;
-        let cornersFor = 0, cornersAgainst = 0, yellowCards = 0, foulsFor = 0, foulsAgainst = 0;
+        let played = 0, shotsFor = 0, shotsAgainst = 0, sotFor = 0;
+        let cornersFor = 0, cornersAgainst = 0, yellowCards = 0;
         let results = [], matchCount = 0;
 
-        // ESTRAZIONE DATI REALI DALLE FIXTURE
+        // Estrazione da fixtures
         if (fReq && fReq.response) {
             fReq.response.forEach((fixture) => {
                 const isHome = fixture.teams.home.id == teamId;
@@ -531,48 +594,44 @@ async function getAdvancedMetrics(teamId, apiId) {
                         if (s.type === 'Total Shots') shotsFor += val;
                         if (s.type === 'Corner Kicks') cornersFor += val;
                         if (s.type === 'Yellow Cards') yellowCards += val;
-                        if (s.type === 'Fouls') foulsFor += val;
                     });
                     oppStats.forEach(s => {
                         const val = parseInt(s.value) || 0;
                         if (s.type === 'Total Shots') shotsAgainst += val;
-                        if (s.type === 'Shots on Goal') sotAgainst += val;
                         if (s.type === 'Corner Kicks') cornersAgainst += val;
-                        if (s.type === 'Fouls') foulsAgainst += val;
                     });
                     matchCount++;
                 }
             });
         }
 
-        // STATISTICS API come backup/integrazione
-        let statsShotsFor = 0, statsShotsAgainst = 0, statsSOTFor = 0, statsFouls = 0;
-        let statsCorners = 0, statsCards = 0, statsPlayed = 0;
+        // Statistics API
+        let statsShotsFor = 0, statsSOTFor = 0, statsCorners = 0, statsCards = 0, statsPlayed = 0;
         if (sReq && sReq.response) {
             const s = sReq.response;
             statsPlayed = s.fixtures?.played?.total || 0;
             if (s.shots?.total) statsShotsFor = s.shots.total;
             if (s.shots?.on_goal) statsSOTFor = s.shots.on_goal;
-            if (s.goals?.against?.total) statsShotsAgainst = s.goals.against.total * 3.5;
-            // Fouls da statistics se disponibili
-            if (s.fouls?.committed) statsFouls = s.fouls.committed;
             if (s.corner_kicks) statsCorners = s.corner_kicks;
             if (s.cards?.yellow) statsCards = s.cards.yellow;
         }
 
         const n = Math.max(matchCount, statsPlayed, 1);
         
-        // Medie con Bayesian shrinkage
+        // Tiri: da API (reali)
         const rawShotsFor = matchCount > 0 ? shotsFor / matchCount : (statsPlayed > 0 ? statsShotsFor / statsPlayed : baseline.shots/2);
-        const rawShotsAgainst = matchCount > 0 ? shotsAgainst / matchCount : (statsPlayed > 0 ? statsShotsAgainst / statsPlayed : baseline.shots/2);
+        const rawShotsAgainst = matchCount > 0 ? shotsAgainst / matchCount : baseline.shots/2;
         const rawSOTFor = matchCount > 0 ? sotFor / matchCount : (statsPlayed > 0 ? statsSOTFor / statsPlayed : baseline.sot/2);
+        
+        // Corner/Cards: da API se disponibili, altrimenti stima
         const rawCornersFor = matchCount > 0 ? cornersFor / matchCount : (statsPlayed > 0 ? statsCorners / statsPlayed : baseline.corners/2);
-        const rawCornersAgainst = matchCount > 0 ? cornersAgainst / matchCount : (statsPlayed > 0 ? statsCorners / statsPlayed : baseline.corners/2);
+        const rawCornersAgainst = matchCount > 0 ? cornersAgainst / matchCount : baseline.corners/2;
         const rawCards = matchCount > 0 ? yellowCards / matchCount : (statsPlayed > 0 ? statsCards / statsPlayed : baseline.cards/2);
-        const rawFouls = matchCount > 0 ? foulsFor / matchCount : (statsPlayed > 0 ? statsFouls / statsPlayed : baseline.fouls/2);
-        const rawFoulsAgainst = matchCount > 0 ? foulsAgainst / matchCount : (statsPlayed > 0 ? statsFouls / statsPlayed : baseline.fouls/2);
+        
+        // Falli: STIMA (nessun dato API né CSV)
+        const rawFouls = baseline.fouls/2; // stima base
 
-        // Fattore forma con decadimento esponenziale
+        // Forma
         let formFactor = 1.0;
         const recentResults = results.slice(-5);
         recentResults.forEach((r, i) => {
@@ -590,15 +649,13 @@ async function getAdvancedMetrics(teamId, apiId) {
             cornersAgainst: bayesianShrink(rawCornersAgainst, baseline.corners/2, n),
             cards: bayesianShrink(rawCards, baseline.cards/2, n),
             fouls: bayesianShrink(rawFouls, baseline.fouls/2, n),
-            foulsAgainst: bayesianShrink(rawFoulsAgainst, baseline.fouls/2, n),
             formFactor: Math.max(0.88, Math.min(1.12, formFactor)),
             results: results.length ? results : ['W','D','W','L','D']
         };
     } catch (e) {
         const b = baseline;
         return { played: 6, shotsFor: b.shots/2, shotsAgainst: b.shots/2, sotFor: b.sot/2, 
-                 cornersFor: b.corners/2, cornersAgainst: b.corners/2, cards: b.cards/2, 
-                 fouls: b.fouls/2, foulsAgainst: b.fouls/2,
+                 cornersFor: b.corners/2, cornersAgainst: b.corners/2, cards: b.cards/2, fouls: b.fouls/2,
                  formFactor: 1.0, results: ['W','D','W','L','D'] };
     }
 }
@@ -622,7 +679,7 @@ async function getStandingsMomentum(teamId, apiId) {
 }
 
 // ============================================================
-// ANALISI PRINCIPALE — POISSON-BAYES V2
+// ANALISI PRINCIPALE
 // ============================================================
 
 async function runDeepAnalysis() {
@@ -631,7 +688,7 @@ async function runDeepAnalysis() {
     resDiv.innerHTML = `
         <div class="loader-container">
             <div class="pulse-text teko">ENGINE POISSON-BAYES V2</div>
-            <p style="font-size:12px;color:#64748b;margin-top:8px">Calibrazione dati API + xG CSV in corso...</p>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Calibrazione in corso...</p>
         </div>
     `;
     resDiv.scrollIntoView({behavior:'smooth', block:'center'});
@@ -654,9 +711,8 @@ async function runDeepAnalysis() {
         const halfBaseShots = baseline.shots / 2;
         const halfBaseSOT = baseline.sot / 2;
         const halfBaseCorners = baseline.corners / 2;
-        const halfBaseFouls = baseline.fouls / 2;
 
-        // === TIRI TOTALI ===
+        // === TIRI ===
         const homeAttackShots = metricsH.shotsFor / halfBaseShots;
         const homeDefenseShots = metricsH.shotsAgainst / halfBaseShots;
         const awayAttackShots = metricsA.shotsFor / halfBaseShots;
@@ -683,7 +739,7 @@ async function runDeepAnalysis() {
         let s_cA = cA * Math.max(0.22, Math.min(0.48, precisionA));
         const totalSOT = s_cH + s_cA;
 
-        // === CORNER ===
+        // === CORNER (stima) ===
         const homeAttackCorners = metricsH.cornersFor / halfBaseCorners;
         const homeDefenseCorners = metricsH.cornersAgainst / halfBaseCorners;
         const awayAttackCorners = metricsA.cornersFor / halfBaseCorners;
@@ -697,7 +753,7 @@ async function runDeepAnalysis() {
         let pCornA = cornerPoisson.away * metricsA.formFactor * standA.momentum;
         const totalCorners = pCornH + pCornA;
 
-        // === CARTELLINI ===
+        // === CARTELLINI (stima) ===
         const cardsH = metricsH.cards * (2.0 - metricsH.formFactor) * standH.momentum;
         const cardsA = metricsA.cards * (2.0 - metricsA.formFactor) * standA.momentum;
         let refFactorCards = 1.0;
@@ -710,16 +766,16 @@ async function runDeepAnalysis() {
         let pCardsA = cardsA * refFactorCards;
         const totalCards = pCardsH + pCardsA;
 
-        // === FALLI (REALI DALL'API, calibrati arbitro) ===
+        // === FALLI (stima, calibrata arbitro) ===
         let pFoulsH = metricsH.fouls * (2.0 - metricsH.formFactor);
         let pFoulsA = metricsA.fouls * (2.0 - metricsA.formFactor);
         if (currentLeague === 7286) {
             const refVal = document.getElementById('arbitroSelect').value;
             const refParts = refVal.split(',');
-            const refHome = parseFloat(refParts[1]) || halfBaseFouls;
-            const refAway = parseFloat(refParts[2]) || halfBaseFouls;
-            pFoulsH = pFoulsH * (refHome / halfBaseFouls);
-            pFoulsA = pFoulsA * (refAway / halfBaseFouls);
+            const refHome = parseFloat(refParts[1]) || baseline.fouls / 2;
+            const refAway = parseFloat(refParts[2]) || baseline.fouls / 2;
+            pFoulsH = pFoulsH * (refHome / (baseline.fouls / 2));
+            pFoulsA = pFoulsA * (refAway / (baseline.fouls / 2));
         }
         const totalFouls = pFoulsH + pFoulsA;
 
@@ -751,10 +807,10 @@ async function runDeepAnalysis() {
         const advCardsH = getAdviceAdvanced(pCardsH, sprCardsH, STD_DEVS.teamCards);
         const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA, STD_DEVS.teamCards);
 
-        // === RENDER ===
+        const sourceLabel = currentDataSource === 'csv' ? 'CSV' : 'LIVE';
         let finalHTML = `
             <div style="text-align:center; font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:16px; letter-spacing:0.08em;">
-                POISSON-BAYES V2 • G${Math.max(metricsH.played, metricsA.played)} • xG CSV
+                POISSON-BAYES V2 • ${sourceLabel} • G${Math.max(metricsH.played, metricsA.played)}
             </div>
             <div class="result-card border-green">
                 <div class="res-header">
