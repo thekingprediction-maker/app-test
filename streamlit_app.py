@@ -524,7 +524,7 @@ async function getAdvancedMetrics(teamId, apiId, teamName) {
         const [fReq, sReq] = await Promise.all([
             fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&status=FT`, 
                 { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null),
-            fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2026&league=${apiId}`, 
+            fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2025&league=${apiId}`, 
                 { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null)
         ]);
 
@@ -613,7 +613,7 @@ async function getAdvancedMetrics(teamId, apiId, teamName) {
 
 async function getStandingsMomentum(teamId, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2026&league=${apiId}&team=${teamId}`, 
+        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, 
             { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return { position: 10, totalTeams: 20, momentum: 1.0 };
