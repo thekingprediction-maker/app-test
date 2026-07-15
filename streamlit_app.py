@@ -417,7 +417,7 @@ function loadData() {
             error: () => { populateArbitri([]); }
         });
     }
-    // Carica squadre dall'API (stagione passata = 2024)
+    // Carica squadre dall'API (stagione passata = 2025)
     loadTeamsFromApi();
 }
 
