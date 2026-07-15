@@ -164,40 +164,26 @@ html_code = """
 
         .hidden { display: none !important; }
         
-        /* STATUS BAR PULITA */
-        .status-bar {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: 700;
-            margin-bottom: 16px; text-align: center; letter-spacing: 0.02em;
+        /* Status: nascosto di default, visibile solo per errori */
+        .status-msg { 
+            padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 600; 
+            margin-bottom: 16px; text-align: center;
         }
-        .status-csv { 
-            background: rgba(251, 191, 36, 0.12); 
-            color: #fbbf24; 
-            border: 1px solid rgba(251, 191, 36, 0.25);
-        }
-        .status-api { 
-            background: rgba(16, 185, 129, 0.12); 
-            color: #34d399; 
-            border: 1px solid rgba(16, 185, 129, 0.25);
-        }
-        .status-err { 
-            background: rgba(239, 68, 68, 0.12); 
-            color: #ef4444; 
-            border: 1px solid rgba(239, 68, 68, 0.25);
-        }
-        
-        .status-dot {
-            width: 6px; height: 6px; border-radius: 50%; display: inline-block;
-            animation: blink 2s infinite;
-        }
-        .dot-csv { background: #fbbf24; }
-        .dot-api { background: #34d399; }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .status-err { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
         
         .engine-badge {
             display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 9px; font-weight: 800;
             background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; letter-spacing: 0.08em;
         }
+        
+        /* Indicatore sorgente dati discreto */
+        .source-indicator {
+            position: absolute; top: 12px; right: 16px;
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
+            padding: 2px 8px; border-radius: 4px; letter-spacing: 0.05em;
+        }
+        .source-csv { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+        .source-api { background: rgba(16, 185, 129, 0.15); color: #34d399; }
     </style>
 </head>
 <body>
@@ -216,8 +202,11 @@ html_code = """
         <div id="btn-7351" class="league-btn" onclick="switchLeague(7351)">LA LIGA</div>
     </div>
 
-    <div class="glass-card">
-        <div id="statusMessage" class="status-bar hidden"></div>
+    <div class="glass-card" style="position:relative;">
+        <!-- Indicatore sorgente dati in alto a destra, discreto -->
+        <div id="sourceIndicator" class="source-indicator source-csv hidden">CSV</div>
+        
+        <div id="statusMessage" class="status-msg hidden"></div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div class="input-group" style="margin-bottom:0">
@@ -391,13 +380,20 @@ const LEAGUE_DATA = {
     7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351 }
 };
 
-// STATUS BAR PULITA — no HTML escaped
-function setStatus(msg, type) {
+// Status: SOLO per errori, mai per info
+function setStatus(msg) {
     const el = document.getElementById('statusMessage');
     if (!msg) { el.classList.add('hidden'); return; }
-    el.textContent = msg; // textContent, non innerHTML!
-    el.className = 'status-bar status-' + type;
+    el.textContent = msg;
+    el.className = 'status-msg status-err';
     el.classList.remove('hidden');
+}
+
+function updateSourceIndicator() {
+    const ind = document.getElementById('sourceIndicator');
+    ind.classList.remove('hidden');
+    ind.className = 'source-indicator ' + (currentDataSource === 'csv' ? 'source-csv' : 'source-api');
+    ind.textContent = currentDataSource === 'csv' ? 'CSV' : 'LIVE';
 }
 
 function triggerAdAndCalculate() {
@@ -417,7 +413,7 @@ function switchLeague(id) {
 }
 
 // ============================================================
-// CARICAMENTO DATI: CSV-FIRST
+// CARICAMENTO DATI: CSV-FIRST, SILENZIOSO
 // ============================================================
 
 function loadData() {
@@ -449,7 +445,7 @@ async function checkApiAndLoadTeams() {
         const sampleTeam = dbXG.find(x => x.TeamID);
         if (!sampleTeam) {
             currentDataSource = 'csv';
-            setStatus('DATABASE AGGIORNATO — Stagione in preparazione', 'csv');
+            updateSourceIndicator();
             loadTeamsFromCsv();
             return;
         }
@@ -460,16 +456,16 @@ async function checkApiAndLoadTeams() {
         const playedGames = data.response ? data.response.length : 0;
         if (playedGames < 4) {
             currentDataSource = 'csv';
-            setStatus(`Giornata ${playedGames} — Dati pre-stagionali`, 'csv');
+            updateSourceIndicator();
             loadTeamsFromCsv();
         } else {
             currentDataSource = 'api';
-            setStatus(`Giornata ${playedGames} — Dati live attivi`, 'api');
+            updateSourceIndicator();
             loadTeamsFromApi();
         }
     } catch (e) {
         currentDataSource = 'csv';
-        setStatus('Modalità offline — Database locale', 'csv');
+        updateSourceIndicator();
         loadTeamsFromCsv();
     }
 }
@@ -523,7 +519,7 @@ async function loadTeamsFromApi() {
         }
     } catch (e) {
         currentDataSource = 'csv';
-        setStatus('API non disponibile — Database locale', 'csv');
+        updateSourceIndicator();
         loadTeamsFromCsv();
     }
 }
@@ -927,7 +923,7 @@ async function runDeepAnalysis() {
         `;
         resDiv.innerHTML = finalHTML;
     } catch (e) {
-        resDiv.innerHTML = `<div class="status-bar status-err" style="margin:20px 0">Errore Analisi: ${e.message}</div>`;
+        setStatus("Errore: " + e.message);
     }
 }
 
