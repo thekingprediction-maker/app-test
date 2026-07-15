@@ -428,8 +428,8 @@ async function loadTeamsFromApi() {
     try {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
-        // STAGIONE PASSATA (2024) — cambia in 2025 quando inizia la nuova
-        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2024`, { 
+        // STAGIONE PASSATA (2025) — cambia in 2026 quando inizia la nuova
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
             headers: { "x-apisports-key": API_KEY } 
         });
         let data = await res.json();
@@ -770,7 +770,7 @@ async function runDeepAnalysis() {
 
         let finalHTML = `
             <div style="text-align:center; font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:16px; letter-spacing:0.08em;">
-                POISSON-BAYES V2 • STAGIONE 2024/25
+                POISSON-BAYES V2 • STAGIONE 2025/26
             </div>
             <div class="result-card border-green">
                 <div class="res-header">
