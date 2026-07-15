@@ -236,7 +236,7 @@ html_code = """
         
         <div id="arbitroContainer" class="input-group">
             <label class="input-label" style="color:#fbbf24">Arbitro (Serie A)</label>
-            <select id="arbitroSelect"><option value="24.5">Seleziona Arbitro...</option></select>
+            <select id="arbitroSelect"><option value="24.5,11,13.5">Seleziona Arbitro...</option></select>
         </div>
 
         <div class="spread-section">
@@ -304,10 +304,10 @@ const REFS_FILE = "ARBITRI_SERIE_A - Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
 const LEAGUE_DATA = {
-    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.08 },
-    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.05 },
-    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.12 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 }
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.05 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.04 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.06 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.05 }
 };
 
 function setStatus(msg, type) {
@@ -358,11 +358,10 @@ function loadData() {
      Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
         complete: (r) => { dbXG = r.data; loadTeams(); },
-        error: (err) => { console.error("Errore CSV:", err); setStatus("Errore caricamento database CSV", 'err'); }
+        error: (err) => { console.error("Errore CSV:", err); setStatus("Errore database CSV", 'err'); }
     });
 
     if(currentLeague === 7286) {
-        // CORRETTO: Adesso usiamo "BASE_CSV_URL + REFS_FILE" per scaricare il file online su GitHub!
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
             download: true, 
             header: false, 
@@ -395,7 +394,7 @@ function loadData() {
                 });
             },
             error: (err) => {
-                console.error("Errore nel caricamento del file degli arbitri:", err);
+                console.error("Errore arbitri:", err);
             }
         });
     }
@@ -421,7 +420,7 @@ async function loadTeams() {
             data = await res.json();
         }
 
-        if (!data.response || data.response.length === 0) throw new Error("Nessuna squadra trovata");
+        if (!data.response || data.response.length === 0) throw new Error("Nessuna squadra");
 
         h.innerHTML = ""; a.innerHTML = "";
         h.add(new Option("-- Seleziona Casa --", ""));
@@ -453,7 +452,7 @@ async function loadTeams() {
     } catch (e) {
         h.innerHTML = '<option>Errore</option>';
         a.innerHTML = '<option>Errore</option>';
-        setStatus(`Errore caricamento squadre: ${e.message}`, 'err');
+        setStatus(`Errore squadre: ${e.message}`, 'err');
     }
 }
 
@@ -468,7 +467,7 @@ function getAdviceAdvanced(pred, spread) {
     const isOver = conf >= 50;
     const displayConf = isOver ? conf : 100 - conf;
     const direction = isOver ? 'OVER' : 'UNDER';
-    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
+    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 63 ? 'MEDIA' : 'BASE';
     return {
         html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
         confidence: displayConf, isOver: isOver, precision: precisionLabel
@@ -476,7 +475,7 @@ function getAdviceAdvanced(pred, spread) {
 }
 
 function renderConfidenceBar(confidence) {
-    let color = confidence >= 75 ? '#10b981' : confidence >= 60 ? '#f59e0b' : '#ef4444';
+    let color = confidence >= 75 ? '#10b981' : confidence >= 63 ? '#f59e0b' : '#ef4444';
     return `<div class="progress-track"><div class="progress-fill" style="width:${confidence}%;background:${color}"></div></div>`;
 }
 
@@ -496,7 +495,7 @@ async function getTeamForm(teamId, apiId) {
     try {
         const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=5`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
-        if (!data.response || data.response.length === 0) return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
+        if (!data.response || data.response.length === 0) return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0, fixturesPlayed: 0 };
 
         let results = [], totalShots = 0, totalCorners = 0, totalCards = 0, count = 0;
 
@@ -525,18 +524,19 @@ async function getTeamForm(teamId, apiId) {
         let formFactor = 1.0;
         results.forEach((r, i) => {
             const weight = (i + 1) / 5;
-            if (r === 'W') formFactor += 0.016 * weight;
-            else if (r === 'L') formFactor -= 0.016 * weight;
+            if (r === 'W') formFactor += 0.018 * weight;
+            else if (r === 'L') formFactor -= 0.018 * weight;
         });
 
         return {
             results: results,
-            formFactor: Math.max(0.92, Math.min(1.08, formFactor)),
+            formFactor: Math.max(0.90, Math.min(1.10, formFactor)),
             avgShots: count > 0 ? totalShots / count : 0,
             avgCorners: count > 0 ? totalCorners / count : 0,
-            avgCards: count > 0 ? totalCards / count : 0
+            avgCards: count > 0 ? totalCards / count : 0,
+            fixturesPlayed: data.response.length
         };
-    } catch (e) { return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 }; }
+    } catch (e) { return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0, fixturesPlayed: 0 }; }
 }
 
 async function getStandingsMomentum(teamId, apiId) {
@@ -550,9 +550,9 @@ async function getStandingsMomentum(teamId, apiId) {
         const totalTeams = data.response[0].league.standings[0].length;
 
         let momentum = 1.0;
-        if (position <= 3) momentum = 1.05;
-        else if (position <= 6) momentum = 1.03;
-        else if (position >= totalTeams - 3) momentum = 1.04;
+        if (position <= 3) momentum = 1.04;
+        else if (position <= 6) momentum = 1.02;
+        else if (position >= totalTeams - 3) momentum = 1.05; // Alta tensione per salvarsi
         else if (position >= totalTeams - 8 && position <= totalTeams - 4) momentum = 0.98;
 
         return { position, totalTeams, momentum };
@@ -597,8 +597,8 @@ async function runDeepAnalysis() {
     resDiv.classList.remove('hidden');
     resDiv.innerHTML = `
         <div class="loader-container">
-            <div class="pulse-text teko">ELABORAZIONE DATI...</div>
-            <p style="font-size:12px;color:#64748b;margin-top:8px">Analisi forma, classifica e H2H in corso</p>
+            <div class="pulse-text teko">ELABORAZIONE ELITE...</div>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Calcolo con Modello Attacco/Difesa e Regressione</p>
         </div>
     `;
     
@@ -641,73 +641,110 @@ async function runDeepAnalysis() {
         const sH = statsH.response; const sA = statsA.response;
         const homeAdv = leagueInfo.homeAdv;
 
-        const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
-        const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
+        // VALORI MEDI GENERALI DEL CAMPIONATO (SERIE A)
+        const MEDIA_TIRI_CAMPIONATO = 24.5;
+        const MEDIA_FALLI_CAMPIONATO = 24.2;
+        const MEDIA_CORNER_CAMPIONATO = 9.2;
+        const MEDIA_CARTELLINI_CAMPIONATO = 4.5;
+
+        // LEGGIAMO xG PER TIRO DAL TUO CSV
+        const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.10";
+        const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.09";
         const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
         const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
-        const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
-        const formFactorH = formH.formFactor; const formFactorA = formA.formFactor;
-        const momentumH = standH.momentum; const momentumA = standA.momentum;
+        // DETERMINA GIORNATE GIOCATE (PER CALCOLO REGRESSIONE LINEARE)
+        let giornateCasa = sH?.fixtures?.played?.total || formH.fixturesPlayed || 0;
+        let giornateOspite = sA?.fixtures?.played?.total || formA.fixturesPlayed || 0;
+        let giornateGiocate = Math.max(giornateCasa, giornateOspite);
 
-        const shotsH_avg = sH?.shots?.total?.average || 10.5;
-        const shotsA_avg = sA?.shots?.total?.average || 9.5;
-        const xgFactorH = 0.7 + (xGH / bench) * 0.3;
-        const xgFactorA = 0.7 + (xGA / bench) * 0.3;
+        // FATTORE REGRESSIONE VERSO LA MEDIA (Nelle prime 4 giornate pesano i dati storici del CSV)
+        let pesoDatiReali = Math.min(giornateGiocate / 4, 1.0);
+        let pesoDatiStorici = 1.0 - pesoDatiReali;
 
-        let cH = shotsH_avg * xgFactorH * homeAdv * formFactorH * momentumH * 0.95;
-        let cA = shotsA_avg * xgFactorA * 1.0 * formFactorA * momentumA * 1.05;
+        // MODELLO ATTACCO / DIFESA (Rapporto di Forza Mutuo)
+        let tiriFattiCasaAPI = sH?.shots?.total?.average || 11.5;
+        let tiriSubitiCasaAPI = sH?.shots?.against?.average || 12.0;
+
+        let tiriFattiFuoriAPI = sA?.shots?.total?.average || 10.0;
+        let tiriSubitiFuoriAPI = sA?.shots?.against?.average || 13.0;
+
+        // Forza d'attacco e di difesa normalizzate
+        let forzaAttaccoCasa = tiriFattiCasaAPI / (MEDIA_TIRI_CAMPIONATO / 2);
+        let forzaDifesaOspite = tiriSubitiFuoriAPI / (MEDIA_TIRI_CAMPIONATO / 2);
+
+        let forzaAttaccoOspite = tiriFattiFuoriAPI / (MEDIA_TIRI_CAMPIONATO / 2);
+        let forzaDifesaCasa = tiriSubitiCasaAPI / (MEDIA_TIRI_CAMPIONATO / 2);
+
+        // xG Rating mutuo (Modello Balistico)
+        let xgRatingCasa = xGH * (1 + (forzaDifesaOspite - 1) * 0.5);
+        let xgRatingOspite = xGA * (1 + (forzaDifesaCasa - 1) * 0.5);
+
+        // Proiezione Tiri Totali
+        let cH = (MEDIA_TIRI_CAMPIONATO / 2) * forzaAttaccoCasa * forzaDifesaOspite * homeAdv * formH.formFactor * standH.momentum;
+        let cA = (MEDIA_TIRI_CAMPIONATO / 2) * forzaAttaccoOspite * forzaDifesaCasa * (2.0 - homeAdv) * formA.formFactor * standA.momentum;
 
         if (h2hData) {
             cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
             cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
         }
-        if (formH.avgShots > 0 && Math.abs(formH.avgShots - shotsH_avg) / shotsH_avg > 0.2) cH = cH * 0.7 + formH.avgShots * 0.3;
-        if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) cA = cA * 0.7 + formA.avgShots * 0.3;
-        const totalShots = cH + cA;
 
-        const onTargetH_avg = sH?.shots?.on_goal?.average || (shotsH_avg * 0.34);
-        const onTargetA_avg = sA?.shots?.on_goal?.average || (shotsA_avg * 0.34);
-        const convRateH = onTargetH_avg / shotsH_avg;
-        const convRateA = onTargetA_avg / shotsA_avg;
-        const precisionH = convRateH * (0.85 + xGH * 2.5);
-        const precisionA = convRateA * (0.85 + xGA * 2.5);
+        let totalShots = cH + cA;
 
-        let s_cH = cH * precisionH;
-        let s_cA = cA * precisionA;
-        const totalSOT = s_cH + s_cA;
-
-        // CALCOLO CORNER
-        const cornersH_avg = sH?.corners?.average || 5.2;
-        const cornersA_avg = sA?.corners?.average || 4.4;
-        let pCornH = cornersH_avg * homeAdv * formFactorH * momentumH;
-        let pCornA = cornersA_avg * 1.0 * formFactorA * momentumA;
-        if (h2hData) {
-            pCornH = pCornH * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.55;
-            pCornA = pCornA * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.45;
+        // Applichiamo la regressione nelle prime giornate
+        if (giornateGiocate < 4) {
+            let mediaStoricaCSV = parseFloat(dbXG.find(x => x.TeamID == idH)?.Media_Tiri_Storica || MEDIA_TIRI_CAMPIONATO);
+            totalShots = (totalShots * pesoDatiReali) + (mediaStoricaCSV * pesoDatiStorici);
         }
-        const totalCorners = pCornH + pCornA;
 
-        // CALCOLO CARTELLINI (CON SUPPORTO VALORE ARBITRO)
+        // Tiri in porta basati sulla precisione della Mutua Forza xG
+        let precisioneTiriCasa = 0.30 + (xgRatingCasa * 0.5);
+        let precisioneTiriOspite = 0.30 + (xgRatingOspite * 0.5);
+
+        let s_cH = cH * precisioneTiriCasa;
+        let s_cA = cA * precisioneTiriOspite;
+        let totalSOT = s_cH + s_cA;
+
+        // CALCOLO CORNER (Modello Incrociato)
+        const cornersH_avg = sH?.corners?.average || 5.0;
+        const cornersSub_H_avg = sH?.corners_against?.average || 4.5;
+        const cornersA_avg = sA?.corners?.average || 4.2;
+        const cornersSub_A_avg = sA?.corners_against?.average || 4.8;
+
+        let pCornH = ((cornersH_avg / 4.6) * (cornersSub_A_avg / 4.6) * 4.6) * homeAdv * formH.formFactor;
+        let pCornA = ((cornersA_avg / 4.6) * (cornersSub_H_avg / 4.6) * 4.6) * (2.0 - homeAdv) * formA.formFactor;
+        
+        let totalCorners = pCornH + pCornA;
+
+        // CALCOLO CARTELLINI CON MOLTIPLICATORE ARBITRO
         const cardsH_avg = sH?.cards?.yellow?.average || 2.1;
         const cardsA_avg = sA?.cards?.yellow?.average || 2.4;
-        let refFactor = 1.0;
+        
+        let refFactorCards = 1.0;
         if (currentLeague === 7286) {
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
-            const refTotal = parseFloat(refParts[0]) || 24.5;
-            refFactor = refTotal / 24.5;
+            const refTotalFouls = parseFloat(refParts[0]) || 24.5;
+            refFactorCards = refTotalFouls / 24.5; // Più l'arbitro fischia falli, più mette cartellini
         }
-        let pCardsH = cardsH_avg * refFactor * (2.0 - formFactorH);
-        let pCardsA = cardsA_avg * refFactor * (2.0 - formFactorA);
-        const totalCards = pCardsH + pCardsA;
 
-        // CALCOLO FALLI CON NUOVE METRICHE DETTAGLIATE ARBITRO (SOLO SERIE A)
+        let pCardsH = cardsH_avg * refFactorCards * (2.0 - formH.formFactor);
+        let pCardsA = cardsA_avg * refFactorCards * (2.0 - formA.formFactor);
+        let totalCards = pCardsH + pCardsA;
+
+        // CALCOLO FALLI COMMESSI CON RAPPORTO SCONTRO AGGRESSIVITÀ
         let totalFouls = 0, pFoulsH = 0, pFoulsA = 0;
         if (currentLeague === 7286) {
-            const foulsH_avg = sH?.fouls?.committed?.average || 12.5;
-            const foulsA_avg = sA?.fouls?.committed?.average || 11.8;
-            
+            const foulsH_committed = sH?.fouls?.committed?.average || 12.5;
+            const foulsA_suffered = sA?.fouls?.suffered?.average || 12.0;
+
+            const foulsA_committed = sA?.fouls?.committed?.average || 13.0;
+            const foulsH_suffered = sH?.fouls?.suffered?.average || 11.5;
+
+            // Indice di scontro fisico
+            let indiceScontroH = (foulsH_committed / 12) * (foulsA_suffered / 12);
+            let indiceScontroA = (foulsA_committed / 12) * (foulsH_suffered / 12);
+
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
             
@@ -717,12 +754,17 @@ async function runDeepAnalysis() {
             const refHomeMultiplier = refHomeAverage / 11.5; 
             const refAwayMultiplier = refAwayAverage / 12.5; 
 
-            pFoulsH = foulsH_avg * refHomeMultiplier * (2.0 - formFactorH);
-            pFoulsA = foulsA_avg * refAwayMultiplier * (2.0 - formFactorA);
+            pFoulsH = 12 * indiceScontroH * refHomeMultiplier * (2.0 - formH.formFactor);
+            pFoulsA = 12 * indiceScontroA * refAwayMultiplier * (2.0 - formA.formFactor);
             totalFouls = pFoulsH + pFoulsA;
+
+            if (giornateGiocate < 4) {
+                let falliStoriciMatch = parseFloat(refParts[0]) || MEDIA_FALLI_CAMPIONATO;
+                totalFouls = (totalFouls * pesoDatiReali) + (falliStoriciMatch * pesoDatiStorici);
+            }
         }
 
-        // LETTURA INPUT DEGLI SPREAD CORRENTI DELL'UTENTE
+        // LETTURA SPREAD UTENTE
         const sprTotalMatch = parseFloat(document.getElementById('sprTotalMatch').value);
         const sprTotalH = parseFloat(document.getElementById('sprTotalH').value);
         const sprTotalA = parseFloat(document.getElementById('sprTotalA').value);
@@ -739,7 +781,7 @@ async function runDeepAnalysis() {
         const sprCardsH = parseFloat(document.getElementById('sprCardsH').value);
         const sprCardsA = parseFloat(document.getElementById('sprCardsA').value);
 
-        // STRUTTURAZIONE PREVISIONI E CREAZIONE HTML RISULTATI
+        // COSTRUZIONE PRONOSTICI
         const advTotal = getAdviceAdvanced(totalShots, sprTotalMatch);
         const advTotalH = getAdviceAdvanced(cH, sprTotalH);
         const advTotalA = getAdviceAdvanced(cA, sprTotalA);
@@ -756,7 +798,13 @@ async function runDeepAnalysis() {
         const advCardsH = getAdviceAdvanced(pCardsH, sprCardsH);
         const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA);
 
+        let confidenceLabel = `ALGORITMO ATTIVO AL ${(pesoDatiReali*100).toFixed(0)}% SU DATI CAMPO 2025/26`;
+
         let finalHTML = `
+            <div style="text-align:center; font-size:10px; color:#60a5fa; font-weight:800; text-transform:uppercase; margin-bottom:16px;">
+                ${confidenceLabel}
+            </div>
+
             <div class="result-card border-green">
                 <div class="res-header">
                     <span class="res-label" style="color:#10b981">Tiri Totali Match</span>
@@ -804,7 +852,6 @@ async function runDeepAnalysis() {
             </div>
         `;
 
-        // INNESTO CARD FALLI SOLO SE SERIE A ATTIVA
         if (currentLeague === 7286) {
             const sprFoulsMatch = parseFloat(document.getElementById('sprFoulsMatch').value);
             const sprFoulsH = parseFloat(document.getElementById('sprFoulsH').value);
@@ -839,7 +886,6 @@ async function runDeepAnalysis() {
             `;
         }
 
-        // AGGIUNTA CARDS CORNER E CARTELLINI
         finalHTML += `
             <div class="result-card border-cyan">
                 <div class="res-header">
@@ -896,7 +942,6 @@ async function runDeepAnalysis() {
     }
 }
 
-// Avvio Iniziale automatico
 loadData();
 </script>
 
