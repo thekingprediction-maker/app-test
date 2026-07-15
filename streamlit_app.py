@@ -302,7 +302,7 @@ html_code = """
 </div>
 
 <script>
-const API_KEY = "aa5e53f893088010cc7c47af17f306e9";
+const API_KEY = "3e90e10f6eefd6349e825d3499bcbe8d";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
