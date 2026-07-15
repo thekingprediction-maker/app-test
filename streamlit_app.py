@@ -300,7 +300,7 @@ html_code = """
 <script>
 const API_KEY = "3e90e10f6eefd6349e825d3499bcbe8d";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
-const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
+const REFS_FILE = "ARBITRI_SERIE_A - Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
 const LEAGUE_DATA = {
@@ -362,16 +362,42 @@ function loadData() {
     });
 
     if(currentLeague === 7286) {
-        Papa.parse(BASE_CSV_URL + REFS_FILE, { 
-            download: true, header: true, skipEmptyLines: true, delimiter: ";", 
+        // Carica il file degli arbitri bypassando i problemi di delimitazione legati alla doppia virgola
+        Papa.parse(REFS_FILE, { 
+            download: true, 
+            header: false, // Disabilitiamo l'header automatico per processare riga per riga manualmente
+            skipEmptyLines: true, 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
-                sel.innerHTML = '<option value="24.5">Seleziona Arbitro...</option>';
-                r.data.forEach(row => {
-                    let name = row.Arbitro || Object.values(row)[0];
-                    let val = row["Media Totale"] || Object.values(row)[2];
-                    if(name && val) sel.add(new Option(name, val.toString().replace(',', '.')));
+                sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
+                
+                // Saltiamo la prima riga di intestazione
+                const rows = r.data.slice(1);
+
+                rows.forEach(row => {
+                    if (row.length >= 5) {
+                        let name = row[0]; // Nome Arbitro
+                        let valTotal = row[2]; // Media Totale (es. "24,5")
+                        let valHome = row[3]; // Media Home (es. "11")
+                        let valAway = row[4]; // Media Away (es. "13,5")
+
+                        if(name && valTotal && valHome && valAway) {
+                            let cleanName = name.toString().trim();
+                            let cleanTotal = valTotal.toString().replace(',', '.').trim();
+                            let cleanHome = valHome.toString().replace(',', '.').trim();
+                            let cleanAway = valAway.toString().replace(',', '.').trim();
+
+                            if (cleanName !== "") {
+                                // Salviamo tutte e tre le medie dentro il valore dell'opzione separate da virgola
+                                let optionValue = `${cleanTotal},${cleanHome},${cleanAway}`;
+                                sel.add(new Option(cleanName, optionValue));
+                            }
+                        }
+                    }
                 });
+            },
+            error: (err) => {
+                console.error("Errore nel caricamento del file degli arbitri:", err);
             }
         });
     }
@@ -386,7 +412,6 @@ async function loadTeams() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        // Effettuiamo la chiamata API alla stagione attiva
         let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let data = await res.json();
@@ -404,19 +429,16 @@ async function loadTeams() {
         h.add(new Option("-- Seleziona Casa --", ""));
         a.add(new Option("-- Seleziona Ospite --", ""));
 
-        // FILTRO SQUADRE: Manteniamo nell'app solo le squadre realmente presenti nel CSV corrente (escludendo le retrocesse)
         let mergedTeams = [];
         let csvTeamNames = dbXG.map(row => row.TeamName.toLowerCase().trim());
 
         data.response.forEach(t => {
             const apiTeamName = t.team.name.toLowerCase().trim();
-            // Controllo incrociato: la squadra dev'essere presente nel CSV per essere accettata
             if(csvTeamNames.includes(apiTeamName)) {
                 mergedTeams.push({ id: t.team.id, name: t.team.name });
             }
         });
 
-        // Aggiungiamo eventuali neo-promosse dal CSV non coperte dall'API
         let addedIds = new Set(mergedTeams.map(x => x.id.toString()));
         dbXG.forEach(row => {
             if (row.TeamID && !addedIds.has(row.TeamID.toString())) {
@@ -425,7 +447,6 @@ async function loadTeams() {
             }
         });
 
-        // Ordinamento alfabetico e inserimento nei tag Select
         mergedTeams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
             h.add(new Option(t.name, t.id)); 
             a.add(new Option(t.name, t.id));
@@ -674,22 +695,34 @@ async function runDeepAnalysis() {
         const cardsA_avg = sA?.cards?.yellow?.average || 2.4;
         let refFactor = 1.0;
         if (currentLeague === 7286) {
-            const refVal = parseFloat(document.getElementById('arbitroSelect').value);
-            refFactor = refVal / 24.5;
+            const refSelectedVal = document.getElementById('arbitroSelect').value;
+            const refParts = refSelectedVal.split(',');
+            const refTotal = parseFloat(refParts[0]) || 24.5;
+            refFactor = refTotal / 24.5;
         }
         let pCardsH = cardsH_avg * refFactor * (2.0 - formFactorH);
         let pCardsA = cardsA_avg * refFactor * (2.0 - formFactorA);
         const totalCards = pCardsH + pCardsA;
 
-        // CALCOLO FALLI (SERIE A ONLY)
+        // CALCOLO FALLI CON NUOVE METRICHE DETTAGLIATE ARBITRO (SOLO SERIE A)
         let totalFouls = 0, pFoulsH = 0, pFoulsA = 0;
         if (currentLeague === 7286) {
             const foulsH_avg = sH?.fouls?.committed?.average || 12.5;
             const foulsA_avg = sA?.fouls?.committed?.average || 11.8;
-            const refVal = parseFloat(document.getElementById('arbitroSelect').value);
-            const refFoulMultiplier = refVal / 24.5;
-            pFoulsH = foulsH_avg * refFoulMultiplier * (2.0 - formFactorH);
-            pFoulsA = foulsA_avg * refFoulMultiplier * (2.0 - formFactorA);
+            
+            const refSelectedVal = document.getElementById('arbitroSelect').value;
+            const refParts = refSelectedVal.split(',');
+            
+            // Prendiamo rispettivamente la Media Home e la Media Away dal CSV degli arbitri
+            const refHomeAverage = parseFloat(refParts[1]) || 11.0;
+            const refAwayAverage = parseFloat(refParts[2]) || 13.5;
+            
+            // Parametri di moltiplicazione basati sul peso dell'arbitro
+            const refHomeMultiplier = refHomeAverage / 11.5; 
+            const refAwayMultiplier = refAwayAverage / 12.5; 
+
+            pFoulsH = foulsH_avg * refHomeMultiplier * (2.0 - formFactorH);
+            pFoulsA = foulsA_avg * refAwayMultiplier * (2.0 - formFactorA);
             totalFouls = pFoulsH + pFoulsA;
         }
 
@@ -728,6 +761,7 @@ async function runDeepAnalysis() {
         const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA);
 
         let finalHTML = `
+            <!-- CARD TIRI TOTALI -->
             <div class="result-card border-green">
                 <div class="res-header">
                     <span class="res-label" style="color:#10b981">Tiri Totali Match</span>
@@ -752,6 +786,7 @@ async function runDeepAnalysis() {
                 </div>
             </div>
 
+            <!-- CARD TIRI IN PORTA -->
             <div class="result-card border-purple">
                 <div class="res-header">
                     <span class="res-label" style="color:#a78bfa">Tiri In Porta</span>
@@ -812,6 +847,7 @@ async function runDeepAnalysis() {
 
         // AGGIUNTA CARDS CORNER E CARTELLINI
         finalHTML += `
+            <!-- CARD CORNER -->
             <div class="result-card border-cyan">
                 <div class="res-header">
                     <span class="res-label" style="color:#22d3ee">Corner Totali</span>
@@ -834,6 +870,7 @@ async function runDeepAnalysis() {
                 </div>
             </div>
 
+            <!-- CARD CARTELLINI -->
             <div class="result-card border-yellow">
                 <div class="res-header">
                     <span class="res-label" style="color:#fbbf24">Cartellini Gialli</span>
