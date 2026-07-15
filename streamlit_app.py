@@ -362,24 +362,23 @@ function loadData() {
     });
 
     if(currentLeague === 7286) {
-        // Carica il file degli arbitri bypassando i problemi di delimitazione legati alla doppia virgola
-        Papa.parse(REFS_FILE, { 
+        // CORRETTO: Adesso usiamo "BASE_CSV_URL + REFS_FILE" per scaricare il file online su GitHub!
+        Papa.parse(BASE_CSV_URL + REFS_FILE, { 
             download: true, 
-            header: false, // Disabilitiamo l'header automatico per processare riga per riga manualmente
+            header: false, 
             skipEmptyLines: true, 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
                 sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
                 
-                // Saltiamo la prima riga di intestazione
                 const rows = r.data.slice(1);
 
                 rows.forEach(row => {
                     if (row.length >= 5) {
-                        let name = row[0]; // Nome Arbitro
-                        let valTotal = row[2]; // Media Totale (es. "24,5")
-                        let valHome = row[3]; // Media Home (es. "11")
-                        let valAway = row[4]; // Media Away (es. "13,5")
+                        let name = row[0]; 
+                        let valTotal = row[2]; 
+                        let valHome = row[3]; 
+                        let valAway = row[4]; 
 
                         if(name && valTotal && valHome && valAway) {
                             let cleanName = name.toString().trim();
@@ -388,7 +387,6 @@ function loadData() {
                             let cleanAway = valAway.toString().replace(',', '.').trim();
 
                             if (cleanName !== "") {
-                                // Salviamo tutte e tre le medie dentro il valore dell'opzione separate da virgola
                                 let optionValue = `${cleanTotal},${cleanHome},${cleanAway}`;
                                 sel.add(new Option(cleanName, optionValue));
                             }
@@ -713,11 +711,9 @@ async function runDeepAnalysis() {
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
             
-            // Prendiamo rispettivamente la Media Home e la Media Away dal CSV degli arbitri
             const refHomeAverage = parseFloat(refParts[1]) || 11.0;
             const refAwayAverage = parseFloat(refParts[2]) || 13.5;
             
-            // Parametri di moltiplicazione basati sul peso dell'arbitro
             const refHomeMultiplier = refHomeAverage / 11.5; 
             const refAwayMultiplier = refAwayAverage / 12.5; 
 
@@ -761,7 +757,6 @@ async function runDeepAnalysis() {
         const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA);
 
         let finalHTML = `
-            <!-- CARD TIRI TOTALI -->
             <div class="result-card border-green">
                 <div class="res-header">
                     <span class="res-label" style="color:#10b981">Tiri Totali Match</span>
@@ -786,7 +781,6 @@ async function runDeepAnalysis() {
                 </div>
             </div>
 
-            <!-- CARD TIRI IN PORTA -->
             <div class="result-card border-purple">
                 <div class="res-header">
                     <span class="res-label" style="color:#a78bfa">Tiri In Porta</span>
@@ -847,7 +841,6 @@ async function runDeepAnalysis() {
 
         // AGGIUNTA CARDS CORNER E CARTELLINI
         finalHTML += `
-            <!-- CARD CORNER -->
             <div class="result-card border-cyan">
                 <div class="res-header">
                     <span class="res-label" style="color:#22d3ee">Corner Totali</span>
@@ -870,7 +863,6 @@ async function runDeepAnalysis() {
                 </div>
             </div>
 
-            <!-- CARD CARTELLINI -->
             <div class="result-card border-yellow">
                 <div class="res-header">
                     <span class="res-label" style="color:#fbbf24">Cartellini Gialli</span>
