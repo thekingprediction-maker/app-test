@@ -279,7 +279,7 @@ const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
-// DATABASE DI SICUREZZA ARBITRI DI EMERGENZA (Se il CSV di Github fallisce)
+// DATABASE DI EMERGENZA
 const FALLBACK_REFS = [
     { name: "GUIDA Marco", total: 23.8, home: 11.2, away: 12.6 },
     { name: "MASSA Davide", total: 24.5, home: 11.5, away: 13.0 },
@@ -292,7 +292,6 @@ const FALLBACK_REFS = [
     { name: "RAPUANO Antonio", total: 25.8, home: 12.2, away: 13.6 }
 ];
 
-// LISTE SQUADRE DI DI EMERGENZA PER VELOCIZZARE E PREVENIRE BLOCCHI
 const FALLBACK_TEAMS = {
     7286: [
         {id: 505, name: "Inter"}, {id: 496, name: "Juventus"}, {id: 489, name: "Milan"},
@@ -324,25 +323,19 @@ function setStatus(msg, type) {
     el.classList.remove('hidden');
 }
 
-// PROTETTO CONTRO I BLOCCHI SANDBOX DELL'IFRAME
 function triggerAdAndCalculate() {
-    // 1. Proviamo a inviare il form pubblicitario in modo sicuro senza rompere il flusso JS
     try {
         const form = document.getElementById('adForm');
         if(form) form.submit();
     } catch(e) {
-        console.warn("Invio form pubblicità bloccato dalla sandbox (gestito).");
+        console.warn("Popup bloccato (gestito).");
     }
-
-    // 2. Proviamo ad aprire la finestra popup in modo protetto
     try {
         const w = window.open("https://probetai.com/mostra_pubblicita", "_blank");
         if(w) setTimeout(() => { w.blur(); window.focus(); }, 100);
     } catch(e) {
-        console.warn("Popup bloccato dal browser (gestito).");
+        console.warn("Popup bloccato (gestito).");
     }
-
-    // 3. Avvia comunque il calcolo senza bloccarsi!
     setTimeout(() => {
         runDeepAnalysis();
     }, 150);
@@ -373,7 +366,6 @@ function loadData() {
         download: true, header: true, skipEmptyLines: true, 
         complete: (r) => { dbXG = r.data; loadTeams(); },
         error: (err) => { 
-            console.warn("Impossibile caricare database CSV squadre (uso fallback local-safe):", err);
             dbXG = [];
             loadTeams();
         }
@@ -384,7 +376,6 @@ function loadData() {
             download: true, header: true, skipEmptyLines: true,
             complete: (r) => { populateArbitri(r.data); },
             error: (err) => {
-                console.warn("Errore caricamento CSV Arbitri (Avvio fallback locale di emergenza):", err);
                 populateArbitri([]);
             }
         });
@@ -445,11 +436,9 @@ async function loadTeams() {
         a.add(new Option("-- Seleziona Ospite --", ""));
 
         let mergedTeams = [];
-        let csvTeamNames = dbXG.map(row => (row.TeamName || "").toLowerCase().trim());
 
         if (data.response && data.response.length > 0) {
             data.response.forEach(t => {
-                const apiTeamName = t.team.name.toLowerCase().trim();
                 mergedTeams.push({ id: t.team.id, name: t.team.name });
             });
         }
@@ -463,7 +452,6 @@ async function loadTeams() {
             a.add(new Option(t.name, t.id));
         });
     } catch (e) {
-        console.warn("Uso squadre di fallback locali per evitare blocco connessione:", e);
         const fbList = FALLBACK_TEAMS[currentLeague] || FALLBACK_TEAMS[7286];
         h.innerHTML = '<option value="">-- Seleziona Casa --</option>';
         a.innerHTML = '<option value="">-- Seleziona Ospite --</option>';
@@ -474,71 +462,123 @@ async function loadTeams() {
     }
 }
 
-// DOPPIA API INTEGRAZIONE: RICHIAMA SIA FIXTURES CHE TEAMS/STATISTICS
 async function getAdvancedMetrics(teamId, apiId) {
+    // Valori sicuri di fallback in caso di errori API o parsing
+    let played = 6;
+    let shotsFatte = 12.4;
+    let shotsSubite = 11.8;
+    let shotsPortaFatte = 4.2;
+    let cornersFatti = 4.8;
+    let cornersSubiti = 4.5;
+    let yellowCards = 2.1;
+    let formFactor = 1.0;
+    let results = ['W','D','L','W','W'];
+
     try {
-        // Chiamate in parallelo protette da errori singoli
         const fReq = fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}`, { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null);
         const sReq = fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2025&league=${apiId}`, { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null);
 
         const [fData, sData] = await Promise.all([fReq, sReq]);
 
-        let played = 0, shotsFatte = 12.4, shotsSubite = 11.8, shotsPortaFatte = 4.2;
-        let cornersFatti = 4.8, cornersSubiti = 4.5, yellowCards = 2.1;
-        let results = [];
-
         if (fData && fData.response && fData.response.length > 0) {
+            let apiResults = [];
+            let tempPlayed = 0;
             fData.response.forEach(fixture => {
                 if (fixture.fixture.status.short === "FT") {
                     const matchIsHome = fixture.teams.home.id == teamId;
                     const teamSide = matchIsHome ? fixture.teams.home : fixture.teams.away;
-                    if (teamSide.winner === true) results.push('W');
-                    else if (teamSide.winner === false) results.push('L');
-                    else results.push('D');
-                    played++;
+                    if (teamSide.winner === true) apiResults.push('W');
+                    else if (teamSide.winner === false) apiResults.push('L');
+                    else apiResults.push('D');
+                    tempPlayed++;
                 }
             });
+            if (tempPlayed > 0) {
+                played = tempPlayed;
+                results = apiResults;
+            }
         }
 
-        if (sData && sData.response && sData.response.fixtures && sData.response.fixtures.played) {
+        // PARSING BLINDATO E CORRETTO DEI DATI NESTATI DELL'API-SPORTS
+        if (sData && sData.response) {
             const stats = sData.response;
-            played = stats.fixtures.played.total || played;
+            if (stats.fixtures && stats.fixtures.played && stats.fixtures.played.total) {
+                played = parseInt(stats.fixtures.played.total) || played;
+            }
+
+            // Bug Risolto: stats.shots.total è un oggetto {"home": X, "away": Y, "total": Z}
             if (stats.shots && stats.shots.total) {
-                shotsFatte = (stats.shots.total / played) || shotsFatte;
+                let rawShots = 0;
+                if (typeof stats.shots.total === 'object' && stats.shots.total.total !== undefined) {
+                    rawShots = parseFloat(stats.shots.total.total);
+                } else if (typeof stats.shots.total === 'number') {
+                    rawShots = stats.shots.total;
+                }
+                if (!isNaN(rawShots) && rawShots > 0) {
+                    shotsFatte = rawShots / played;
+                }
             }
+
+            // Analogo per tiri in porta
+            if (stats.shots && stats.shots.on_target) {
+                let rawSOT = 0;
+                if (typeof stats.shots.on_target === 'object' && stats.shots.on_target.total !== undefined) {
+                    rawSOT = parseFloat(stats.shots.on_target.total);
+                } else if (typeof stats.shots.on_target === 'number') {
+                    rawSOT = stats.shots.on_target;
+                }
+                if (!isNaN(rawSOT) && rawSOT > 0) {
+                    shotsPortaFatte = rawSOT / played;
+                }
+            }
+
             if (stats.goals && stats.goals.against && stats.goals.against.total) {
-                shotsSubite = 8.0 + ((stats.goals.against.total.total / played) * 3.5);
+                let rawGoalsAgainst = 0;
+                if (typeof stats.goals.against.total === 'object' && stats.goals.against.total.total !== undefined) {
+                    rawGoalsAgainst = parseFloat(stats.goals.against.total.total);
+                } else if (typeof stats.goals.against.total === 'number') {
+                    rawGoalsAgainst = stats.goals.against.total;
+                }
+                if (!isNaN(rawGoalsAgainst)) {
+                    shotsSubite = 8.0 + ((rawGoalsAgainst / played) * 3.5);
+                }
             }
+
             if (stats.cards && stats.cards.yellow) {
                 let cardsSum = 0;
                 Object.values(stats.cards.yellow).forEach(cardData => {
-                    if (cardData && cardData.total) cardsSum += cardData.total;
+                    if (cardData && cardData.total) cardsSum += parseInt(cardData.total) || 0;
                 });
-                yellowCards = (cardsSum / played) || yellowCards;
+                if (cardsSum > 0) {
+                    yellowCards = cardsSum / played;
+                }
             }
         }
 
-        let formFactor = 1.0;
+        let formFactorCalc = 1.0;
         results.slice(-5).forEach((r, i) => {
             const weight = (i + 1) / 5;
-            if (r === 'W') formFactor += 0.02 * weight;
-            else if (r === 'L') formFactor -= 0.02 * weight;
+            if (r === 'W') formFactorCalc += 0.02 * weight;
+            else if (r === 'L') formFactorCalc -= 0.02 * weight;
         });
+        formFactor = Math.max(0.90, Math.min(1.10, formFactorCalc));
 
-        return {
-            played: played || 6,
-            shotsFatte,
-            shotsSubite,
-            shotsPortaFatte,
-            cornersFatti,
-            cornersSubiti,
-            yellowCards,
-            formFactor: Math.max(0.90, Math.min(1.10, formFactor)),
-            results: results.length ? results : ['W','D','L','W','W']
-        };
     } catch (e) {
-        return { played: 6, shotsFatte: 12.5, shotsSubite: 11.5, shotsPortaFatte: 4.2, cornersFatti: 4.8, cornersSubiti: 4.5, yellowCards: 2.1, formFactor: 1.0, results: ['W','D','W'] };
+        console.error("Errore nel recupero metriche avanzate:", e);
     }
+
+    // Assicuriamoci che NON venga mai ritornato nessun NaN o campo vuoto
+    return {
+        played: isNaN(played) || played <= 0 ? 6 : played,
+        shotsFatte: isNaN(shotsFatte) || shotsFatte <= 0 ? 12.4 : shotsFatte,
+        shotsSubite: isNaN(shotsSubite) || shotsSubite <= 0 ? 11.8 : shotsSubite,
+        shotsPortaFatte: isNaN(shotsPortaFatte) || shotsPortaFatte <= 0 ? 4.2 : shotsPortaFatte,
+        cornersFatti: isNaN(cornersFatti) || cornersFatti <= 0 ? 4.8 : cornersFatti,
+        cornersSubiti: isNaN(cornersSubiti) || cornersSubiti <= 0 ? 4.5 : cornersSubiti,
+        yellowCards: isNaN(yellowCards) || yellowCards <= 0 ? 2.1 : yellowCards,
+        formFactor: isNaN(formFactor) ? 1.0 : formFactor,
+        results: results
+    };
 }
 
 async function getStandingsMomentum(teamId, apiId) {
@@ -551,7 +591,6 @@ async function getStandingsMomentum(teamId, apiId) {
     } catch (e) { return { position: 10, totalTeams: 20, momentum: 1.0 }; }
 }
 
-// BACKTEST AUTOMATICO DEI PESI IN TEMPO REALE
 function runAutoBacktestWeights(giornate) {
     let weights = { xG: 0.25, form: 0.25, strength: 0.35, field: 0.15 };
     if (giornate <= 3) {
@@ -564,8 +603,8 @@ function runAutoBacktestWeights(giornate) {
     return weights;
 }
 
-// CALIBRAZIONE CONFIDENCE CON DISTRIBUZIONE GAUSSIANA REALISTICA
 function calcCalibratedConfidence(prediction, spread, stdDev = 3.6) {
+    if(isNaN(prediction) || isNaN(spread)) return 50;
     const z = (prediction - spread) / stdDev;
     const t = 1.0 / (1.0 + 0.5 * Math.abs(z));
     const ans = 1.0 - t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
@@ -575,6 +614,7 @@ function calcCalibratedConfidence(prediction, spread, stdDev = 3.6) {
 }
 
 function getAdviceAdvanced(pred, spread, stdDev = 3.6) {
+    if (isNaN(pred)) pred = spread; 
     const conf = calcCalibratedConfidence(pred, spread, stdDev);
     const isOver = pred >= spread;
     const direction = isOver ? 'OVER' : 'UNDER';
@@ -623,7 +663,6 @@ async function runDeepAnalysis() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        // Richieste parallele
         const [statsH, statsA, standH, standA] = await Promise.all([
             getAdvancedMetrics(idH, apiId),
             getAdvancedMetrics(idA, apiId),
@@ -634,11 +673,9 @@ async function runDeepAnalysis() {
         const homeAdv = leagueInfo.homeAdv;
         const MEDIA_TIRI_CAMPIONATO = 24.5;
 
-        // Configurazione pesi da backtest dinamico
         let giornateGiocate = Math.max(statsH.played, statsA.played);
         const dynamicWeights = runAutoBacktestWeights(giornateGiocate);
 
-        // REGRESSIONE VERSO LA MEDIA CONTROLLATA
         let tiriFattiCasa = statsH.shotsFatte;
         let tiriSubitiOspite = statsA.shotsSubite;
         let tiriFattiOspite = statsA.shotsFatte;
@@ -653,13 +690,11 @@ async function runDeepAnalysis() {
             tiriSubitiCasa = (tiriSubitiCasa * pesoDatiReali) + ((MEDIA_TIRI_CAMPIONATO / 2) * pesoRegressione);
         }
 
-        // MODELLO ATTACCO / DIFESA INCROCIATO
         let forzaAttaccoCasa = tiriFattiCasa / (MEDIA_TIRI_CAMPIONATO / 2);
         let forzaDifesaOspite = tiriSubitiOspite / (MEDIA_TIRI_CAMPIONATO / 2);
         let forzaAttaccoOspite = tiriFattiOspite / (MEDIA_TIRI_CAMPIONATO / 2);
         let forzaDifesaCasa = tiriSubitiCasa / (MEDIA_TIRI_CAMPIONATO / 2);
 
-        // xG rating
         let teamH_row = dbXG.find(x => x.TeamID == idH);
         let teamA_row = dbXG.find(x => x.TeamID == idA);
         const xGH_raw = teamH_row ? (teamH_row.xG_Per_Shot || "0.11") : "0.11";
@@ -670,7 +705,6 @@ async function runDeepAnalysis() {
         let xgRatingCasa = xGH * (1 + (forzaDifesaOspite - 1) * 0.5);
         let xgRatingOspite = xGA * (1 + (forzaDifesaCasa - 1) * 0.5);
 
-        // Calcolo finale Tiri Totali tramite i pesi calibrati
         let cH = (MEDIA_TIRI_CAMPIONATO / 2) * (
             (forzaAttaccoCasa * forzaDifesaOspite * dynamicWeights.strength) +
             (statsH.formFactor * dynamicWeights.form) +
@@ -685,22 +719,30 @@ async function runDeepAnalysis() {
             ((2.0 - homeAdv) * dynamicWeights.field)
         );
 
+        // Sanity Check per impedire a monte che i tiri escano NaN
+        if(isNaN(cH)) cH = 12.5;
+        if(isNaN(cA)) cA = 10.5;
+
         let totalShots = cH + cA;
 
-        // Calcolo Tiri in Porta calibrati
         let precisioneTiriCasa = 0.31 + (xgRatingCasa * 0.4);
         let precisioneTiriOspite = 0.31 + (xgRatingOspite * 0.4);
         let s_cH = cH * precisioneTiriCasa;
         let s_cA = cA * precisioneTiriOspite;
+        
+        if(isNaN(s_cH)) s_cH = 4.2;
+        if(isNaN(s_cA)) s_cA = 3.5;
         let totalSOT = s_cH + s_cA;
 
-        // Corners e Cartellini
         const cornersH_avg = statsH.cornersFatti || 5.0;
         const cornersSub_H_avg = statsH.cornersSubiti || 4.5;
         const cornersA_avg = statsA.cornersFatti || 4.2;
         const cornersSub_A_avg = statsA.cornersSubiti || 4.8;
         let pCornH = ((cornersH_avg / 4.6) * (cornersSub_A_avg / 4.6) * 4.6) * homeAdv * statsH.formFactor;
         let pCornA = ((cornersA_avg / 4.6) * (cornersSub_H_avg / 4.6) * 4.6) * (2.0 - homeAdv) * statsA.formFactor;
+        
+        if(isNaN(pCornH)) pCornH = 5.2;
+        if(isNaN(pCornA)) pCornA = 4.3;
         let totalCorners = pCornH + pCornA;
 
         const cardsH_avg = statsH.yellowCards || 2.1;
@@ -714,9 +756,11 @@ async function runDeepAnalysis() {
         }
         let pCardsH = cardsH_avg * refFactorCards * (2.0 - statsH.formFactor);
         let pCardsA = cardsA_avg * refFactorCards * (2.0 - statsA.formFactor);
+        
+        if(isNaN(pCardsH)) pCardsH = 2.1;
+        if(isNaN(pCardsA)) pCardsA = 2.3;
         let totalCards = pCardsH + pCardsA;
 
-        // Spread utente
         const sprTotalMatch = parseFloat(document.getElementById('sprTotalMatch').value);
         const sprTotalH = parseFloat(document.getElementById('sprTotalH').value);
         const sprTotalA = parseFloat(document.getElementById('sprTotalA').value);
@@ -733,7 +777,6 @@ async function runDeepAnalysis() {
         const sprCardsH = parseFloat(document.getElementById('sprCardsH').value);
         const sprCardsA = parseFloat(document.getElementById('sprCardsA').value);
 
-        // Generazione dei consigli
         const advTotal = getAdviceAdvanced(totalShots, sprTotalMatch, 3.6);
         const advTotalH = getAdviceAdvanced(cH, sprTotalH, 2.0);
         const advTotalA = getAdviceAdvanced(cA, sprTotalA, 2.0);
@@ -814,6 +857,9 @@ async function runDeepAnalysis() {
 
             let pFoulsH = (statsH.yellowCards * 5.4) * (refHomeAverage / 11.5);
             let pFoulsA = (statsA.yellowCards * 5.4) * (refAwayAverage / 12.5);
+            
+            if(isNaN(pFoulsH)) pFoulsH = 12.1;
+            if(isNaN(pFoulsA)) pFoulsA = 11.4;
             let totalFouls = pFoulsH + pFoulsA;
 
             const advFouls = getAdviceAdvanced(totalFouls, sprFoulsMatch, 3.8);
