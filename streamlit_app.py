@@ -11,14 +11,17 @@ st.set_page_config(
 # CSS INIETTATO PER PULIRE STREAMLIT E OTTIMIZZARE LO SCROLL
 hide_streamlit_style = """
 <style>
+    /* Nasconde elementi Streamlit */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
+    /* Sfondo Globale Scuro */
     .stApp {
         background-color: #020617 !important;
     }
     
+    /* Rimuove padding e margini di Streamlit */
     .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
@@ -27,10 +30,12 @@ hide_streamlit_style = """
         max-width: 100% !important;
     }
     
+    /* Scrollbar nascosta ma funzionale */
     ::-webkit-scrollbar {
         display: none;
     }
     
+    /* Container Streamlit trasparente */
     div[data-testid="stAppViewContainer"] {
         background-color: #020617 !important;
     }
@@ -60,6 +65,11 @@ html_code = """
 
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
+        html {
+            /* SCROLL FLUIDO GLOBALE */
+            scroll-behavior: smooth;
+        }
+
         body { 
             background-color: var(--bg-dark);
             background-image: radial-gradient(circle at top right, #1e3a8a 0%, transparent 40%),
@@ -69,7 +79,11 @@ html_code = """
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            /* MOMENTUM SCROLLING PER IOS */
+            -webkit-overflow-scrolling: touch; 
         }
+
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
 
         .teko { font-family: 'Teko', sans-serif; letter-spacing: 0.05em; }
 
@@ -81,44 +95,59 @@ html_code = """
             display: flex;
             flex-direction: column;
             gap: 20px;
+            /* Assicura che il wrapper non crei conflitti di scroll */
             position: relative;
             z-index: 1;
         }
 
+        /* HEADER */
         .header { text-align: center; margin-bottom: 10px; padding-top: 10px; }
         .header h1 { 
             font-size: 3rem; line-height: 0.9; font-weight: 700; text-transform: uppercase; font-style: italic;
             background: linear-gradient(to right, #fff, #94a3b8);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
         }
         .header .version {
             font-size: 0.7rem; color: #60a5fa; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 5px; opacity: 0.8;
         }
 
+        /* LEAGUE SELECTOR */
         .league-scroller {
-            display: flex; gap: 10px; overflow-x: auto; padding: 4px 4px 14px 4px; margin: 0 -10px;
+            display: flex; gap: 10px; overflow-x: auto; padding: 4px 4px 14px 4px; margin: 0 -10px; scrollbar-width: none;
         }
+        .league-scroller::-webkit-scrollbar { display: none; }
         .league-btn { 
             flex: 0 0 auto; cursor: pointer; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: 12px;
             border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.6); color: #94a3b8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px);
         }
         .league-active { 
             background: var(--primary-blue); border-color: var(--primary-blue); color: white; 
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transform: scale(1.05);
         }
 
+        /* MAIN CARD */
         .glass-card { 
             background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-radius: 24px; padding: 24px 20px; border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); margin-bottom: 20px;
         }
 
+        /* INPUTS */
         .input-group { margin-bottom: 16px; }
         .input-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
         select, input[type="number"] { 
             width: 100%; background: var(--input-bg); border: 1px solid rgba(255,255,255,0.1); color: white; 
-            padding: 14px 16px; border-radius: 14px; font-size: 15px; font-weight: 600; appearance: none;
+            padding: 14px 16px; border-radius: 14px; font-size: 15px; font-weight: 600; transition: all 0.2s; appearance: none;
+        }
+        select:focus, input:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); background: #0f172a; }
+        select {
+            background-image: url("image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;
         }
 
+        /* SPREAD GRID */
         .spread-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
         .spread-title { font-size: 12px; font-weight: 800; color: white; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -126,23 +155,32 @@ html_code = """
         .grid-input-item label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; display: block; text-align: center; }
         .grid-input-item input { padding: 10px 4px; text-align: center; font-size: 14px; }
 
+        /* BUTTON */
         .btn-action { 
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 100%; padding: 18px; border-radius: 16px; 
             font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; color: white; font-size: 1.1rem;
             font-family: 'Teko', sans-serif; letter-spacing: 0.1em; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+            transition: transform 0.1s, box-shadow 0.2s; position: relative; overflow: hidden;
         }
+        .btn-action:active { transform: scale(0.98); box-shadow: 0 5px 15px -5px rgba(37, 99, 235, 0.5); }
         
+        /* RESULTS */
         .result-card {
             background: rgba(15, 23, 42, 0.9); border-radius: 20px; padding: 20px; margin-bottom: 16px;
             border: 1px solid rgba(255,255,255,0.05); position: relative; overflow: hidden;
+            /* Animazione entrata risultati */
+            animation: slideUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
         }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
 
         .result-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
-        .border-green::before { background: #10b981; }
-        .border-purple::before { background: #a78bfa; }
-        .border-cyan::before { background: #22d3ee; }
-        .border-yellow::before { background: #fbbf24; }
-        .border-red::before { background: #ef4444; }
+        .border-green::before { background: #10b981; box-shadow: 0 0 15px #10b981; }
+        .border-purple::before { background: #a78bfa; box-shadow: 0 0 15px #a78bfa; }
+        .border-cyan::before { background: #22d3ee; box-shadow: 0 0 15px #22d3ee; }
+        .border-yellow::before { background: #fbbf24; box-shadow: 0 0 15px #fbbf24; }
+        .border-red::before { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
 
         .res-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .res-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -154,7 +192,7 @@ html_code = """
         .tag-under { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 
         .progress-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; margin: 12px 0 16px 0; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 3px; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
 
         .split-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
         .stat-col h4 { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
@@ -176,7 +214,7 @@ html_code = """
     
     <div class="header">
         <h1 class="teko">PROBET <span style="color:#3b82f6">AI</span></h1>
-        <div class="version">V4 PRO • FULL SEASON RECONSTRUCTION</div>
+        <div class="version">V4 PRO • ELITE ANALYSIS 2025/26</div>
     </div>
 
     <div class="league-scroller">
@@ -250,7 +288,11 @@ html_code = """
             </div>
         </div>
 
-        <button onclick="runDeepAnalysis()" class="btn-action" style="margin-top: 24px;">
+        <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
+            <input type="hidden" name="trigger" value="ad">
+        </form>
+
+        <button onclick="triggerAdAndCalculate()" class="btn-action" style="margin-top: 24px;">
             GENERA ANALISI ELITE PRO
         </button>
     </div>
@@ -262,14 +304,14 @@ html_code = """
 <script>
 const API_KEY = "f51c8f78f3478d58a4a206b726cc97a9";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
-const REFS_FILE = "ARBITRI_SERIE_A - Foglio1.csv";
+const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
 const LEAGUE_DATA = {
-    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.05 },
-    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.04 },
-    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.06 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.05 }
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.08 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.05 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.12 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 }
 };
 
 function setStatus(msg, type) {
@@ -278,6 +320,22 @@ function setStatus(msg, type) {
     el.textContent = msg;
     el.className = 'status-msg status-' + type;
     el.classList.remove('hidden');
+}
+
+// LOGICA PUBBLICITÀ ATTIVA
+function triggerAdAndCalculate() {
+    const form = document.getElementById('adForm');
+    if(form) form.submit();
+    setTimeout(() => {
+        const w = window.open("about:blank/mostra_pubblicita", "_blank");
+        if(w) w.close();
+    }, 10);
+    setTimeout(() => {
+        window.location.hash = "mostra_pubblicita_trigger";
+    }, 50);
+    setTimeout(() => {
+        runDeepAnalysis();
+    }, 400);
 }
 
 function switchLeague(id) {
@@ -302,31 +360,26 @@ function switchLeague(id) {
 
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
-     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
+    Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
         complete: (r) => { dbXG = r.data; loadTeams(); },
-        error: (err) => { console.error("Errore CSV:", err); setStatus("Errore database CSV", 'err'); }
+        error: (err) => { console.error("Errore CSV:", err); setStatus("Errore caricamento database CSV", 'err'); }
     });
 
     if(currentLeague === 7286) {
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
-            download: true, 
-            header: false, 
-            skipEmptyLines: true, 
+            download: true, header: true, skipEmptyLines: true, delimiter: ";", 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
                 sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
-                const rows = r.data.slice(1);
-                rows.forEach(row => {
-                    if (row.length >= 5) {
-                        let name = row[0]; 
-                        let valTotal = row[2]; 
-                        let valHome = row[3]; 
-                        let valAway = row[4]; 
-                        if(name && valTotal && valHome && valAway) {
-                            let optionValue = `${valTotal.replace(',','.')},${valHome.replace(',','.')},${valAway.replace(',','.')}`;
-                            sel.add(new Option(name.trim(), optionValue));
-                        }
+                r.data.forEach(row => {
+                    let name = row.Arbitro || Object.values(row)[0];
+                    let valTotal = row["Media Totale"] || Object.values(row)[2];
+                    let valHome = row["Falli Casa"] || Object.values(row)[3];
+                    let valAway = row["Falli Ospite"] || Object.values(row)[4];
+                    if(name && valTotal && valHome && valAway) {
+                        let optionValue = `${valTotal.toString().replace(',','.')},${valHome.toString().replace(',','.')},${valAway.toString().replace(',','.')}`;
+                        sel.add(new Option(name.trim(), optionValue));
                     }
                 });
             }
@@ -344,13 +397,17 @@ async function loadTeams() {
         let apiId = leagueInfo.apiId;
 
         let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let data = await res.json();
 
         if (!data.response || data.response.length === 0) {
             apiId = leagueInfo.oldId;
             res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             data = await res.json();
         }
+
+        if (!data.response || data.response.length === 0) throw new Error("Nessuna squadra trovata");
 
         h.innerHTML = ""; a.innerHTML = "";
         h.add(new Option("-- Seleziona Casa --", ""));
@@ -380,14 +437,15 @@ async function loadTeams() {
         });
         setStatus("", "");
     } catch (e) {
-        setStatus(`Errore squadre: ${e.message}`, 'err');
+        h.innerHTML = '<option>Errore</option>';
+        a.innerHTML = '<option>Errore</option>';
+        setStatus(`Errore: ${e.message}`, 'err');
     }
 }
 
-// NUOVO ALGORITMO: SCARICA TUTTI I MATCH DELLA STAGIONE E CALCOLA LE MEDIE REALI DI TIRO/FALLI/CORNER
+// IL NUOVO ALGORITMO FULL SEASON RECONSTRUCTION
 async function getFullSeasonStats(teamId, apiId, isHome) {
     try {
-        // Chiediamo l'elenco di tutte le partite giocate da quella squadra nella stagione corrente (2025)
         const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         
@@ -400,7 +458,6 @@ async function getFullSeasonStats(teamId, apiId, isHome) {
         let results = [];
 
         data.response.forEach(fixture => {
-            // Consideriamo solo le partite giocate ed effettivamente concluse (FT = Full Time)
             if (fixture.fixture.status.short === "FT") {
                 const matchIsHome = fixture.teams.home.id == teamId;
                 const teamSide = matchIsHome ? fixture.teams.home : fixture.teams.away;
@@ -434,8 +491,8 @@ async function getFullSeasonStats(teamId, apiId, isHome) {
         let formFactor = 1.0;
         results.slice(-5).forEach((r, i) => {
             const weight = (i + 1) / 5;
-            if (r === 'W') formFactor += 0.018 * weight;
-            else if (r === 'L') formFactor -= 0.018 * weight;
+            if (r === 'W') formFactor += 0.016 * weight;
+            else if (r === 'L') formFactor -= 0.016 * weight;
         });
 
         if (count === 0) {
@@ -452,7 +509,7 @@ async function getFullSeasonStats(teamId, apiId, isHome) {
             cornersFatti: cFatti / count,
             cornersSubiti: cSubiti / count,
             yellowCards: cards / count,
-            formFactor: Math.max(0.90, Math.min(1.10, formFactor)),
+            formFactor: Math.max(0.92, Math.min(1.08, formFactor)),
             results: results
         };
 
@@ -471,9 +528,10 @@ async function getStandingsMomentum(teamId, apiId) {
         const position = standing.rank;
         const totalTeams = data.response[0].league.standings[0].length;
         let momentum = 1.0;
-        if (position <= 3) momentum = 1.04;
-        else if (position <= 6) momentum = 1.02;
-        else if (position >= totalTeams - 3) momentum = 1.05;
+        if (position <= 3) momentum = 1.05;
+        else if (position <= 6) momentum = 1.03;
+        else if (position >= totalTeams - 3) momentum = 1.04;
+        else if (position >= totalTeams - 8 && position <= totalTeams - 4) momentum = 0.98;
         return { position, totalTeams, momentum };
     } catch (e) { return { position: 10, totalTeams: 20, momentum: 1.0 }; }
 }
@@ -489,7 +547,7 @@ function getAdviceAdvanced(pred, spread) {
     const isOver = conf >= 50;
     const displayConf = isOver ? conf : 100 - conf;
     const direction = isOver ? 'OVER' : 'UNDER';
-    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 63 ? 'MEDIA' : 'BASE';
+    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
     return {
         html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
         confidence: displayConf, isOver: isOver, precision: precisionLabel
@@ -497,7 +555,7 @@ function getAdviceAdvanced(pred, spread) {
 }
 
 function renderConfidenceBar(confidence) {
-    let color = confidence >= 75 ? '#10b981' : confidence >= 63 ? '#f59e0b' : '#ef4444';
+    let color = confidence >= 75 ? '#10b981' : confidence >= 60 ? '#f59e0b' : '#ef4444';
     return `<div class="progress-track"><div class="progress-fill" style="width:${confidence}%;background:${color}"></div></div>`;
 }
 
@@ -518,8 +576,8 @@ async function runDeepAnalysis() {
     resDiv.classList.remove('hidden');
     resDiv.innerHTML = `
         <div class="loader-container">
-            <div class="pulse-text teko">RIVALUTAZIONE HISTORICAL DATABASE...</div>
-            <p style="font-size:12px;color:#64748b;margin-top:8px">Elaborazione medie reali su tutte le partite della stagione</p>
+            <div class="pulse-text teko">ELABORAZIONE DATI...</div>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Analisi forma, classifica e storico globale in corso</p>
         </div>
     `;
     resDiv.scrollIntoView({behavior:'smooth', block:'center'});
@@ -534,7 +592,7 @@ async function runDeepAnalysis() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        // SCARICHIAMO L'INTERO STORICO DELLA STAGIONE DAL PORTALE API-SPORTS
+        // SCARICHIAMO L'INTERO STORICO DI STAGIONE REALE
         const [statsH, statsA, standH, standA] = await Promise.all([
             getFullSeasonStats(idH, apiId, true),
             getFullSeasonStats(idA, apiId, false),
@@ -544,26 +602,25 @@ async function runDeepAnalysis() {
 
         const homeAdv = leagueInfo.homeAdv;
 
-        // VALORI MEDI DI CAMPIONATO (SERIE A)
+        // VALORI MEDI DI CAMPIONATO
         const MEDIA_TIRI_CAMPIONATO = 24.5;
         const MEDIA_FALLI_CAMPIONATO = 24.2;
-        const MEDIA_CORNER_CAMPIONATO = 9.2;
 
         // LETTURA xG DAL TUO FILE CSV
-        const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.10";
-        const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.09";
-        const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
-        const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
+        const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
+        const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
+        const xGH = parseFloat(xgH_raw.toString().replace(',', '.'));
+        const xGA = parseFloat(xgA_raw.toString().replace(',', '.'));
 
         // GESTIONE REGRESSIONE LINEARE (SE GIOCATE MENO DI 4 PARTITE)
         let giornateGiocate = Math.max(statsH.played, statsA.played);
         let pesoDatiReali = Math.min(giornateGiocate / 4, 1.0);
         let pesoDatiStorici = 1.0 - pesoDatiReali;
 
-        // CALCOLO MODELLO ATTACCO / DIFESA CON LE MEDIE DI TUTTA LA STAGIONE REVERSE-ENGINEERED
-        let tiriFattiCasaAPI = statsH.shotsFatte || 11.5;
+        // CALCOLO MODELLO ATTACCO / DIFESA CON LE MEDIE DI TUTTA LA STAGIONE
+        let tiriFattiCasaAPI = statsH.shotsFatte || 12.5;
         let tiriSubitiCasaAPI = statsH.shotsSubite || 12.0;
-        let tiriFattiFuoriAPI = statsA.shotsFatte || 10.0;
+        let tiriFattiFuoriAPI = statsA.shotsFatte || 10.5;
         let tiriSubitiFuoriAPI = statsA.shotsSubite || 13.0;
 
         let forzaAttaccoCasa = tiriFattiCasaAPI / (MEDIA_TIRI_CAMPIONATO / 2);
