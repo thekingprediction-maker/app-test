@@ -267,7 +267,7 @@ html_code = """
 
 <script>
 const API_KEY = "f51c8f78f3478d58a4a206b726cc97a9";
-const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2026.csv/main/";
+const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
 const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
@@ -367,10 +367,10 @@ const FALLBACK_REFS = [
 ];
 
 const LEAGUE_DATA = {
-    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2026.csv", oldId: 135, apiId: 7286 },
-    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2026.csv", oldId: 39, apiId: 7293 },
-    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2026.csv", oldId: 78, apiId: 7338 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2026.csv", oldId: 140, apiId: 7351 }
+    7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286 },
+    7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293 },
+    7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338 },
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351 }
 };
 
 function setStatus(msg) {
@@ -428,14 +428,14 @@ async function loadTeamsFromApi() {
     try {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
-        // STAGIONE CORRENTE (2026)
-        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2026`, { 
+        // STAGIONE CORRENTE (2025)
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
             headers: { "x-apisports-key": API_KEY } 
         });
         let data = await res.json();
         if (!data.response || data.response.length === 0) {
             apiId = leagueInfo.oldId;
-            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2026`, { 
+            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { 
                 headers: { "x-apisports-key": API_KEY } 
             });
             data = await res.json();
@@ -519,10 +519,10 @@ async function getAdvancedMetrics(teamId, apiId, teamName) {
         };
     }
     
-    // === SQUADRA NORMALE: dati API stagione 2026 ===
+    // === SQUADRA NORMALE: dati API stagione 2025 ===
     try {
         const [fReq, sReq] = await Promise.all([
-            fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2026&league=${apiId}&status=FT`, 
+            fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&status=FT`, 
                 { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null),
             fetch(`https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2026&league=${apiId}`, 
                 { headers: { "x-apisports-key": API_KEY } }).then(r => r.json()).catch(() => null)
