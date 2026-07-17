@@ -66,7 +66,6 @@ html_code = """
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
         html {
-            /* SCROLL FLUIDO GLOBALE */
             scroll-behavior: smooth;
         }
 
@@ -79,7 +78,6 @@ html_code = """
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
-            /* MOMENTUM SCROLLING PER IOS */
             -webkit-overflow-scrolling: touch; 
         }
 
@@ -95,7 +93,6 @@ html_code = """
             display: flex;
             flex-direction: column;
             gap: 20px;
-            /* Assicura che il wrapper non crei conflitti di scroll */
             position: relative;
             z-index: 1;
         }
@@ -143,7 +140,7 @@ html_code = """
         }
         select:focus, input:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); background: #0f172a; }
         select {
-            background-image: url("image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
             background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;
         }
 
@@ -168,7 +165,6 @@ html_code = """
         .result-card {
             background: rgba(15, 23, 42, 0.9); border-radius: 20px; padding: 20px; margin-bottom: 16px;
             border: 1px solid rgba(255,255,255,0.05); position: relative; overflow: hidden;
-            /* Animazione entrata risultati */
             animation: slideUp 0.5s ease-out forwards;
             opacity: 0;
             transform: translateY(20px);
@@ -304,7 +300,7 @@ html_code = """
 <script>
 const API_KEY = "f51c8f78f3478d58a4a206b726cc97a9";
 const BASE_CSV_URL = "https://raw.githubusercontent.com/thekingprediction-maker/DATABASE_AVANZATO_2025.csv/main/";
-const REFS_FILE = "ARBITRI_SERIE_A%20-%20Foglio1.csv";
+const REFS_FILE = "ARBITRI_SERIE_A - Foglio1.csv";
 let currentLeague = 7286, dbXG = [];
 
 const LEAGUE_DATA = {
@@ -359,23 +355,47 @@ function switchLeague(id) {
 
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
-    Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
+     Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
         complete: (r) => { dbXG = r.data; loadTeams(); },
         error: (err) => { console.error("Errore CSV:", err); setStatus("Errore caricamento database CSV", 'err'); }
     });
 
     if(currentLeague === 7286) {
+        // CORRETTO: Adesso usiamo "BASE_CSV_URL + REFS_FILE" per scaricare il file online su GitHub!
         Papa.parse(BASE_CSV_URL + REFS_FILE, { 
-            download: true, header: true, skipEmptyLines: true, delimiter: ";", 
+            download: true, 
+            header: false, 
+            skipEmptyLines: true, 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
-                sel.innerHTML = '<option value="24.5">Seleziona Arbitro...</option>';
-                r.data.forEach(row => {
-                    let name = row.Arbitro || Object.values(row)[0];
-                    let val = row["Media Totale"] || Object.values(row)[2];
-                    if(name && val) sel.add(new Option(name, val.toString().replace(',', '.')));
+                sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
+                
+                const rows = r.data.slice(1);
+
+                rows.forEach(row => {
+                    if (row.length >= 5) {
+                        let name = row[0]; 
+                        let valTotal = row[2]; 
+                        let valHome = row[3]; 
+                        let valAway = row[4]; 
+
+                        if(name && valTotal && valHome && valAway) {
+                            let cleanName = name.toString().trim();
+                            let cleanTotal = valTotal.toString().replace(',', '.').trim();
+                            let cleanHome = valHome.toString().replace(',', '.').trim();
+                            let cleanAway = valAway.toString().replace(',', '.').trim();
+
+                            if (cleanName !== "") {
+                                let optionValue = `${cleanTotal},${cleanHome},${cleanAway}`;
+                                sel.add(new Option(cleanName, optionValue));
+                            }
+                        }
+                    }
                 });
+            },
+            error: (err) => {
+                console.error("Errore nel caricamento del file degli arbitri:", err);
             }
         });
     }
@@ -407,15 +427,33 @@ async function loadTeams() {
         h.add(new Option("-- Seleziona Casa --", ""));
         a.add(new Option("-- Seleziona Ospite --", ""));
 
-        data.response.sort((x,y) => x.team.name.localeCompare(y.team.name)).forEach(t => {
-            h.add(new Option(t.team.name, t.team.id)); 
-            a.add(new Option(t.team.name, t.team.id));
+        let mergedTeams = [];
+        let csvTeamNames = dbXG.map(row => row.TeamName.toLowerCase().trim());
+
+        data.response.forEach(t => {
+            const apiTeamName = t.team.name.toLowerCase().trim();
+            if(csvTeamNames.includes(apiTeamName)) {
+                mergedTeams.push({ id: t.team.id, name: t.team.name });
+            }
+        });
+
+        let addedIds = new Set(mergedTeams.map(x => x.id.toString()));
+        dbXG.forEach(row => {
+            if (row.TeamID && !addedIds.has(row.TeamID.toString())) {
+                mergedTeams.push({ id: parseInt(row.TeamID), name: row.TeamName });
+                addedIds.add(row.TeamID.toString());
+            }
+        });
+
+        mergedTeams.sort((x,y) => x.name.localeCompare(y.name)).forEach(t => {
+            h.add(new Option(t.name, t.id)); 
+            a.add(new Option(t.name, t.id));
         });
         setStatus("", "");
     } catch (e) {
         h.innerHTML = '<option>Errore</option>';
         a.innerHTML = '<option>Errore</option>';
-        setStatus(`Errore: ${e.message}`, 'err');
+        setStatus(`Errore caricamento squadre: ${e.message}`, 'err');
     }
 }
 
@@ -564,7 +602,6 @@ async function runDeepAnalysis() {
         </div>
     `;
     
-    // SCROLL FLUIDO VERSO IL LOADER
     resDiv.scrollIntoView({behavior:'smooth', block:'center'});
 
     try {
@@ -613,9 +650,8 @@ async function runDeepAnalysis() {
         const formFactorH = formH.formFactor; const formFactorA = formA.formFactor;
         const momentumH = standH.momentum; const momentumA = standA.momentum;
 
-        // CALCOLI (Invariati)
-        const shotsH_avg = sH.shots?.total?.average || 12.5;
-        const shotsA_avg = sA.shots?.total?.average || 10.5;
+        const shotsH_avg = sH?.shots?.total?.average || 10.5;
+        const shotsA_avg = sA?.shots?.total?.average || 9.5;
         const xgFactorH = 0.7 + (xGH / bench) * 0.3;
         const xgFactorA = 0.7 + (xGA / bench) * 0.3;
 
@@ -630,102 +666,242 @@ async function runDeepAnalysis() {
         if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) cA = cA * 0.7 + formA.avgShots * 0.3;
         const totalShots = cH + cA;
 
-        const onTargetH_avg = sH.shots?.on_goal?.average || 4.2;
-        const onTargetA_avg = sA.shots?.on_goal?.average || 3.6;
+        const onTargetH_avg = sH?.shots?.on_goal?.average || (shotsH_avg * 0.34);
+        const onTargetA_avg = sA?.shots?.on_goal?.average || (shotsA_avg * 0.34);
         const convRateH = onTargetH_avg / shotsH_avg;
         const convRateA = onTargetA_avg / shotsA_avg;
         const precisionH = convRateH * (0.85 + xGH * 2.5);
         const precisionA = convRateA * (0.85 + xGA * 2.5);
-        let oH = cH * precisionH * homeAdv * formFactorH;
-        let oA = cA * precisionA * formFactorA;
-        const totalOnTarget = oH + oA;
 
-        const cornersForH = sH.corners?.for?.average || 5.2;
-        const cornersAgainstH = sH.corners?.against?.average || 4.1;
-        const cornersForA = sA.corners?.for?.average || 4.8;
-        const cornersAgainstA = sA.corners?.against?.average || 4.4;
-        const pressureH = (cornersForH + cornersAgainstA) / 2;
-        const pressureA = (cornersForA + cornersAgainstH) / 2;
-        const possH = sH.possession?.average || 52;
-        const possA = sA.possession?.average || 48;
-        const possFactorH = 0.9 + (possH / 100) * 0.2;
-        const possFactorA = 0.9 + (possA / 100) * 0.2;
-        let pCH = pressureH * possFactorH * homeAdv * formFactorH * 0.92;
-        let pCA = pressureA * possFactorA * formFactorA * 1.08;
-        if (formH.avgCorners > 0 && Math.abs(formH.avgCorners - cornersForH) / cornersForH > 0.15) pCH = pCH * 0.8 + formH.avgCorners * 0.2;
-        if (formA.avgCorners > 0 && Math.abs(formA.avgCorners - cornersForA) / cornersForA > 0.15) pCA = pCA * 0.8 + formA.avgCorners * 0.2;
-        const totalCorners = pCH + pCA;
+        let s_cH = cH * precisionH;
+        let s_cA = cA * precisionA;
+        const totalSOT = s_cH + s_cA;
 
-        const yellowH_avg = sH.cards?.yellow?.average || 2.1;
-        const yellowA_avg = sA.cards?.yellow?.average || 2.3;
-        const foulsH_avg = sH.fouls?.for?.average || 12.5;
-        const foulsA_avg = sA.fouls?.for?.average || 13.0;
-        const intensityFactor = 1.0 + ((foulsH_avg + foulsA_avg) - 24) / 100;
-        let cardH = yellowH_avg * intensityFactor * homeAdv * formFactorH * 0.95;
-        let cardA = yellowA_avg * intensityFactor * formFactorA * 1.05;
-        if (formH.avgCards > 0) cardH = cardH * 0.85 + formH.avgCards * 0.15;
-        if (formA.avgCards > 0) cardA = cardA * 0.85 + formA.avgCards * 0.15;
-        const totalCards = cardH + cardA;
+        // CALCOLO CORNER
+        const cornersH_avg = sH?.corners?.average || 5.2;
+        const cornersA_avg = sA?.corners?.average || 4.4;
+        let pCornH = cornersH_avg * homeAdv * formFactorH * momentumH;
+        let pCornA = cornersA_avg * 1.0 * formFactorA * momentumA;
+        if (h2hData) {
+            pCornH = pCornH * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.55;
+            pCornA = pCornA * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.45;
+        }
+        const totalCorners = pCornH + pCornA;
 
-        let totalFouls = 0, fH = 0, fA = 0;
-        if(currentLeague === 7286) {
-            const refVal = parseFloat(document.getElementById('arbitroSelect').value) || 24.5;
-            const foulsAgainstH = sH.fouls?.against?.average || 11.5;
-            const foulsAgainstA = sA.fouls?.against?.average || 12.0;
-            fH = ((foulsH_avg + foulsAgainstA) / 2) * 0.6 + (refVal / 2 * 0.4);
-            fA = ((foulsA_avg + foulsAgainstH) / 2) * 0.6 + (refVal / 2 * 0.4);
-            totalFouls = fH + fA;
+        // CALCOLO CARTELLINI (CON SUPPORTO VALORE ARBITRO)
+        const cardsH_avg = sH?.cards?.yellow?.average || 2.1;
+        const cardsA_avg = sA?.cards?.yellow?.average || 2.4;
+        let refFactor = 1.0;
+        if (currentLeague === 7286) {
+            const refSelectedVal = document.getElementById('arbitroSelect').value;
+            const refParts = refSelectedVal.split(',');
+            const refTotal = parseFloat(refParts[0]) || 24.5;
+            refFactor = refTotal / 24.5;
+        }
+        let pCardsH = cardsH_avg * refFactor * (2.0 - formFactorH);
+        let pCardsA = cardsA_avg * refFactor * (2.0 - formFactorA);
+        const totalCards = pCardsH + pCardsA;
+
+        // CALCOLO FALLI CON NUOVE METRICHE DETTAGLIATE ARBITRO (SOLO SERIE A)
+        let totalFouls = 0, pFoulsH = 0, pFoulsA = 0;
+        if (currentLeague === 7286) {
+            const foulsH_avg = sH?.fouls?.committed?.average || 12.5;
+            const foulsA_avg = sA?.fouls?.committed?.average || 11.8;
+            
+            const refSelectedVal = document.getElementById('arbitroSelect').value;
+            const refParts = refSelectedVal.split(',');
+            
+            const refHomeAverage = parseFloat(refParts[1]) || 11.0;
+            const refAwayAverage = parseFloat(refParts[2]) || 13.5;
+            
+            const refHomeMultiplier = refHomeAverage / 11.5; 
+            const refAwayMultiplier = refAwayAverage / 12.5; 
+
+            pFoulsH = foulsH_avg * refHomeMultiplier * (2.0 - formFactorH);
+            pFoulsA = foulsA_avg * refAwayMultiplier * (2.0 - formFactorA);
+            totalFouls = pFoulsH + pFoulsA;
         }
 
-        // RENDERING
-        let html = "";
-        const formHtmlH = renderFormBar(formH.results, false);
-        const formHtmlA = renderFormBar(formA.results, true);
+        // LETTURA INPUT DEGLI SPREAD CORRENTI DELL'UTENTE
+        const sprTotalMatch = parseFloat(document.getElementById('sprTotalMatch').value);
+        const sprTotalH = parseFloat(document.getElementById('sprTotalH').value);
+        const sprTotalA = parseFloat(document.getElementById('sprTotalA').value);
 
-        if(currentLeague === 7286) {
-            const advFouls = getAdviceAdvanced(totalFouls, parseFloat(document.getElementById('sprFoulsMatch').value));
-            const advFoulsH = getAdviceAdvanced(fH, parseFloat(document.getElementById('sprFoulsH').value));
-            const advFoulsA = getAdviceAdvanced(fA, parseFloat(document.getElementById('sprFoulsA').value));
-            html += `<div class="result-card border-red"><div class="res-header"><span class="res-label" style="color:#f87171">Falli Commessi</span><span class="badge-pro">${advFouls.precision}</span></div><div class="res-value" style="color:#f87171">${totalFouls.toFixed(2)} ${advFouls.html}</div>${renderConfidenceBar(advFouls.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#f87171">${fH.toFixed(2)} <span style="font-size:0.8em">${advFoulsH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#f87171">${fA.toFixed(2)} <span style="font-size:0.8em">${advFoulsA.html}</span></div></div></div></div>`;
+        const sprOTMatch = parseFloat(document.getElementById('sprOTMatch').value);
+        const sprOTH = parseFloat(document.getElementById('sprOTH').value);
+        const sprOTA = parseFloat(document.getElementById('sprOTA').value);
+
+        const sprCornMatch = parseFloat(document.getElementById('sprCornMatch').value);
+        const sprCornH = parseFloat(document.getElementById('sprCornH').value);
+        const sprCornA = parseFloat(document.getElementById('sprCornA').value);
+
+        const sprCardsMatch = parseFloat(document.getElementById('sprCardsMatch').value);
+        const sprCardsH = parseFloat(document.getElementById('sprCardsH').value);
+        const sprCardsA = parseFloat(document.getElementById('sprCardsA').value);
+
+        // STRUTTURAZIONE PREVISIONI E CREAZIONE HTML RISULTATI
+        const advTotal = getAdviceAdvanced(totalShots, sprTotalMatch);
+        const advTotalH = getAdviceAdvanced(cH, sprTotalH);
+        const advTotalA = getAdviceAdvanced(cA, sprTotalA);
+
+        const advOT = getAdviceAdvanced(totalSOT, sprOTMatch);
+        const advOTH = getAdviceAdvanced(s_cH, sprOTH);
+        const advOTA = getAdviceAdvanced(s_cA, sprOTA);
+
+        const advCorn = getAdviceAdvanced(totalCorners, sprCornMatch);
+        const advCornH = getAdviceAdvanced(pCornH, sprCornH);
+        const advCornA = getAdviceAdvanced(pCornA, sprCornA);
+
+        const advCards = getAdviceAdvanced(totalCards, sprCardsMatch);
+        const advCardsH = getAdviceAdvanced(pCardsH, sprCardsH);
+        const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA);
+
+        let finalHTML = `
+            <div class="result-card border-green">
+                <div class="res-header">
+                    <span class="res-label" style="color:#10b981">Tiri Totali Match</span>
+                    <span class="badge-pro">PRECISIONE ${advTotal.precision}</span>
+                </div>
+                <div class="res-value">${totalShots.toFixed(2)}</div>
+                <div class="mb-2">${advTotal.html}</div>
+                ${renderConfidenceBar(advTotal.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home Prediction</h4>
+                        <div class="val">${cH.toFixed(1)}</div>
+                        <div class="mt-1">${advTotalH.html}</div>
+                        ${renderFormBar(formH.results, false)}
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away Prediction</h4>
+                        <div class="val">${cA.toFixed(1)}</div>
+                        <div class="mt-1">${advTotalA.html}</div>
+                        ${renderFormBar(formA.results, true)}
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-card border-purple">
+                <div class="res-header">
+                    <span class="res-label" style="color:#a78bfa">Tiri In Porta</span>
+                    <span class="badge-pro">PRECISIONE ${advOT.precision}</span>
+                </div>
+                <div class="res-value">${totalSOT.toFixed(2)}</div>
+                <div class="mb-2">${advOT.html}</div>
+                ${renderConfidenceBar(advOT.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home SOT</h4>
+                        <div class="val">${s_cH.toFixed(1)}</div>
+                        <div class="mt-1">${advOTH.html}</div>
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away SOT</h4>
+                        <div class="val">${s_cA.toFixed(1)}</div>
+                        <div class="mt-1">${advOTA.html}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // INNESTO CARD FALLI SOLO SE SERIE A ATTIVA
+        if (currentLeague === 7286) {
+            const sprFoulsMatch = parseFloat(document.getElementById('sprFoulsMatch').value);
+            const sprFoulsH = parseFloat(document.getElementById('sprFoulsH').value);
+            const sprFoulsA = parseFloat(document.getElementById('sprFoulsA').value);
+
+            const advFouls = getAdviceAdvanced(totalFouls, sprFoulsMatch);
+            const advFoulsH = getAdviceAdvanced(pFoulsH, sprFoulsH);
+            const advFoulsA = getAdviceAdvanced(pFoulsA, sprFoulsA);
+
+            finalHTML += `
+                <div class="result-card border-red">
+                    <div class="res-header">
+                        <span class="res-label" style="color:#f87171">Falli Commessi</span>
+                        <span class="badge-pro">PRECISIONE ${advFouls.precision}</span>
+                    </div>
+                    <div class="res-value">${totalFouls.toFixed(2)}</div>
+                    <div class="mb-2">${advFouls.html}</div>
+                    ${renderConfidenceBar(advFouls.confidence)}
+                    <div class="split-stats">
+                        <div class="stat-col">
+                            <h4>Home Fouls</h4>
+                            <div class="val">${pFoulsH.toFixed(1)}</div>
+                            <div class="mt-1">${advFoulsH.html}</div>
+                        </div>
+                        <div class="stat-col right">
+                            <h4>Away Fouls</h4>
+                            <div class="val">${pFoulsA.toFixed(1)}</div>
+                            <div class="mt-1">${advFoulsA.html}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        const advShots = getAdviceAdvanced(totalShots, parseFloat(document.getElementById('sprTotalMatch').value));
-        const advShotsH = getAdviceAdvanced(cH, parseFloat(document.getElementById('sprTotalH').value));
-        const advShotsA = getAdviceAdvanced(cA, parseFloat(document.getElementById('sprTotalA').value));
-        html += `<div class="result-card border-green"><div class="res-header"><span class="res-label" style="color:#34d399">Tiri Totali Previsti</span><span class="badge-pro">${advShots.precision}</span></div><div class="res-value" style="color:#34d399">${totalShots.toFixed(2)} ${advShots.html}</div>${renderConfidenceBar(advShots.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#34d399">${cH.toFixed(2)} <span style="font-size:0.8em">${advShotsH.html}</span></div>${formHtmlH}<div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standH.position}° • Forma ${(formFactorH).toFixed(2)}x</div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#34d399">${cA.toFixed(2)} <span style="font-size:0.8em">${advShotsA.html}</span></div>${formHtmlA}<div style="font-size:9px;color:#64748b;margin-top:4px">Pos. ${standA.position}° • Forma ${(formFactorA).toFixed(2)}x</div></div></div></div>`;
+        // AGGIUNTA CARDS CORNER E CARTELLINI
+        finalHTML += `
+            <div class="result-card border-cyan">
+                <div class="res-header">
+                    <span class="res-label" style="color:#22d3ee">Corner Totali</span>
+                    <span class="badge-pro">PRECISIONE ${advCorn.precision}</span>
+                </div>
+                <div class="res-value">${totalCorners.toFixed(2)}</div>
+                <div class="mb-2">${advCorn.html}</div>
+                ${renderConfidenceBar(advCorn.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home Corners</h4>
+                        <div class="val">${pCornH.toFixed(1)}</div>
+                        <div class="mt-1">${advCornH.html}</div>
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away Corners</h4>
+                        <div class="val">${pCornA.toFixed(1)}</div>
+                        <div class="mt-1">${advCornA.html}</div>
+                    </div>
+                </div>
+            </div>
 
-        const advOT = getAdviceAdvanced(totalOnTarget, parseFloat(document.getElementById('sprOTMatch').value));
-        const advOTH = getAdviceAdvanced(oH, parseFloat(document.getElementById('sprOTH').value));
-        const advOTA = getAdviceAdvanced(oA, parseFloat(document.getElementById('sprOTA').value));
-        html += `<div class="result-card border-purple"><div class="res-header"><span class="res-label" style="color:#a78bfa">Tiri In Porta Previsti</span><span class="badge-pro">${advOT.precision}</span></div><div class="res-value" style="color:#a78bfa">${totalOnTarget.toFixed(2)} ${advOT.html}</div>${renderConfidenceBar(advOT.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#a78bfa">${oH.toFixed(2)} <span style="font-size:0.8em">${advOTH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#a78bfa">${oA.toFixed(2)} <span style="font-size:0.8em">${advOTA.html}</span></div></div></div></div>`;
+            <div class="result-card border-yellow">
+                <div class="res-header">
+                    <span class="res-label" style="color:#fbbf24">Cartellini Gialli</span>
+                    <span class="badge-pro">PRECISIONE ${advCards.precision}</span>
+                </div>
+                <div class="res-value">${totalCards.toFixed(2)}</div>
+                <div class="mb-2">${advCards.html}</div>
+                ${renderConfidenceBar(advCards.confidence)}
+                <div class="split-stats">
+                    <div class="stat-col">
+                        <h4>Home Cards</h4>
+                        <div class="val">${pCardsH.toFixed(1)}</div>
+                        <div class="mt-1">${advCardsH.html}</div>
+                    </div>
+                    <div class="stat-col right">
+                        <h4>Away Cards</h4>
+                        <div class="val">${pCardsA.toFixed(1)}</div>
+                        <div class="mt-1">${advCardsA.html}</div>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        const advCorn = getAdviceAdvanced(totalCorners, parseFloat(document.getElementById('sprCornMatch').value));
-        const advCornH = getAdviceAdvanced(pCH, parseFloat(document.getElementById('sprCornH').value));
-        const advCornA = getAdviceAdvanced(pCA, parseFloat(document.getElementById('sprCornA').value));
-        html += `<div class="result-card border-cyan"><div class="res-header"><span class="res-label" style="color:#22d3ee">Calci d'Angolo Previsti</span><span class="badge-pro">${advCorn.precision}</span></div><div class="res-value" style="color:#22d3ee">${totalCorners.toFixed(2)} ${advCorn.html}</div>${renderConfidenceBar(advCorn.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#22d3ee">${pCH.toFixed(2)} <span style="font-size:0.8em">${advCornH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#22d3ee">${pCA.toFixed(2)} <span style="font-size:0.8em">${advCornA.html}</span></div></div></div></div>`;
-
-        const advCards = getAdviceAdvanced(totalCards, parseFloat(document.getElementById('sprCardsMatch').value));
-        const advCardsH = getAdviceAdvanced(cardH, parseFloat(document.getElementById('sprCardsH').value));
-        const advCardsA = getAdviceAdvanced(cardA, parseFloat(document.getElementById('sprCardsA').value));
-        html += `<div class="result-card border-yellow"><div class="res-header"><span class="res-label" style="color:#fbbf24">Gialli Previsti</span><span class="badge-pro">${advCards.precision}</span></div><div class="res-value" style="color:#fbbf24">${totalCards.toFixed(2)} ${advCards.html}</div>${renderConfidenceBar(advCards.confidence)}<div class="split-stats"><div class="stat-col"><h4>Casa</h4><div class="val" style="color:#fbbf24">${cardH.toFixed(2)} <span style="font-size:0.8em">${advCardsH.html}</span></div></div><div class="stat-col right"><h4>Ospite</h4><div class="val" style="color:#fbbf24">${cardA.toFixed(2)} <span style="font-size:0.8em">${advCardsA.html}</span></div></div></div></div>`;
-
-        resDiv.innerHTML = html;
-        
-        // SCROLL FLUIDO FINALE AI RISULTATI
-        // Usiamo requestAnimationFrame per assicurarci che il DOM sia renderizzato prima dello scroll
-        requestAnimationFrame(() => {
-            resDiv.scrollIntoView({behavior:'smooth', block:'start'});
-        });
-
-    } catch(e) { 
-        resDiv.innerHTML = `<div class="result-card border-red"><p style="font-weight:900;color:#ef4444">ERRORE ANALISI</p><p style="color:white;font-size:13px">${e.message}</p></div>`; 
+        resDiv.innerHTML = finalHTML;
+    } catch (e) {
+        resDiv.innerHTML = `
+            <div class="status-msg status-err" style="margin:20px 0">
+                Errore Analisi: ${e.message}
+            </div>
+        `;
     }
 }
 
+// Avvio Iniziale automatico
 loadData();
 </script>
+
 </body>
 </html>
 """
 
-components.html(html_code, height=1200, scrolling=True)
+components.html(html_code, height=1800, scrolling=True)
