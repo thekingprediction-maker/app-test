@@ -310,6 +310,15 @@ const LEAGUE_DATA = {
     7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 }
 };
 
+// Baseline di lega, usate SOLO come ancora per lo shrinkage bayesiano e come fallback
+// quando non ci sono abbastanza dati reali (mai come sostituto silenzioso dei dati veri).
+const LEAGUE_PRIORS = {
+    7286: { shots: 12.2, sot: 4.2, corners: 5.0, cards: 2.2, fouls: 12.0 },
+    7293: { shots: 11.2, sot: 4.0, corners: 4.8, cards: 1.6, fouls: 10.0 },
+    7338: { shots: 12.6, sot: 4.4, corners: 5.2, cards: 1.8, fouls: 11.5 },
+    7351: { shots: 11.6, sot: 4.0, corners: 4.9, cards: 2.4, fouls: 11.0 }
+};
+
 function setStatus(msg, type) {
     const el = document.getElementById('statusMessage');
     if (!msg) { el.classList.add('hidden'); return; }
@@ -457,21 +466,98 @@ async function loadTeams() {
     }
 }
 
-function calcConfidence(pred, spread) {
-    const diff = pred - spread;
-    const rawProb = 1 / (1 + Math.exp(-diff * 0.85));
-    return Math.min(Math.max(rawProb * 100, 8), 96);
+/* =========================================================================
+   MOTORE STATISTICO
+   - Le probabilità Over/Under sono calcolate con un'approssimazione Normale
+     (media + varianza reale stimata dai dati), con correzione di continuità,
+     al posto di una sigmoide con coefficiente arbitrario.
+   - Le stime di media per ogni metrica combinano piu' fonti (stagione,
+     forma recente pesata per recency, rendimento casa/trasferta specifico)
+     pesando ciascuna fonte in base alla numerosita' del campione.
+   - Per cartellini e falli (molto rumorosi) si applica shrinkage bayesiano
+     verso una media di lega, per non farsi ingannare da campioni piccoli.
+   NOTA: alcuni percorsi di campo dell'endpoint teams/statistics (es. shots,
+   corners, fouls, cards) sono stati mantenuti come nel codice originale ma
+   NON sono garantiti dallo schema ufficiale API-Football: vanno verificati
+   con la chiave a pagamento reale. Per questo motivo il modello pesa di piu'
+   le statistiche aggregate direttamente dalle singole partite (piu' affidabili
+   perche' calcolate qui) rispetto alla media stagionale dichiarata dall'API.
+   ========================================================================= */
+
+// Approssimazione della funzione di errore (Abramowitz-Stegun)
+function erf(x) {
+    const sign = x >= 0 ? 1 : -1;
+    x = Math.abs(x);
+    const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741,
+          a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+    const t = 1 / (1 + p * x);
+    const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+    return sign * y;
 }
 
-function getAdviceAdvanced(pred, spread) {
-    const conf = calcConfidence(pred, spread);
-    const isOver = conf >= 50;
-    const displayConf = isOver ? conf : 100 - conf;
+function normalCDF(x, mean, sd) {
+    if (!sd || sd <= 0) sd = 0.5;
+    return 0.5 * (1 + erf((x - mean) / (sd * Math.sqrt(2))));
+}
+
+// Probabilita' reale che il valore superi una linea (tipicamente X.5)
+function probOver(mean, variance, line) {
+    if (mean == null || isNaN(mean)) return 0.5;
+    const sd = Math.sqrt(Math.max(variance || 0, mean * 0.5, 0.3));
+    return 1 - normalCDF(line, mean, sd);
+}
+
+// Media e varianza pesate per recency su un array di valori (ordine: vecchio -> recente)
+function weightedStats(values) {
+    if (!values || values.length === 0) return { mean: null, variance: null, n: 0 };
+    const n = values.length;
+    const weights = values.map((_, i) => Math.pow(1.12, i));
+    const wSum = weights.reduce((a, b) => a + b, 0);
+    const wMean = values.reduce((acc, v, i) => acc + v * weights[i], 0) / wSum;
+    let wVar = values.reduce((acc, v, i) => acc + weights[i] * Math.pow(v - wMean, 2), 0) / wSum;
+    if (n > 1) wVar = wVar * n / (n - 1);
+    return { mean: wMean, variance: wVar, n };
+}
+
+// Fonde piu' stime (con relativa numerosita' campionaria) in un'unica media pesata
+function combineEstimates(sources) {
+    let totalWeight = 0, weightedSum = 0;
+    sources.forEach(s => {
+        if (s.mean == null || isNaN(s.mean)) return;
+        const w = Math.max(s.n || 0, 0.5) * (s.priorWeight || 1);
+        weightedSum += s.mean * w;
+        totalWeight += w;
+    });
+    if (totalWeight === 0) return null;
+    return weightedSum / totalWeight;
+}
+
+// Ritira una stima verso una media di lega quando il campione e' piccolo
+function shrinkEstimate(sampleMean, n, priorMean, k) {
+    if (sampleMean == null || isNaN(sampleMean)) return priorMean;
+    const w = (n || 0) / ((n || 0) + (k || 5));
+    return sampleMean * w + priorMean * (1 - w);
+}
+
+// Genera il markup del pronostico con probabilita' reale + indice di qualita' del dato
+function getAdviceAdvanced(mean, variance, n, spread) {
+    const p = probOver(mean, variance, spread);
+    const confPct = p * 100;
+    const isOver = confPct >= 50;
+    const displayConf = isOver ? confPct : 100 - confPct;
     const direction = isOver ? 'OVER' : 'UNDER';
-    let precisionLabel = displayConf >= 75 ? 'ALTA' : displayConf >= 60 ? 'MEDIA' : 'BASE';
+
+    const sampleScore = Math.min(1, (n || 1) / 8);
+    const distanceScore = Math.abs(displayConf - 50) / 50;
+    const qualityIndex = (sampleScore * 0.55) + (distanceScore * 0.45);
+
+    let precisionLabel = qualityIndex >= 0.7 ? 'ALTA' : qualityIndex >= 0.45 ? 'MEDIA' : 'BASE';
+
     return {
         html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
-        confidence: displayConf, isOver: isOver, precision: precisionLabel
+        confidence: Math.min(Math.max(displayConf, 5), 95),
+        isOver: isOver,
+        precision: precisionLabel
     };
 }
 
@@ -492,15 +578,27 @@ function renderFormBar(results, alignRight) {
     return html;
 }
 
+// Estrae dagli statistics di una fixture il valore di un tipo di statistica
+function extractStat(statObj, label) {
+    if (!statObj || !statObj.statistics) return null;
+    const f = statObj.statistics.find(s => s.type === label);
+    if (!f || f.value == null) return null;
+    const v = parseInt(f.value);
+    return isNaN(v) ? null : v;
+}
+
+// Forma recente: ultime 8 partite, raccoglie array di statistiche per stimare media+varianza reali
 async function getTeamForm(teamId, apiId) {
+    const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [], formFactor: 1.0 };
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=5`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=8`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
-        if (!data.response || data.response.length === 0) return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 };
+        if (!data.response || data.response.length === 0) return empty;
 
-        let results = [], totalShots = 0, totalCorners = 0, totalCards = 0, count = 0;
+        const fixtures = data.response.slice().reverse(); // vecchio -> recente per pesatura
+        let results = [], shots = [], sot = [], corners = [], cards = [], fouls = [];
 
-        data.response.forEach(fixture => {
+        fixtures.forEach(fixture => {
             const isHome = fixture.teams.home.id == teamId;
             const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
             if (teamSide.winner === true) results.push('W');
@@ -509,36 +607,66 @@ async function getTeamForm(teamId, apiId) {
 
             if (fixture.statistics && fixture.statistics.length > 0) {
                 const teamStats = isHome ? fixture.statistics[0] : fixture.statistics[1];
-                if (teamStats && teamStats.statistics) {
-                    const stats = teamStats.statistics;
-                    const shots = stats.find(s => s.type === 'Shots on Goal');
-                    const corners = stats.find(s => s.type === 'Corner Kicks');
-                    const cards = stats.find(s => s.type === 'Yellow Cards');
-                    if (shots) totalShots += parseInt(shots.value) || 0;
-                    if (corners) totalCorners += parseInt(corners.value) || 0;
-                    if (cards) totalCards += parseInt(cards.value) || 0;
-                    count++;
-                }
+                const totShots = extractStat(teamStats, 'Total Shots');
+                const onGoal = extractStat(teamStats, 'Shots on Goal');
+                const corn = extractStat(teamStats, 'Corner Kicks');
+                const yellow = extractStat(teamStats, 'Yellow Cards');
+                const foulsCommitted = extractStat(teamStats, 'Fouls');
+                if (totShots != null) shots.push(totShots);
+                if (onGoal != null) sot.push(onGoal);
+                if (corn != null) corners.push(corn);
+                if (yellow != null) cards.push(yellow);
+                if (foulsCommitted != null) fouls.push(foulsCommitted);
             }
         });
 
         let formFactor = 1.0;
         results.forEach((r, i) => {
-            const weight = (i + 1) / 5;
-            if (r === 'W') formFactor += 0.016 * weight;
-            else if (r === 'L') formFactor -= 0.016 * weight;
+            const weight = (i + 1) / results.length;
+            if (r === 'W') formFactor += 0.018 * weight;
+            else if (r === 'L') formFactor -= 0.018 * weight;
         });
+        formFactor = Math.max(0.90, Math.min(1.10, formFactor));
 
-        return {
-            results: results,
-            formFactor: Math.max(0.92, Math.min(1.08, formFactor)),
-            avgShots: count > 0 ? totalShots / count : 0,
-            avgCorners: count > 0 ? totalCorners / count : 0,
-            avgCards: count > 0 ? totalCards / count : 0
-        };
-    } catch (e) { return { results: [], formFactor: 1.0, avgShots: 0, avgCorners: 0, avgCards: 0 }; }
+        return { results, shots, sot, corners, cards, fouls, formFactor };
+    } catch (e) { return empty; }
 }
 
+// Rendimento specifico per ruolo (casa o trasferta), separato dalla forma generale
+async function getVenueAverages(teamId, apiId, venue) {
+    const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=15`, { headers: { "x-apisports-key": API_KEY } });
+        const data = await res.json();
+        if (!data.response) return empty;
+
+        const isHomeVenue = venue === 'home';
+        const filtered = data.response
+            .filter(f => isHomeVenue ? f.teams.home.id == teamId : f.teams.away.id == teamId)
+            .slice(0, 6);
+        if (filtered.length === 0) return empty;
+
+        let shots = [], sot = [], corners = [], cards = [], fouls = [];
+        filtered.forEach(fixture => {
+            if (fixture.statistics && fixture.statistics.length > 0) {
+                const teamStats = isHomeVenue ? fixture.statistics[0] : fixture.statistics[1];
+                const totShots = extractStat(teamStats, 'Total Shots');
+                const onGoal = extractStat(teamStats, 'Shots on Goal');
+                const corn = extractStat(teamStats, 'Corner Kicks');
+                const yellow = extractStat(teamStats, 'Yellow Cards');
+                const foulsCommitted = extractStat(teamStats, 'Fouls');
+                if (totShots != null) shots.push(totShots);
+                if (onGoal != null) sot.push(onGoal);
+                if (corn != null) corners.push(corn);
+                if (yellow != null) cards.push(yellow);
+                if (foulsCommitted != null) fouls.push(foulsCommitted);
+            }
+        });
+        return { shots, sot, corners, cards, fouls, n: filtered.length };
+    } catch (e) { return empty; }
+}
+
+// Momentum continuo basato su posizione relativa + differenza reti a partita (non piu' a soglie fisse)
 async function getStandingsMomentum(teamId, apiId) {
     try {
         const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, { headers: { "x-apisports-key": API_KEY } });
@@ -548,47 +676,61 @@ async function getStandingsMomentum(teamId, apiId) {
         const standing = data.response[0].league.standings[0][0];
         const position = standing.rank;
         const totalTeams = data.response[0].league.standings[0].length;
+        const played = (standing.all && standing.all.played) || 1;
+        const goalsDiff = standing.goalsDiff || 0;
 
-        let momentum = 1.0;
-        if (position <= 3) momentum = 1.05;
-        else if (position <= 6) momentum = 1.03;
-        else if (position >= totalTeams - 3) momentum = 1.04;
-        else if (position >= totalTeams - 8 && position <= totalTeams - 4) momentum = 0.98;
+        const relativePosition = totalTeams > 1 ? (totalTeams - position) / (totalTeams - 1) : 0.5;
+        const gdPerGame = goalsDiff / played;
+        let momentum = 1.0 + (relativePosition - 0.5) * 0.08 + Math.max(-0.05, Math.min(0.05, gdPerGame * 0.02));
+        momentum = Math.max(0.90, Math.min(1.12, momentum));
 
         return { position, totalTeams, momentum };
     } catch (e) { return { position: 10, totalTeams: 20, momentum: 1.0 }; }
 }
 
+// H2H: ultimi 5 precedenti, pesati per recency, con piu' metriche raccolte
 async function getFixturesH2H(teamIdH, teamIdA, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=3`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=5`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return null;
 
-        let h2hShotsH = 0, h2hShotsA = 0, h2hCorners = 0, count = 0;
+        const fixtures = data.response.slice().reverse();
+        let wSum = 0, count = 0;
+        let acc = { shotsH: 0, shotsA: 0, sotH: 0, sotA: 0, corners: 0, cards: 0, fouls: 0 };
 
-        data.response.forEach(fixture => {
+        fixtures.forEach((fixture, i) => {
+            const weight = Math.pow(1.15, i);
             if (fixture.statistics && fixture.statistics.length > 0) {
                 const homeStats = fixture.statistics[0];
                 const awayStats = fixture.statistics[1];
-                if (homeStats && homeStats.statistics) {
-                    const stats = homeStats.statistics;
-                    const shots = stats.find(s => s.type === 'Shots on Goal');
-                    const corners = stats.find(s => s.type === 'Corner Kicks');
-                    if (shots) h2hShotsH += parseInt(shots.value) || 0;
-                    if (corners) h2hCorners += parseInt(corners.value) || 0;
-                }
-                if (awayStats && awayStats.statistics) {
-                    const stats = awayStats.statistics;
-                    const shots = stats.find(s => s.type === 'Shots on Goal');
-                    if (shots) h2hShotsA += parseInt(shots.value) || 0;
-                }
+                const tsH = extractStat(homeStats, 'Total Shots');
+                const tsA = extractStat(awayStats, 'Total Shots');
+                const sgH = extractStat(homeStats, 'Shots on Goal');
+                const sgA = extractStat(awayStats, 'Shots on Goal');
+                const corn = (extractStat(homeStats, 'Corner Kicks') || 0) + (extractStat(awayStats, 'Corner Kicks') || 0);
+                const crd = (extractStat(homeStats, 'Yellow Cards') || 0) + (extractStat(awayStats, 'Yellow Cards') || 0);
+                const fls = (extractStat(homeStats, 'Fouls') || 0) + (extractStat(awayStats, 'Fouls') || 0);
+
+                if (tsH != null) acc.shotsH += tsH * weight;
+                if (tsA != null) acc.shotsA += tsA * weight;
+                if (sgH != null) acc.sotH += sgH * weight;
+                if (sgA != null) acc.sotA += sgA * weight;
+                acc.corners += corn * weight;
+                acc.cards += crd * weight;
+                acc.fouls += fls * weight;
+                wSum += weight;
                 count++;
             }
         });
 
-        if (count === 0) return null;
-        return { avgShotsH: h2hShotsH / count, avgShotsA: h2hShotsA / count, avgCorners: h2hCorners / count, weight: Math.min(count * 0.15, 0.3) };
+        if (count === 0 || wSum === 0) return null;
+        return {
+            avgShotsH: acc.shotsH / wSum, avgShotsA: acc.shotsA / wSum,
+            avgSotH: acc.sotH / wSum, avgSotA: acc.sotA / wSum,
+            avgCorners: acc.corners / wSum, avgCards: acc.cards / wSum, avgFouls: acc.fouls / wSum,
+            weight: Math.min(count * 0.09, 0.28), n: count
+        };
     } catch (e) { return null; }
 }
 
@@ -614,7 +756,7 @@ async function runDeepAnalysis() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        let statsH, statsA, formH, formA, standH, standA, h2hData;
+        let statsH, statsA;
 
         try {
             const statsRes = await Promise.all([
@@ -632,14 +774,19 @@ async function runDeepAnalysis() {
             statsH = statsRes[0]; statsA = statsRes[1];
         }
 
-        [formH, formA, standH, standA, h2hData] = await Promise.all([
+        const [formH, formA, standH, standA, h2hData, venueHomeRaw, venueAwayRaw] = await Promise.all([
             getTeamForm(idH, apiId), getTeamForm(idA, apiId),
             getStandingsMomentum(idH, apiId), getStandingsMomentum(idA, apiId),
-            getFixturesH2H(idH, idA, apiId)
+            getFixturesH2H(idH, idA, apiId),
+            getVenueAverages(idH, apiId, 'home'),
+            getVenueAverages(idA, apiId, 'away')
         ]);
+        const venueH = venueHomeRaw || { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
+        const venueA = venueAwayRaw || { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
 
         const sH = statsH.response; const sA = statsA.response;
-        const homeAdv = leagueInfo.homeAdv;
+        const momentumH = standH.momentum; const momentumA = standA.momentum;
+        const priors = LEAGUE_PRIORS[currentLeague];
 
         const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
         const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
@@ -647,50 +794,134 @@ async function runDeepAnalysis() {
         const xGA = parseFloat(xGA_raw.toString().replace(',', '.'));
         const bench = (currentLeague === 7293 || currentLeague === 7338) ? 0.12 : 0.11;
 
-        const formFactorH = formH.formFactor; const formFactorA = formA.formFactor;
-        const momentumH = standH.momentum; const momentumA = standA.momentum;
+        const nSeasonH = (sH?.fixtures?.played?.total) || 10;
+        const nSeasonA = (sA?.fixtures?.played?.total) || 10;
 
-        const shotsH_avg = sH?.shots?.total?.average || 10.5;
-        const shotsA_avg = sA?.shots?.total?.average || 9.5;
-        const xgFactorH = 0.7 + (xGH / bench) * 0.3;
-        const xgFactorA = 0.7 + (xGA / bench) * 0.3;
+        // ---------------- TIRI TOTALI ----------------
+        const seasonShotsH = parseFloat(sH?.shots?.total?.average) || null;
+        const seasonShotsA = parseFloat(sA?.shots?.total?.average) || null;
+        const formShotsH = weightedStats(formH.shots);
+        const formShotsA = weightedStats(formA.shots);
+        const venueShotsH = weightedStats(venueH.shots);
+        const venueShotsA = weightedStats(venueA.shots);
 
-        let cH = shotsH_avg * xgFactorH * homeAdv * formFactorH * momentumH * 0.95;
-        let cA = shotsA_avg * xgFactorA * 1.0 * formFactorA * momentumA * 1.05;
+        let cH = combineEstimates([
+            { mean: seasonShotsH, n: nSeasonH, priorWeight: 0.7 },
+            { mean: formShotsH.mean, n: formShotsH.n, priorWeight: 1.1 },
+            { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.3 }
+        ]);
+        if (cH == null) cH = priors.shots * leagueInfo.homeAdv;
+
+        let cA = combineEstimates([
+            { mean: seasonShotsA, n: nSeasonA, priorWeight: 0.7 },
+            { mean: formShotsA.mean, n: formShotsA.n, priorWeight: 1.1 },
+            { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.3 }
+        ]);
+        if (cA == null) cA = priors.shots;
+
+        const xgFactorH = 0.75 + (xGH / bench) * 0.25;
+        const xgFactorA = 0.75 + (xGA / bench) * 0.25;
+        cH = cH * xgFactorH * formH.formFactor * momentumH;
+        cA = cA * xgFactorA * formA.formFactor * momentumA;
 
         if (h2hData) {
             cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
             cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
         }
-        if (formH.avgShots > 0 && Math.abs(formH.avgShots - shotsH_avg) / shotsH_avg > 0.2) cH = cH * 0.7 + formH.avgShots * 0.3;
-        if (formA.avgShots > 0 && Math.abs(formA.avgShots - shotsA_avg) / shotsA_avg > 0.2) cA = cA * 0.7 + formA.avgShots * 0.3;
+
+        const varShotsH = Math.max(formShotsH.variance || 0, cH * 0.55, 1.2);
+        const varShotsA = Math.max(formShotsA.variance || 0, cA * 0.55, 1.2);
         const totalShots = cH + cA;
+        const varTotalShots = varShotsH + varShotsA;
 
-        const onTargetH_avg = sH?.shots?.on_goal?.average || (shotsH_avg * 0.34);
-        const onTargetA_avg = sA?.shots?.on_goal?.average || (shotsA_avg * 0.34);
-        const convRateH = onTargetH_avg / shotsH_avg;
-        const convRateA = onTargetA_avg / shotsA_avg;
-        const precisionH = convRateH * (0.85 + xGH * 2.5);
-        const precisionA = convRateA * (0.85 + xGA * 2.5);
+        // ---------------- TIRI IN PORTA ----------------
+        const seasonSotH = parseFloat(sH?.shots?.on_goal?.average) || null;
+        const seasonSotA = parseFloat(sA?.shots?.on_goal?.average) || null;
+        const formSotH = weightedStats(formH.sot);
+        const formSotA = weightedStats(formA.sot);
+        const venueSotH = weightedStats(venueH.sot);
+        const venueSotA = weightedStats(venueA.sot);
 
-        let s_cH = cH * precisionH;
-        let s_cA = cA * precisionA;
-        const totalSOT = s_cH + s_cA;
+        let s_cH = combineEstimates([
+            { mean: seasonSotH, n: nSeasonH, priorWeight: 0.7 },
+            { mean: formSotH.mean, n: formSotH.n, priorWeight: 1.1 },
+            { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.3 }
+        ]);
+        if (s_cH == null) s_cH = cH * 0.34;
 
-        // CALCOLO CORNER
-        const cornersH_avg = sH?.corners?.average || 5.2;
-        const cornersA_avg = sA?.corners?.average || 4.4;
-        let pCornH = cornersH_avg * homeAdv * formFactorH * momentumH;
-        let pCornA = cornersA_avg * 1.0 * formFactorA * momentumA;
+        let s_cA = combineEstimates([
+            { mean: seasonSotA, n: nSeasonA, priorWeight: 0.7 },
+            { mean: formSotA.mean, n: formSotA.n, priorWeight: 1.1 },
+            { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.3 }
+        ]);
+        if (s_cA == null) s_cA = cA * 0.34;
+
+        s_cH = s_cH * formH.formFactor * momentumH;
+        s_cA = s_cA * formA.formFactor * momentumA;
+
         if (h2hData) {
-            pCornH = pCornH * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.55;
-            pCornA = pCornA * (1 - h2hData.weight) + h2hData.avgCorners * h2hData.weight * 0.45;
+            s_cH = s_cH * (1 - h2hData.weight) + h2hData.avgSotH * h2hData.weight;
+            s_cA = s_cA * (1 - h2hData.weight) + h2hData.avgSotA * h2hData.weight;
         }
-        const totalCorners = pCornH + pCornA;
 
-        // CALCOLO CARTELLINI (CON SUPPORTO VALORE ARBITRO)
-        const cardsH_avg = sH?.cards?.yellow?.average || 2.1;
-        const cardsA_avg = sA?.cards?.yellow?.average || 2.4;
+        const varSotH = Math.max(formSotH.variance || 0, s_cH * 0.5, 0.6);
+        const varSotA = Math.max(formSotA.variance || 0, s_cA * 0.5, 0.6);
+        const totalSOT = s_cH + s_cA;
+        const varTotalSOT = varSotH + varSotA;
+
+        // ---------------- CORNER ----------------
+        const seasonCornH = parseFloat(sH?.corners?.average) || null;
+        const seasonCornA = parseFloat(sA?.corners?.average) || null;
+        const formCornH = weightedStats(formH.corners);
+        const formCornA = weightedStats(formA.corners);
+        const venueCornH = weightedStats(venueH.corners);
+        const venueCornA = weightedStats(venueA.corners);
+
+        let pCornH = combineEstimates([
+            { mean: seasonCornH, n: nSeasonH, priorWeight: 0.7 },
+            { mean: formCornH.mean, n: formCornH.n, priorWeight: 1.1 },
+            { mean: venueCornH.mean, n: venueCornH.n, priorWeight: 1.3 }
+        ]);
+        if (pCornH == null) pCornH = priors.corners * leagueInfo.homeAdv;
+
+        let pCornA = combineEstimates([
+            { mean: seasonCornA, n: nSeasonA, priorWeight: 0.7 },
+            { mean: formCornA.mean, n: formCornA.n, priorWeight: 1.1 },
+            { mean: venueCornA.mean, n: venueCornA.n, priorWeight: 1.3 }
+        ]);
+        if (pCornA == null) pCornA = priors.corners;
+
+        pCornH = pCornH * formH.formFactor * momentumH;
+        pCornA = pCornA * formA.formFactor * momentumA;
+
+        if (h2hData) {
+            pCornH = pCornH * (1 - h2hData.weight * 0.8) + (h2hData.avgCorners / 2) * (h2hData.weight * 0.8);
+            pCornA = pCornA * (1 - h2hData.weight * 0.8) + (h2hData.avgCorners / 2) * (h2hData.weight * 0.8);
+        }
+
+        const varCornH = Math.max(formCornH.variance || 0, pCornH * 0.6, 0.8);
+        const varCornA = Math.max(formCornA.variance || 0, pCornA * 0.6, 0.8);
+        const totalCorners = pCornH + pCornA;
+        const varTotalCorners = varCornH + varCornA;
+
+        // ---------------- CARTELLINI ----------------
+        const seasonCardsH = parseFloat(sH?.cards?.yellow?.average) || null;
+        const seasonCardsA = parseFloat(sA?.cards?.yellow?.average) || null;
+        const formCardsH = weightedStats(formH.cards);
+        const formCardsA = weightedStats(formA.cards);
+
+        let baseCardsH = combineEstimates([
+            { mean: seasonCardsH, n: nSeasonH, priorWeight: 0.8 },
+            { mean: formCardsH.mean, n: formCardsH.n, priorWeight: 1.0 }
+        ]);
+        baseCardsH = shrinkEstimate(baseCardsH, (formCardsH.n || 0) + nSeasonH, priors.cards, 6);
+
+        let baseCardsA = combineEstimates([
+            { mean: seasonCardsA, n: nSeasonA, priorWeight: 0.8 },
+            { mean: formCardsA.mean, n: formCardsA.n, priorWeight: 1.0 }
+        ]);
+        baseCardsA = shrinkEstimate(baseCardsA, (formCardsA.n || 0) + nSeasonA, priors.cards, 6);
+
         let refFactor = 1.0;
         if (currentLeague === 7286) {
             const refSelectedVal = document.getElementById('arbitroSelect').value;
@@ -698,28 +929,60 @@ async function runDeepAnalysis() {
             const refTotal = parseFloat(refParts[0]) || 24.5;
             refFactor = refTotal / 24.5;
         }
-        let pCardsH = cardsH_avg * refFactor * (2.0 - formFactorH);
-        let pCardsA = cardsA_avg * refFactor * (2.0 - formFactorA);
-        const totalCards = pCardsH + pCardsA;
 
-        // CALCOLO FALLI CON NUOVE METRICHE DETTAGLIATE ARBITRO (SOLO SERIE A)
-        let totalFouls = 0, pFoulsH = 0, pFoulsA = 0;
+        let pCardsH = baseCardsH * refFactor * (2.05 - formH.formFactor);
+        let pCardsA = baseCardsA * refFactor * (2.05 - formA.formFactor);
+
+        if (h2hData) {
+            pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
+            pCardsA = pCardsA * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
+        }
+
+        const varCardsH = Math.max(formCardsH.variance || 0, pCardsH * 0.7, 0.5);
+        const varCardsA = Math.max(formCardsA.variance || 0, pCardsA * 0.7, 0.5);
+        const totalCards = pCardsH + pCardsA;
+        const varTotalCards = varCardsH + varCardsA;
+
+        // ---------------- FALLI (SOLO SERIE A) ----------------
+        let totalFouls = 0, pFoulsH = 0, pFoulsA = 0, varTotalFouls = 1, varFoulsH = 1, varFoulsA = 1;
+        let formFoulsH = { n: 0 }, formFoulsA = { n: 0 };
         if (currentLeague === 7286) {
-            const foulsH_avg = sH?.fouls?.committed?.average || 12.5;
-            const foulsA_avg = sA?.fouls?.committed?.average || 11.8;
-            
+            const seasonFoulsH = parseFloat(sH?.fouls?.committed?.average) || null;
+            const seasonFoulsA = parseFloat(sA?.fouls?.committed?.average) || null;
+            formFoulsH = weightedStats(formH.fouls);
+            formFoulsA = weightedStats(formA.fouls);
+
+            let baseFoulsH = combineEstimates([
+                { mean: seasonFoulsH, n: nSeasonH, priorWeight: 0.8 },
+                { mean: formFoulsH.mean, n: formFoulsH.n, priorWeight: 1.0 }
+            ]);
+            baseFoulsH = shrinkEstimate(baseFoulsH, (formFoulsH.n || 0) + nSeasonH, priors.fouls, 5);
+
+            let baseFoulsA = combineEstimates([
+                { mean: seasonFoulsA, n: nSeasonA, priorWeight: 0.8 },
+                { mean: formFoulsA.mean, n: formFoulsA.n, priorWeight: 1.0 }
+            ]);
+            baseFoulsA = shrinkEstimate(baseFoulsA, (formFoulsA.n || 0) + nSeasonA, priors.fouls, 5);
+
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
-            
             const refHomeAverage = parseFloat(refParts[1]) || 11.0;
             const refAwayAverage = parseFloat(refParts[2]) || 13.5;
-            
-            const refHomeMultiplier = refHomeAverage / 11.5; 
-            const refAwayMultiplier = refAwayAverage / 12.5; 
+            const refHomeMultiplier = refHomeAverage / 11.5;
+            const refAwayMultiplier = refAwayAverage / 12.5;
 
-            pFoulsH = foulsH_avg * refHomeMultiplier * (2.0 - formFactorH);
-            pFoulsA = foulsA_avg * refAwayMultiplier * (2.0 - formFactorA);
+            pFoulsH = baseFoulsH * refHomeMultiplier * (2.05 - formH.formFactor);
+            pFoulsA = baseFoulsA * refAwayMultiplier * (2.05 - formA.formFactor);
+
+            if (h2hData) {
+                pFoulsH = pFoulsH * (1 - h2hData.weight * 0.5) + (h2hData.avgFouls / 2) * (h2hData.weight * 0.5);
+                pFoulsA = pFoulsA * (1 - h2hData.weight * 0.5) + (h2hData.avgFouls / 2) * (h2hData.weight * 0.5);
+            }
+
+            varFoulsH = Math.max(formFoulsH.variance || 0, pFoulsH * 0.6, 1.0);
+            varFoulsA = Math.max(formFoulsA.variance || 0, pFoulsA * 0.6, 1.0);
             totalFouls = pFoulsH + pFoulsA;
+            varTotalFouls = varFoulsH + varFoulsA;
         }
 
         // LETTURA INPUT DEGLI SPREAD CORRENTI DELL'UTENTE
@@ -739,22 +1002,22 @@ async function runDeepAnalysis() {
         const sprCardsH = parseFloat(document.getElementById('sprCardsH').value);
         const sprCardsA = parseFloat(document.getElementById('sprCardsA').value);
 
-        // STRUTTURAZIONE PREVISIONI E CREAZIONE HTML RISULTATI
-        const advTotal = getAdviceAdvanced(totalShots, sprTotalMatch);
-        const advTotalH = getAdviceAdvanced(cH, sprTotalH);
-        const advTotalA = getAdviceAdvanced(cA, sprTotalA);
+        // STRUTTURAZIONE PREVISIONI (probabilita' reale + indice di qualita' del dato)
+        const advTotal = getAdviceAdvanced(totalShots, varTotalShots, Math.min(8, (formShotsH.n || 0) + (formShotsA.n || 0)) || 4, sprTotalMatch);
+        const advTotalH = getAdviceAdvanced(cH, varShotsH, formShotsH.n || 4, sprTotalH);
+        const advTotalA = getAdviceAdvanced(cA, varShotsA, formShotsA.n || 4, sprTotalA);
 
-        const advOT = getAdviceAdvanced(totalSOT, sprOTMatch);
-        const advOTH = getAdviceAdvanced(s_cH, sprOTH);
-        const advOTA = getAdviceAdvanced(s_cA, sprOTA);
+        const advOT = getAdviceAdvanced(totalSOT, varTotalSOT, Math.min(8, (formSotH.n || 0) + (formSotA.n || 0)) || 4, sprOTMatch);
+        const advOTH = getAdviceAdvanced(s_cH, varSotH, formSotH.n || 4, sprOTH);
+        const advOTA = getAdviceAdvanced(s_cA, varSotA, formSotA.n || 4, sprOTA);
 
-        const advCorn = getAdviceAdvanced(totalCorners, sprCornMatch);
-        const advCornH = getAdviceAdvanced(pCornH, sprCornH);
-        const advCornA = getAdviceAdvanced(pCornA, sprCornA);
+        const advCorn = getAdviceAdvanced(totalCorners, varTotalCorners, Math.min(8, (formCornH.n || 0) + (formCornA.n || 0)) || 4, sprCornMatch);
+        const advCornH = getAdviceAdvanced(pCornH, varCornH, formCornH.n || 4, sprCornH);
+        const advCornA = getAdviceAdvanced(pCornA, varCornA, formCornA.n || 4, sprCornA);
 
-        const advCards = getAdviceAdvanced(totalCards, sprCardsMatch);
-        const advCardsH = getAdviceAdvanced(pCardsH, sprCardsH);
-        const advCardsA = getAdviceAdvanced(pCardsA, sprCardsA);
+        const advCards = getAdviceAdvanced(totalCards, varTotalCards, Math.min(8, (formCardsH.n || 0) + (formCardsA.n || 0)) || 4, sprCardsMatch);
+        const advCardsH = getAdviceAdvanced(pCardsH, varCardsH, formCardsH.n || 4, sprCardsH);
+        const advCardsA = getAdviceAdvanced(pCardsA, varCardsA, formCardsA.n || 4, sprCardsA);
 
         let finalHTML = `
             <div class="result-card border-green">
@@ -810,9 +1073,9 @@ async function runDeepAnalysis() {
             const sprFoulsH = parseFloat(document.getElementById('sprFoulsH').value);
             const sprFoulsA = parseFloat(document.getElementById('sprFoulsA').value);
 
-            const advFouls = getAdviceAdvanced(totalFouls, sprFoulsMatch);
-            const advFoulsH = getAdviceAdvanced(pFoulsH, sprFoulsH);
-            const advFoulsA = getAdviceAdvanced(pFoulsA, sprFoulsA);
+            const advFouls = getAdviceAdvanced(totalFouls, varTotalFouls, Math.min(8, (formFoulsH.n || 0) + (formFoulsA.n || 0)) || 4, sprFoulsMatch);
+            const advFoulsH = getAdviceAdvanced(pFoulsH, varFoulsH, formFoulsH.n || 4, sprFoulsH);
+            const advFoulsA = getAdviceAdvanced(pFoulsA, varFoulsA, formFoulsA.n || 4, sprFoulsA);
 
             finalHTML += `
                 <div class="result-card border-red">
