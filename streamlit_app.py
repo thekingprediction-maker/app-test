@@ -312,6 +312,12 @@ const LEAGUE_DATA = {
 
 // Baseline di lega, usate SOLO come ancora per lo shrinkage bayesiano e come fallback
 // quando non ci sono abbastanza dati reali (mai come sostituto silenzioso dei dati veri).
+// STAGIONE API: durante le prime 3-4 giornate (dati insufficienti per tutte le squadre
+// nella stagione nuova) resta su 2025 (stagione precedente). Da settembre in poi, quando
+// ci saranno abbastanza partite giocate nella stagione 2025/26 per tutte le squadre
+// (incluse le neopromosse), cambiare SOLO questo numero in 2026.
+const SEASON = 2025;
+
 const LEAGUE_PRIORS = {
     7286: { shots: 12.2, sot: 4.2, corners: 5.0, cards: 2.2, fouls: 12.0 },
     7293: { shots: 11.2, sot: 4.0, corners: 4.8, cards: 1.6, fouls: 10.0 },
@@ -419,13 +425,13 @@ async function loadTeams() {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
 
-        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+        let res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=${SEASON}`, { headers: { "x-apisports-key": API_KEY } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let data = await res.json();
 
         if (!data.response || data.response.length === 0) {
             apiId = leagueInfo.oldId;
-            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=2025`, { headers: { "x-apisports-key": API_KEY } });
+            res = await fetch(`https://v3.football.api-sports.io/teams?league=${apiId}&season=${SEASON}`, { headers: { "x-apisports-key": API_KEY } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             data = await res.json();
         }
@@ -539,6 +545,17 @@ function shrinkEstimate(sampleMean, n, priorMean, k) {
     return sampleMean * w + priorMean * (1 - w);
 }
 
+// Legge un valore manuale opzionale dal CSV (es. per neopromosse prive di storico
+// nella lega/stagione corrente). Colonne attese nel CSV: TiriManual, TiriPortaManual.
+// Se la colonna manca o e' vuota per quella squadra, ritorna null e si ricade
+// sulla media di lega standard (comportamento invariato per tutte le altre squadre).
+function getManualValue(teamId, columnName) {
+    const row = dbXG.find(x => x.TeamID == teamId);
+    if (!row || row[columnName] == null || row[columnName].toString().trim() === '') return null;
+    const v = parseFloat(row[columnName].toString().replace(',', '.').trim());
+    return isNaN(v) ? null : v;
+}
+
 // Genera il markup del pronostico con probabilita' reale + indice di qualita' del dato
 function getAdviceAdvanced(mean, variance, n, spread) {
     const p = probOver(mean, variance, spread);
@@ -547,11 +564,18 @@ function getAdviceAdvanced(mean, variance, n, spread) {
     const displayConf = isOver ? confPct : 100 - confPct;
     const direction = isOver ? 'OVER' : 'UNDER';
 
-    const sampleScore = Math.min(1, (n || 1) / 8);
+    // n puo' legittimamente essere 0 (nessun dato reale trovato, es. neopromossa
+    // senza storico): va trattato come "zero campione", non confuso con "sconosciuto".
+    const realN = (n === null || n === undefined) ? 0 : n;
+    const sampleScore = Math.min(1, realN / 8);
     const distanceScore = Math.abs(displayConf - 50) / 50;
     const qualityIndex = (sampleScore * 0.55) + (distanceScore * 0.45);
 
     let precisionLabel = qualityIndex >= 0.7 ? 'ALTA' : qualityIndex >= 0.45 ? 'MEDIA' : 'BASE';
+    // Se non c'e' nessun dato reale dietro la stima (fallback su media di lega o
+    // valore manuale CSV), l'etichetta deve essere onesta: sempre BASE, indipendentemente
+    // da quanto la previsione si allontani dalla linea inserita.
+    if (realN === 0) precisionLabel = 'BASE';
 
     return {
         html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
@@ -591,7 +615,7 @@ function extractStat(statObj, label) {
 async function getTeamForm(teamId, apiId) {
     const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [], formFactor: 1.0 };
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=8`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=8`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return empty;
 
@@ -636,7 +660,7 @@ async function getTeamForm(teamId, apiId) {
 async function getVenueAverages(teamId, apiId, venue) {
     const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&league=${apiId}&last=15`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=15`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response) return empty;
 
@@ -669,7 +693,7 @@ async function getVenueAverages(teamId, apiId, venue) {
 // Momentum continuo basato su posizione relativa + differenza reti a partita (non piu' a soglie fisse)
 async function getStandingsMomentum(teamId, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/standings?season=2025&league=${apiId}&team=${teamId}`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/standings?season=${SEASON}&league=${apiId}&team=${teamId}`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return { position: 10, totalTeams: 20, momentum: 1.0 };
 
@@ -760,16 +784,16 @@ async function runDeepAnalysis() {
 
         try {
             const statsRes = await Promise.all([
-                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
-                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=${SEASON}&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=${SEASON}&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
             ]);
             statsH = statsRes[0]; statsA = statsRes[1];
             if (!statsH.response || !statsA.response) throw new Error("empty");
         } catch (e) {
             apiId = leagueInfo.oldId;
             const statsRes = await Promise.all([
-                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
-                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=2025&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=${SEASON}&team=${idH}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+                fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=${SEASON}&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
             ]);
             statsH = statsRes[0]; statsA = statsRes[1];
         }
@@ -810,14 +834,24 @@ async function runDeepAnalysis() {
             { mean: formShotsH.mean, n: formShotsH.n, priorWeight: 1.1 },
             { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.3 }
         ]);
-        if (cH == null) cH = priors.shots * leagueInfo.homeAdv;
+        // Nessun dato reale trovato (tipico di una neopromossa priva di storico in
+        // questa lega/stagione): prima si prova il valore manuale dal CSV
+        // (colonna "TiriManual", curato a mano), poi solo come ultima spiaggia
+        // la media generica di lega.
+        if (cH == null) {
+            const manualH = getManualValue(idH, 'TiriManual');
+            cH = manualH != null ? manualH : priors.shots * leagueInfo.homeAdv;
+        }
 
         let cA = combineEstimates([
             { mean: seasonShotsA, n: nSeasonA, priorWeight: 0.7 },
             { mean: formShotsA.mean, n: formShotsA.n, priorWeight: 1.1 },
             { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.3 }
         ]);
-        if (cA == null) cA = priors.shots;
+        if (cA == null) {
+            const manualA = getManualValue(idA, 'TiriManual');
+            cA = manualA != null ? manualA : priors.shots;
+        }
 
         const xgFactorH = 0.75 + (xGH / bench) * 0.25;
         const xgFactorA = 0.75 + (xGA / bench) * 0.25;
@@ -847,14 +881,20 @@ async function runDeepAnalysis() {
             { mean: formSotH.mean, n: formSotH.n, priorWeight: 1.1 },
             { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.3 }
         ]);
-        if (s_cH == null) s_cH = cH * 0.34;
+        if (s_cH == null) {
+            const manualSotH = getManualValue(idH, 'TiriPortaManual');
+            s_cH = manualSotH != null ? manualSotH : cH * 0.34;
+        }
 
         let s_cA = combineEstimates([
             { mean: seasonSotA, n: nSeasonA, priorWeight: 0.7 },
             { mean: formSotA.mean, n: formSotA.n, priorWeight: 1.1 },
             { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.3 }
         ]);
-        if (s_cA == null) s_cA = cA * 0.34;
+        if (s_cA == null) {
+            const manualSotA = getManualValue(idA, 'TiriPortaManual');
+            s_cA = manualSotA != null ? manualSotA : cA * 0.34;
+        }
 
         s_cH = s_cH * formH.formFactor * momentumH;
         s_cA = s_cA * formA.formFactor * momentumA;
@@ -1003,21 +1043,21 @@ async function runDeepAnalysis() {
         const sprCardsA = parseFloat(document.getElementById('sprCardsA').value);
 
         // STRUTTURAZIONE PREVISIONI (probabilita' reale + indice di qualita' del dato)
-        const advTotal = getAdviceAdvanced(totalShots, varTotalShots, Math.min(8, (formShotsH.n || 0) + (formShotsA.n || 0)) || 4, sprTotalMatch);
-        const advTotalH = getAdviceAdvanced(cH, varShotsH, formShotsH.n || 4, sprTotalH);
-        const advTotalA = getAdviceAdvanced(cA, varShotsA, formShotsA.n || 4, sprTotalA);
+        const advTotal = getAdviceAdvanced(totalShots, varTotalShots, Math.min(8, (formShotsH.n || 0) + (formShotsA.n || 0)), sprTotalMatch);
+        const advTotalH = getAdviceAdvanced(cH, varShotsH, formShotsH.n, sprTotalH);
+        const advTotalA = getAdviceAdvanced(cA, varShotsA, formShotsA.n, sprTotalA);
 
-        const advOT = getAdviceAdvanced(totalSOT, varTotalSOT, Math.min(8, (formSotH.n || 0) + (formSotA.n || 0)) || 4, sprOTMatch);
-        const advOTH = getAdviceAdvanced(s_cH, varSotH, formSotH.n || 4, sprOTH);
-        const advOTA = getAdviceAdvanced(s_cA, varSotA, formSotA.n || 4, sprOTA);
+        const advOT = getAdviceAdvanced(totalSOT, varTotalSOT, Math.min(8, (formSotH.n || 0) + (formSotA.n || 0)), sprOTMatch);
+        const advOTH = getAdviceAdvanced(s_cH, varSotH, formSotH.n, sprOTH);
+        const advOTA = getAdviceAdvanced(s_cA, varSotA, formSotA.n, sprOTA);
 
-        const advCorn = getAdviceAdvanced(totalCorners, varTotalCorners, Math.min(8, (formCornH.n || 0) + (formCornA.n || 0)) || 4, sprCornMatch);
-        const advCornH = getAdviceAdvanced(pCornH, varCornH, formCornH.n || 4, sprCornH);
-        const advCornA = getAdviceAdvanced(pCornA, varCornA, formCornA.n || 4, sprCornA);
+        const advCorn = getAdviceAdvanced(totalCorners, varTotalCorners, Math.min(8, (formCornH.n || 0) + (formCornA.n || 0)), sprCornMatch);
+        const advCornH = getAdviceAdvanced(pCornH, varCornH, formCornH.n, sprCornH);
+        const advCornA = getAdviceAdvanced(pCornA, varCornA, formCornA.n, sprCornA);
 
-        const advCards = getAdviceAdvanced(totalCards, varTotalCards, Math.min(8, (formCardsH.n || 0) + (formCardsA.n || 0)) || 4, sprCardsMatch);
-        const advCardsH = getAdviceAdvanced(pCardsH, varCardsH, formCardsH.n || 4, sprCardsH);
-        const advCardsA = getAdviceAdvanced(pCardsA, varCardsA, formCardsA.n || 4, sprCardsA);
+        const advCards = getAdviceAdvanced(totalCards, varTotalCards, Math.min(8, (formCardsH.n || 0) + (formCardsA.n || 0)), sprCardsMatch);
+        const advCardsH = getAdviceAdvanced(pCardsH, varCardsH, formCardsH.n, sprCardsH);
+        const advCardsA = getAdviceAdvanced(pCardsA, varCardsA, formCardsA.n, sprCardsA);
 
         let finalHTML = `
             <div class="result-card border-green">
@@ -1073,9 +1113,9 @@ async function runDeepAnalysis() {
             const sprFoulsH = parseFloat(document.getElementById('sprFoulsH').value);
             const sprFoulsA = parseFloat(document.getElementById('sprFoulsA').value);
 
-            const advFouls = getAdviceAdvanced(totalFouls, varTotalFouls, Math.min(8, (formFoulsH.n || 0) + (formFoulsA.n || 0)) || 4, sprFoulsMatch);
-            const advFoulsH = getAdviceAdvanced(pFoulsH, varFoulsH, formFoulsH.n || 4, sprFoulsH);
-            const advFoulsA = getAdviceAdvanced(pFoulsA, varFoulsA, formFoulsA.n || 4, sprFoulsA);
+            const advFouls = getAdviceAdvanced(totalFouls, varTotalFouls, Math.min(8, (formFoulsH.n || 0) + (formFoulsA.n || 0)), sprFoulsMatch);
+            const advFoulsH = getAdviceAdvanced(pFoulsH, varFoulsH, formFoulsH.n, sprFoulsH);
+            const advFoulsA = getAdviceAdvanced(pFoulsA, varFoulsA, formFoulsA.n, sprFoulsA);
 
             finalHTML += `
                 <div class="result-card border-red">
