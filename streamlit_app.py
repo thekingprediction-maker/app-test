@@ -786,7 +786,7 @@ async function getTeamForm(teamId, apiId) {
     const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], formFactor: 1.0 };
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=8`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=5`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return empty;
 
@@ -847,14 +847,14 @@ async function getVenueAverages(teamId, apiId, venue) {
     const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], n: 0 };
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=15`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=10`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response) return empty;
 
         const isHomeVenue = venue === 'home';
         const filtered = data.response
             .filter(f => isHomeVenue ? f.teams.home.id == teamId : f.teams.away.id == teamId)
-            .slice(0, 6);
+            .slice(0, 4);
         if (filtered.length === 0) return empty;
 
         const statsResults = await Promise.all(filtered.map(fx => getFixtureStatistics(fx.fixture.id)));
@@ -913,7 +913,7 @@ async function getStandingsMomentum(teamId, apiId) {
 // H2H: ultimi 5 precedenti, pesati per recency, con piu' metriche raccolte
 async function getFixturesH2H(teamIdH, teamIdA, apiId) {
     try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=5`, { headers: { "x-apisports-key": API_KEY } });
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures/headtohead?h2h=${teamIdH}-${teamIdA}&last=3`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
         if (!data.response || data.response.length === 0) return null;
 
@@ -989,7 +989,9 @@ async function runDeepAnalysis() {
                 fetch(`https://v3.football.api-sports.io/teams/statistics?league=${apiId}&season=${SEASON}&team=${idA}`, {headers:{"x-apisports-key":API_KEY}}).then(r=>r.json())
             ]);
             statsH = statsRes[0]; statsA = statsRes[1];
-            if (!statsH.response || !statsA.response) throw new Error("empty");
+            const isEmptyH = !statsH.response || (Array.isArray(statsH.response) && statsH.response.length === 0);
+            const isEmptyA = !statsA.response || (Array.isArray(statsA.response) && statsA.response.length === 0);
+            if (isEmptyH || isEmptyA) throw new Error("empty");
         } catch (e) {
             apiId = leagueInfo.oldId;
             const statsRes = await Promise.all([
