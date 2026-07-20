@@ -654,6 +654,24 @@ function getManualValue(teamId, columnName) {
     return isNaN(v) ? null : v;
 }
 
+// L'endpoint teams/statistics NON fornisce una media diretta di cartellini a partita:
+// li restituisce divisi per fascia oraria (0-15, 16-30, ... 91-105). Per ottenere una
+// vera media stagionale bisogna sommare tutte le fasce e dividere per le partite giocate.
+// Confermato dalla risposta reale dell'API (test del 20/07/2026): shots, corners e fouls
+// NON esistono affatto in questo endpoint, quindi per quelle tre metriche non esiste una
+// fonte stagionale utilizzabile qui - il modello si affida a quelle prese da "fixtures"
+// (forma, casa/trasferta, H2H), gia' confermate corrette e gia' pesate maggiormente.
+function sumSeasonCardBuckets(cardsYellowObj, played) {
+    if (!cardsYellowObj || !played) return null;
+    const buckets = ['0-15', '16-30', '31-45', '46-60', '61-75', '76-90', '91-105', '106-120'];
+    let sum = 0, any = false;
+    buckets.forEach(b => {
+        const v = cardsYellowObj[b] && cardsYellowObj[b].total;
+        if (v != null) { sum += v; any = true; }
+    });
+    return any ? (sum / played) : null;
+}
+
 // Rapporto varianza/media tipico per ciascuna metrica (sovradispersione attesa in dati
 // calcistici reali). I cartellini e i falli sono decisioni discrete e dipendenti
 // dall'arbitro (piu' "a scatti"), quindi tendono ad avere una dispersione maggiore
@@ -737,10 +755,33 @@ function extractStat(statObj, label) {
     return isNaN(v) ? null : v;
 }
 
+// Recupera le statistiche dettagliate (tiri, cartellini, corner, falli) di UNA singola
+// partita gia' giocata. CONFERMATO con una chiamata reale il 20/07/2026: l'endpoint
+// /fixtures in blocco (quando si chiede "le ultime N partite di una squadra") NON include
+// queste statistiche, vanno richieste separatamente partita per partita con questo endpoint.
+async function getFixtureStatistics(fixtureId) {
+    try {
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`, { headers: { "x-apisports-key": API_KEY } });
+        const data = await res.json();
+        if (!data.response || data.response.length < 2) return null;
+        return data.response; // [{team:{id,...}, statistics:[...]}, {team:{id,...}, statistics:[...]}]
+    } catch (e) { return null; }
+}
+
+// Dentro le statistiche di una partita (2 blocchi, uno per squadra), separa il blocco
+// della squadra richiesta ("own") da quello dell'avversario ("opp": quello che concede).
+function splitStatsByTeam(statsArray, teamId) {
+    if (!statsArray) return { own: null, opp: null };
+    const own = statsArray.find(s => s.team && s.team.id == teamId) || null;
+    const opp = statsArray.find(s => s.team && s.team.id != teamId) || null;
+    return { own, opp };
+}
+
 // Forma recente: ultime 8 partite, raccoglie array di statistiche per stimare media+varianza reali.
 // Raccoglie sia i dati "fatti" (quello che la squadra produce) sia i dati "subiti" (quello che
 // concede), leggendo il blocco statistiche dell'avversario nella stessa partita - stessa logica
-// del tuo vecchio foglio manuale con colonne "Fatti"/"Subiti".
+// del tuo vecchio foglio manuale con colonne "Fatti"/"Subiti". Le statistiche vengono richieste
+// con una chiamata dedicata per ogni partita (vedi getFixtureStatistics), eseguite in parallelo.
 async function getTeamForm(teamId, apiId) {
     const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], formFactor: 1.0 };
@@ -750,35 +791,37 @@ async function getTeamForm(teamId, apiId) {
         if (!data.response || data.response.length === 0) return empty;
 
         const fixtures = data.response.slice().reverse(); // vecchio -> recente per pesatura
+        const statsResults = await Promise.all(fixtures.map(fx => getFixtureStatistics(fx.fixture.id)));
+
         let results = [], shots = [], sot = [], corners = [], cards = [], fouls = [];
         let concededShots = [], concededSot = [], concededCorners = [];
 
-        fixtures.forEach(fixture => {
+        fixtures.forEach((fixture, idx) => {
             const isHome = fixture.teams.home.id == teamId;
             const teamSide = isHome ? fixture.teams.home : fixture.teams.away;
             if (teamSide.winner === true) results.push('W');
             else if (teamSide.winner === false) results.push('L');
             else results.push('D');
 
-            if (fixture.statistics && fixture.statistics.length > 0) {
-                const teamStats = isHome ? fixture.statistics[0] : fixture.statistics[1];
-                const oppStats = isHome ? fixture.statistics[1] : fixture.statistics[0];
-                const totShots = extractStat(teamStats, 'Total Shots');
-                const onGoal = extractStat(teamStats, 'Shots on Goal');
-                const corn = extractStat(teamStats, 'Corner Kicks');
-                const yellow = extractStat(teamStats, 'Yellow Cards');
-                const foulsCommitted = extractStat(teamStats, 'Fouls');
+            const { own, opp } = splitStatsByTeam(statsResults[idx], teamId);
+            if (own) {
+                const totShots = extractStat(own, 'Total Shots');
+                const onGoal = extractStat(own, 'Shots on Goal');
+                const corn = extractStat(own, 'Corner Kicks');
+                const yellow = extractStat(own, 'Yellow Cards');
+                const foulsCommitted = extractStat(own, 'Fouls');
                 if (totShots != null) shots.push(totShots);
                 if (onGoal != null) sot.push(onGoal);
                 if (corn != null) corners.push(corn);
                 if (yellow != null) cards.push(yellow);
                 if (foulsCommitted != null) fouls.push(foulsCommitted);
-
+            }
+            if (opp) {
                 // "Subiti": quello che l'avversario ha prodotto in questa partita = quello che
                 // la squadra in esame ha concesso.
-                const concShots = extractStat(oppStats, 'Total Shots');
-                const concSot = extractStat(oppStats, 'Shots on Goal');
-                const concCorn = extractStat(oppStats, 'Corner Kicks');
+                const concShots = extractStat(opp, 'Total Shots');
+                const concSot = extractStat(opp, 'Shots on Goal');
+                const concCorn = extractStat(opp, 'Corner Kicks');
                 if (concShots != null) concededShots.push(concShots);
                 if (concSot != null) concededSot.push(concSot);
                 if (concCorn != null) concededCorners.push(concCorn);
@@ -814,26 +857,28 @@ async function getVenueAverages(teamId, apiId, venue) {
             .slice(0, 6);
         if (filtered.length === 0) return empty;
 
+        const statsResults = await Promise.all(filtered.map(fx => getFixtureStatistics(fx.fixture.id)));
+
         let shots = [], sot = [], corners = [], cards = [], fouls = [];
         let concededShots = [], concededSot = [], concededCorners = [];
-        filtered.forEach(fixture => {
-            if (fixture.statistics && fixture.statistics.length > 0) {
-                const teamStats = isHomeVenue ? fixture.statistics[0] : fixture.statistics[1];
-                const oppStats = isHomeVenue ? fixture.statistics[1] : fixture.statistics[0];
-                const totShots = extractStat(teamStats, 'Total Shots');
-                const onGoal = extractStat(teamStats, 'Shots on Goal');
-                const corn = extractStat(teamStats, 'Corner Kicks');
-                const yellow = extractStat(teamStats, 'Yellow Cards');
-                const foulsCommitted = extractStat(teamStats, 'Fouls');
+        filtered.forEach((fixture, idx) => {
+            const { own, opp } = splitStatsByTeam(statsResults[idx], teamId);
+            if (own) {
+                const totShots = extractStat(own, 'Total Shots');
+                const onGoal = extractStat(own, 'Shots on Goal');
+                const corn = extractStat(own, 'Corner Kicks');
+                const yellow = extractStat(own, 'Yellow Cards');
+                const foulsCommitted = extractStat(own, 'Fouls');
                 if (totShots != null) shots.push(totShots);
                 if (onGoal != null) sot.push(onGoal);
                 if (corn != null) corners.push(corn);
                 if (yellow != null) cards.push(yellow);
                 if (foulsCommitted != null) fouls.push(foulsCommitted);
-
-                const concShots = extractStat(oppStats, 'Total Shots');
-                const concSot = extractStat(oppStats, 'Shots on Goal');
-                const concCorn = extractStat(oppStats, 'Corner Kicks');
+            }
+            if (opp) {
+                const concShots = extractStat(opp, 'Total Shots');
+                const concSot = extractStat(opp, 'Shots on Goal');
+                const concCorn = extractStat(opp, 'Corner Kicks');
                 if (concShots != null) concededShots.push(concShots);
                 if (concSot != null) concededSot.push(concSot);
                 if (concCorn != null) concededCorners.push(concCorn);
@@ -873,14 +918,17 @@ async function getFixturesH2H(teamIdH, teamIdA, apiId) {
         if (!data.response || data.response.length === 0) return null;
 
         const fixtures = data.response.slice().reverse();
+        const statsResults = await Promise.all(fixtures.map(fx => getFixtureStatistics(fx.fixture.id)));
+
         let wSum = 0, count = 0;
         let acc = { shotsH: 0, shotsA: 0, sotH: 0, sotA: 0, corners: 0, cards: 0, fouls: 0 };
 
         fixtures.forEach((fixture, i) => {
             const weight = Math.pow(1.15, i);
-            if (fixture.statistics && fixture.statistics.length > 0) {
-                const homeStats = fixture.statistics[0];
-                const awayStats = fixture.statistics[1];
+            const stats = statsResults[i];
+            if (stats && stats.length >= 2) {
+                const homeStats = splitStatsByTeam(stats, fixture.teams.home.id).own;
+                const awayStats = splitStatsByTeam(stats, fixture.teams.away.id).own;
                 const tsH = extractStat(homeStats, 'Total Shots');
                 const tsA = extractStat(awayStats, 'Total Shots');
                 const sgH = extractStat(homeStats, 'Shots on Goal');
@@ -978,8 +1026,9 @@ async function runDeepAnalysis() {
         // Modello attacco/difesa: quanti tiri fara' una squadra dipende sia da quanto
         // attacca lei, sia da quanto concede l'avversaria (stessa logica delle colonne
         // "Fatti"/"Subiti" del vecchio foglio manuale, ora automatizzata dall'API).
-        const seasonShotsH = parseFloat(sH?.shots?.total?.average) || null;
-        const seasonShotsA = parseFloat(sA?.shots?.total?.average) || null;
+        // NOTA: teams/statistics NON contiene dati sui tiri (confermato con una chiamata
+        // reale il 20/07/2026) quindi questa metrica dipende SOLO dalle statistiche
+        // ricavate dalle singole partite (forma recente + casa/trasferta + H2H).
         const formShotsH = weightedStats(formH.shots);
         const formShotsA = weightedStats(formA.shots);
         const venueShotsH = weightedStats(venueH.shots);
@@ -991,7 +1040,6 @@ async function runDeepAnalysis() {
         const venueConcShotsA = weightedStats(venueA.concededShots); // quanto concede A in trasferta (serve per cH)
 
         let cH = combineEstimates([
-            { mean: seasonShotsH, n: nSeasonH, priorWeight: 0.55 },
             { mean: formShotsH.mean, n: formShotsH.n, priorWeight: 0.9 },
             { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.1 },
             { mean: formConcShotsA.mean, n: formConcShotsA.n, priorWeight: 0.7 },
@@ -1007,7 +1055,6 @@ async function runDeepAnalysis() {
         }
 
         let cA = combineEstimates([
-            { mean: seasonShotsA, n: nSeasonA, priorWeight: 0.55 },
             { mean: formShotsA.mean, n: formShotsA.n, priorWeight: 0.9 },
             { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.1 },
             { mean: formConcShotsH.mean, n: formConcShotsH.n, priorWeight: 0.7 },
@@ -1038,8 +1085,6 @@ async function runDeepAnalysis() {
         // ---------------- TIRI IN PORTA ----------------
         // Stesso modello attacco/difesa dei tiri totali (il vecchio foglio manuale
         // tracciava "Tiri in porta Fatti" E "Tiri in porta Subiti" separatamente).
-        const seasonSotH = parseFloat(sH?.shots?.on_goal?.average) || null;
-        const seasonSotA = parseFloat(sA?.shots?.on_goal?.average) || null;
         const formSotH = weightedStats(formH.sot);
         const formSotA = weightedStats(formA.sot);
         const venueSotH = weightedStats(venueH.sot);
@@ -1050,7 +1095,6 @@ async function runDeepAnalysis() {
         const venueConcSotA = weightedStats(venueA.concededSot);
 
         let s_cH = combineEstimates([
-            { mean: seasonSotH, n: nSeasonH, priorWeight: 0.55 },
             { mean: formSotH.mean, n: formSotH.n, priorWeight: 0.9 },
             { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.1 },
             { mean: formConcSotA.mean, n: formConcSotA.n, priorWeight: 0.7 },
@@ -1062,7 +1106,6 @@ async function runDeepAnalysis() {
         }
 
         let s_cA = combineEstimates([
-            { mean: seasonSotA, n: nSeasonA, priorWeight: 0.55 },
             { mean: formSotA.mean, n: formSotA.n, priorWeight: 0.9 },
             { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.1 },
             { mean: formConcSotH.mean, n: formConcSotH.n, priorWeight: 0.7 },
@@ -1094,8 +1137,6 @@ async function runDeepAnalysis() {
         // ---------------- CORNER ----------------
         // Stesso modello attacco/difesa: quanti corner conquista H dipende anche da
         // quanti ne concede A (squadre che schiacciano/si difendono basso ne concedono di piu').
-        const seasonCornH = parseFloat(sH?.corners?.average) || null;
-        const seasonCornA = parseFloat(sA?.corners?.average) || null;
         const formCornH = weightedStats(formH.corners);
         const formCornA = weightedStats(formA.corners);
         const venueCornH = weightedStats(venueH.corners);
@@ -1106,7 +1147,6 @@ async function runDeepAnalysis() {
         const venueConcCornA = weightedStats(venueA.concededCorners);
 
         let pCornH = combineEstimates([
-            { mean: seasonCornH, n: nSeasonH, priorWeight: 0.55 },
             { mean: formCornH.mean, n: formCornH.n, priorWeight: 0.9 },
             { mean: venueCornH.mean, n: venueCornH.n, priorWeight: 1.1 },
             { mean: formConcCornA.mean, n: formConcCornA.n, priorWeight: 0.7 },
@@ -1115,7 +1155,6 @@ async function runDeepAnalysis() {
         if (pCornH == null) pCornH = priors.corners * leagueInfo.homeAdv;
 
         let pCornA = combineEstimates([
-            { mean: seasonCornA, n: nSeasonA, priorWeight: 0.55 },
             { mean: formCornA.mean, n: formCornA.n, priorWeight: 0.9 },
             { mean: venueCornA.mean, n: venueCornA.n, priorWeight: 1.1 },
             { mean: formConcCornH.mean, n: formConcCornH.n, priorWeight: 0.7 },
@@ -1139,8 +1178,8 @@ async function runDeepAnalysis() {
         const varTotalCorners = combinedVariance(varCornH, varCornA);
 
         // ---------------- CARTELLINI ----------------
-        const seasonCardsH = parseFloat(sH?.cards?.yellow?.average) || null;
-        const seasonCardsA = parseFloat(sA?.cards?.yellow?.average) || null;
+        const seasonCardsH = sumSeasonCardBuckets(sH?.cards?.yellow, nSeasonH); // dato REALE, ricostruito dalle fasce orarie
+        const seasonCardsA = sumSeasonCardBuckets(sA?.cards?.yellow, nSeasonA);
         const formCardsH = weightedStats(formH.cards);
         const formCardsA = weightedStats(formA.cards);
 
@@ -1183,19 +1222,15 @@ async function runDeepAnalysis() {
         let totalFouls = 0, pFoulsH = 0, pFoulsA = 0, varTotalFouls = 1, varFoulsH = 1, varFoulsA = 1;
         let formFoulsH = { n: 0 }, formFoulsA = { n: 0 };
         if (currentLeague === 7286) {
-            const seasonFoulsH = parseFloat(sH?.fouls?.committed?.average) || null;
-            const seasonFoulsA = parseFloat(sA?.fouls?.committed?.average) || null;
             formFoulsH = weightedStats(formH.fouls);
             formFoulsA = weightedStats(formA.fouls);
 
             let baseFoulsH = combineEstimates([
-                { mean: seasonFoulsH, n: nSeasonH, priorWeight: 0.8 },
                 { mean: formFoulsH.mean, n: formFoulsH.n, priorWeight: 1.0 }
             ]);
             baseFoulsH = shrinkEstimate(baseFoulsH, (formFoulsH.n || 0) + nSeasonH, priors.fouls, 5);
 
             let baseFoulsA = combineEstimates([
-                { mean: seasonFoulsA, n: nSeasonA, priorWeight: 0.8 },
                 { mean: formFoulsA.mean, n: formFoulsA.n, priorWeight: 1.0 }
             ]);
             baseFoulsA = shrinkEstimate(baseFoulsA, (formFoulsA.n || 0) + nSeasonA, priors.fouls, 5);
