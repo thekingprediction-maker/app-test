@@ -506,11 +506,109 @@ function normalCDF(x, mean, sd) {
     return 0.5 * (1 + erf((x - mean) / (sd * Math.sqrt(2))));
 }
 
-// Probabilita' reale che il valore superi una linea (tipicamente X.5)
+/* ---- Motore di probabilita' per dati di conteggio (Poisson / Binomiale Negativa) ----
+   Tiri, corner, cartellini e falli sono conteggi non-negativi, spesso asimmetrici a media
+   bassa: una Normale simmetrica li approssima male, specialmente su linee estreme.
+   Poisson/Binomiale Negativa sono lo standard corretto per questo tipo di dato
+   (lo stesso approccio usato nei modelli quantitativi di analisi sportiva professionali). */
+
+// Log-gamma (approssimazione di Lanczos), serve per la funzione beta incompleta
+function logGamma(x) {
+    const g = 7;
+    const c = [
+        0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+        771.32342877765313, -176.61502916214059, 12.507343278686905,
+        -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7
+    ];
+    if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
+    x -= 1;
+    let a = c[0];
+    const t = x + g + 0.5;
+    for (let i = 1; i < g + 2; i++) a += c[i] / (x + i);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+
+// Frazione continua per la funzione beta incompleta (metodo standard, Numerical Recipes)
+function betacf(x, a, b) {
+    const MAXIT = 200, EPS = 3e-9, FPMIN = 1e-30;
+    const qab = a + b, qap = a + 1, qam = a - 1;
+    let c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d;
+    let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+        const m2 = 2 * m;
+        let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+        d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+        c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+        d = 1 / d;
+        h *= d * c;
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+        d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+        c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+        d = 1 / d;
+        const del = d * c;
+        h *= del;
+        if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+}
+
+// Funzione beta incompleta regolarizzata I_x(a,b)
+function regularizedIncompleteBeta(x, a, b) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    if (x < (a + 1) / (a + b + 2)) return bt * betacf(x, a, b) / a;
+    return 1 - bt * betacf(1 - x, b, a) / b;
+}
+
+// CDF di Poisson: P(X <= k), calcolata per somma diretta della PMF (efficiente per i conteggi tipici del calcio)
+function poissonCDF(k, lambda) {
+    if (lambda <= 0) return 1;
+    if (k < 0) return 0;
+    let term = Math.exp(-lambda);
+    let sum = term;
+    for (let i = 1; i <= k; i++) {
+        term *= lambda / i;
+        sum += term;
+    }
+    return Math.min(sum, 1);
+}
+
+// CDF della Binomiale Negativa (parametrizzata per media e varianza, metodo dei momenti):
+// P(X <= k) = I_p(r, k+1), valida solo quando varianza > media (sovradispersione)
+function negBinomCDF(k, mu, varr) {
+    if (k < 0) return 0;
+    if (varr <= mu) return null;
+    const r = (mu * mu) / (varr - mu);
+    const p = r / (r + mu);
+    return regularizedIncompleteBeta(p, r, k + 1);
+}
+
+// Probabilita' che il conteggio superi una linea (tipicamente X.5): usa Binomiale Negativa
+// se c'e' sovradispersione reale nei dati, altrimenti Poisson. Una dispersione minima
+// (varianza = media*1.2) viene imposta quando il dato osservato non e' sufficiente,
+// perche' in pratica quasi tutte le statistiche calcistiche sono leggermente sovradisperse.
 function probOver(mean, variance, line) {
-    if (mean == null || isNaN(mean)) return 0.5;
-    const sd = Math.sqrt(Math.max(variance || 0, mean * 0.5, 0.3));
-    return 1 - normalCDF(line, mean, sd);
+    if (mean == null || isNaN(mean) || mean <= 0) return 0.5;
+    const k = Math.floor(line);
+    let varr = variance;
+    if (!varr || varr < mean * 1.05) varr = mean * 1.2;
+    const cdf = varr > mean ? negBinomCDF(k, mean, varr) : poissonCDF(k, mean);
+    return Math.max(0, Math.min(1, 1 - cdf));
+}
+
+// Correlazione di "ritmo di gioco" tra le prestazioni delle due squadre nella stessa partita:
+// una gara aperta produce piu' tiri, piu' corner e piu' cartellini per ENTRAMBE le squadre
+// insieme, quindi sommare le varianze come se fossero indipendenti sottostima l'incertezza
+// reale. Il coefficiente 0.20 e' una stima ragionevole non calibrata su dati storici (nessuno
+// storico verificato esiste ancora); va considerato un miglioramento qualitativo, non un
+// numero misurato.
+const RHO_GAME_PACE = 0.20;
+function combinedVariance(varH, varA) {
+    const vH = Math.max(varH || 0, 0), vA = Math.max(varA || 0, 0);
+    return vH + vA + 2 * RHO_GAME_PACE * Math.sqrt(vH * vA);
 }
 
 // Media e varianza pesate per recency su un array di valori (ordine: vecchio -> recente)
@@ -554,6 +652,34 @@ function getManualValue(teamId, columnName) {
     if (!row || row[columnName] == null || row[columnName].toString().trim() === '') return null;
     const v = parseFloat(row[columnName].toString().replace(',', '.').trim());
     return isNaN(v) ? null : v;
+}
+
+// Rapporto varianza/media tipico per ciascuna metrica (sovradispersione attesa in dati
+// calcistici reali). I cartellini e i falli sono decisioni discrete e dipendenti
+// dall'arbitro (piu' "a scatti"), quindi tendono ad avere una dispersione maggiore
+// rispetto ai tiri. Questi rapporti sono stime ragionevoli di letteratura di analisi
+// sportiva, NON calibrate sui tuoi dati specifici (nessuno storico verificato esiste
+// ancora per questa app).
+const DISPERSION_RATIO = { shots: 1.20, sot: 1.15, corners: 1.30, cards: 1.60, fouls: 1.40 };
+
+// Sfuma gradualmente la varianza osservata verso una varianza "attesa" (media * rapporto
+// di sovradispersione tipico), invece di un taglio netto (Math.max). Piu' partite reali
+// si hanno (n alto), piu' ci si fida della varianza osservata; con pochi dati si resta
+// vicini al rapporto tipico di mercato per quella metrica.
+function blendVariance(empiricalVar, n, mean, metricKey, k) {
+    const priorVar = Math.max(mean, 0.1) * (DISPERSION_RATIO[metricKey] || 1.25);
+    if (empiricalVar == null || isNaN(empiricalVar) || !n || n < 2) return priorVar;
+    const w = n / (n + (k || 4));
+    return empiricalVar * w + priorVar * (1 - w);
+}
+
+// Limita un valore in un intervallo di plausibilita' realistica per il calcio professionistico.
+// Serve solo come rete di sicurezza numerica: con campioni piccoli, una catena di fattori
+// moltiplicativi (xG x forma x momentum x H2H) puo' in teoria comporsi verso valori assurdi.
+// Non cambia la logica di stima, taglia solo gli estremi statisticamente implausibili.
+function clip(value, lo, hi) {
+    if (value == null || isNaN(value)) return value;
+    return Math.max(lo, Math.min(hi, value));
 }
 
 // Genera il markup del pronostico con probabilita' reale + indice di qualita' del dato
@@ -611,9 +737,13 @@ function extractStat(statObj, label) {
     return isNaN(v) ? null : v;
 }
 
-// Forma recente: ultime 8 partite, raccoglie array di statistiche per stimare media+varianza reali
+// Forma recente: ultime 8 partite, raccoglie array di statistiche per stimare media+varianza reali.
+// Raccoglie sia i dati "fatti" (quello che la squadra produce) sia i dati "subiti" (quello che
+// concede), leggendo il blocco statistiche dell'avversario nella stessa partita - stessa logica
+// del tuo vecchio foglio manuale con colonne "Fatti"/"Subiti".
 async function getTeamForm(teamId, apiId) {
-    const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [], formFactor: 1.0 };
+    const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [],
+                     concededShots: [], concededSot: [], concededCorners: [], formFactor: 1.0 };
     try {
         const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=8`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
@@ -621,6 +751,7 @@ async function getTeamForm(teamId, apiId) {
 
         const fixtures = data.response.slice().reverse(); // vecchio -> recente per pesatura
         let results = [], shots = [], sot = [], corners = [], cards = [], fouls = [];
+        let concededShots = [], concededSot = [], concededCorners = [];
 
         fixtures.forEach(fixture => {
             const isHome = fixture.teams.home.id == teamId;
@@ -631,6 +762,7 @@ async function getTeamForm(teamId, apiId) {
 
             if (fixture.statistics && fixture.statistics.length > 0) {
                 const teamStats = isHome ? fixture.statistics[0] : fixture.statistics[1];
+                const oppStats = isHome ? fixture.statistics[1] : fixture.statistics[0];
                 const totShots = extractStat(teamStats, 'Total Shots');
                 const onGoal = extractStat(teamStats, 'Shots on Goal');
                 const corn = extractStat(teamStats, 'Corner Kicks');
@@ -641,6 +773,15 @@ async function getTeamForm(teamId, apiId) {
                 if (corn != null) corners.push(corn);
                 if (yellow != null) cards.push(yellow);
                 if (foulsCommitted != null) fouls.push(foulsCommitted);
+
+                // "Subiti": quello che l'avversario ha prodotto in questa partita = quello che
+                // la squadra in esame ha concesso.
+                const concShots = extractStat(oppStats, 'Total Shots');
+                const concSot = extractStat(oppStats, 'Shots on Goal');
+                const concCorn = extractStat(oppStats, 'Corner Kicks');
+                if (concShots != null) concededShots.push(concShots);
+                if (concSot != null) concededSot.push(concSot);
+                if (concCorn != null) concededCorners.push(concCorn);
             }
         });
 
@@ -652,13 +793,16 @@ async function getTeamForm(teamId, apiId) {
         });
         formFactor = Math.max(0.90, Math.min(1.10, formFactor));
 
-        return { results, shots, sot, corners, cards, fouls, formFactor };
+        return { results, shots, sot, corners, cards, fouls, concededShots, concededSot, concededCorners, formFactor };
     } catch (e) { return empty; }
 }
 
-// Rendimento specifico per ruolo (casa o trasferta), separato dalla forma generale
+// Rendimento specifico per ruolo (casa o trasferta), separato dalla forma generale.
+// Raccoglie anche i dati "subiti" per quel ruolo specifico (es. quanti tiri concede
+// una squadra quando gioca in trasferta).
 async function getVenueAverages(teamId, apiId, venue) {
-    const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
+    const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [],
+                     concededShots: [], concededSot: [], concededCorners: [], n: 0 };
     try {
         const res = await fetch(`https://v3.football.api-sports.io/fixtures?team=${teamId}&season=${SEASON}&league=${apiId}&last=15`, { headers: { "x-apisports-key": API_KEY } });
         const data = await res.json();
@@ -671,9 +815,11 @@ async function getVenueAverages(teamId, apiId, venue) {
         if (filtered.length === 0) return empty;
 
         let shots = [], sot = [], corners = [], cards = [], fouls = [];
+        let concededShots = [], concededSot = [], concededCorners = [];
         filtered.forEach(fixture => {
             if (fixture.statistics && fixture.statistics.length > 0) {
                 const teamStats = isHomeVenue ? fixture.statistics[0] : fixture.statistics[1];
+                const oppStats = isHomeVenue ? fixture.statistics[1] : fixture.statistics[0];
                 const totShots = extractStat(teamStats, 'Total Shots');
                 const onGoal = extractStat(teamStats, 'Shots on Goal');
                 const corn = extractStat(teamStats, 'Corner Kicks');
@@ -684,9 +830,16 @@ async function getVenueAverages(teamId, apiId, venue) {
                 if (corn != null) corners.push(corn);
                 if (yellow != null) cards.push(yellow);
                 if (foulsCommitted != null) fouls.push(foulsCommitted);
+
+                const concShots = extractStat(oppStats, 'Total Shots');
+                const concSot = extractStat(oppStats, 'Shots on Goal');
+                const concCorn = extractStat(oppStats, 'Corner Kicks');
+                if (concShots != null) concededShots.push(concShots);
+                if (concSot != null) concededSot.push(concSot);
+                if (concCorn != null) concededCorners.push(concCorn);
             }
         });
-        return { shots, sot, corners, cards, fouls, n: filtered.length };
+        return { shots, sot, corners, cards, fouls, concededShots, concededSot, concededCorners, n: filtered.length };
     } catch (e) { return empty; }
 }
 
@@ -805,8 +958,8 @@ async function runDeepAnalysis() {
             getVenueAverages(idH, apiId, 'home'),
             getVenueAverages(idA, apiId, 'away')
         ]);
-        const venueH = venueHomeRaw || { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
-        const venueA = venueAwayRaw || { shots: [], sot: [], corners: [], cards: [], fouls: [], n: 0 };
+        const venueH = venueHomeRaw || { shots: [], sot: [], corners: [], cards: [], fouls: [], concededShots: [], concededSot: [], concededCorners: [], n: 0 };
+        const venueA = venueAwayRaw || { shots: [], sot: [], corners: [], cards: [], fouls: [], concededShots: [], concededSot: [], concededCorners: [], n: 0 };
 
         const sH = statsH.response; const sA = statsA.response;
         const momentumH = standH.momentum; const momentumA = standA.momentum;
@@ -822,17 +975,27 @@ async function runDeepAnalysis() {
         const nSeasonA = (sA?.fixtures?.played?.total) || 10;
 
         // ---------------- TIRI TOTALI ----------------
+        // Modello attacco/difesa: quanti tiri fara' una squadra dipende sia da quanto
+        // attacca lei, sia da quanto concede l'avversaria (stessa logica delle colonne
+        // "Fatti"/"Subiti" del vecchio foglio manuale, ora automatizzata dall'API).
         const seasonShotsH = parseFloat(sH?.shots?.total?.average) || null;
         const seasonShotsA = parseFloat(sA?.shots?.total?.average) || null;
         const formShotsH = weightedStats(formH.shots);
         const formShotsA = weightedStats(formA.shots);
         const venueShotsH = weightedStats(venueH.shots);
         const venueShotsA = weightedStats(venueA.shots);
+        // Difesa avversaria: quanto concede l'avversario (in generale e nel ruolo specifico)
+        const formConcShotsH = weightedStats(formH.concededShots); // quanto concede H (serve per cA)
+        const formConcShotsA = weightedStats(formA.concededShots); // quanto concede A (serve per cH)
+        const venueConcShotsH = weightedStats(venueH.concededShots); // quanto concede H in casa (serve per cA)
+        const venueConcShotsA = weightedStats(venueA.concededShots); // quanto concede A in trasferta (serve per cH)
 
         let cH = combineEstimates([
-            { mean: seasonShotsH, n: nSeasonH, priorWeight: 0.7 },
-            { mean: formShotsH.mean, n: formShotsH.n, priorWeight: 1.1 },
-            { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.3 }
+            { mean: seasonShotsH, n: nSeasonH, priorWeight: 0.55 },
+            { mean: formShotsH.mean, n: formShotsH.n, priorWeight: 0.9 },
+            { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.1 },
+            { mean: formConcShotsA.mean, n: formConcShotsA.n, priorWeight: 0.7 },
+            { mean: venueConcShotsA.mean, n: venueConcShotsA.n, priorWeight: 1.0 }
         ]);
         // Nessun dato reale trovato (tipico di una neopromossa priva di storico in
         // questa lega/stagione): prima si prova il valore manuale dal CSV
@@ -844,9 +1007,11 @@ async function runDeepAnalysis() {
         }
 
         let cA = combineEstimates([
-            { mean: seasonShotsA, n: nSeasonA, priorWeight: 0.7 },
-            { mean: formShotsA.mean, n: formShotsA.n, priorWeight: 1.1 },
-            { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.3 }
+            { mean: seasonShotsA, n: nSeasonA, priorWeight: 0.55 },
+            { mean: formShotsA.mean, n: formShotsA.n, priorWeight: 0.9 },
+            { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.1 },
+            { mean: formConcShotsH.mean, n: formConcShotsH.n, priorWeight: 0.7 },
+            { mean: venueConcShotsH.mean, n: venueConcShotsH.n, priorWeight: 1.0 }
         ]);
         if (cA == null) {
             const manualA = getManualValue(idA, 'TiriManual');
@@ -862,24 +1027,34 @@ async function runDeepAnalysis() {
             cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
             cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
         }
+        cH = clip(cH, 3, 22);
+        cA = clip(cA, 3, 22);
 
-        const varShotsH = Math.max(formShotsH.variance || 0, cH * 0.55, 1.2);
-        const varShotsA = Math.max(formShotsA.variance || 0, cA * 0.55, 1.2);
+        const varShotsH = blendVariance(formShotsH.variance, formShotsH.n, cH, 'shots', 4);
+        const varShotsA = blendVariance(formShotsA.variance, formShotsA.n, cA, 'shots', 4);
         const totalShots = cH + cA;
-        const varTotalShots = varShotsH + varShotsA;
+        const varTotalShots = combinedVariance(varShotsH, varShotsA);
 
         // ---------------- TIRI IN PORTA ----------------
+        // Stesso modello attacco/difesa dei tiri totali (il vecchio foglio manuale
+        // tracciava "Tiri in porta Fatti" E "Tiri in porta Subiti" separatamente).
         const seasonSotH = parseFloat(sH?.shots?.on_goal?.average) || null;
         const seasonSotA = parseFloat(sA?.shots?.on_goal?.average) || null;
         const formSotH = weightedStats(formH.sot);
         const formSotA = weightedStats(formA.sot);
         const venueSotH = weightedStats(venueH.sot);
         const venueSotA = weightedStats(venueA.sot);
+        const formConcSotH = weightedStats(formH.concededSot);
+        const formConcSotA = weightedStats(formA.concededSot);
+        const venueConcSotH = weightedStats(venueH.concededSot);
+        const venueConcSotA = weightedStats(venueA.concededSot);
 
         let s_cH = combineEstimates([
-            { mean: seasonSotH, n: nSeasonH, priorWeight: 0.7 },
-            { mean: formSotH.mean, n: formSotH.n, priorWeight: 1.1 },
-            { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.3 }
+            { mean: seasonSotH, n: nSeasonH, priorWeight: 0.55 },
+            { mean: formSotH.mean, n: formSotH.n, priorWeight: 0.9 },
+            { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.1 },
+            { mean: formConcSotA.mean, n: formConcSotA.n, priorWeight: 0.7 },
+            { mean: venueConcSotA.mean, n: venueConcSotA.n, priorWeight: 1.0 }
         ]);
         if (s_cH == null) {
             const manualSotH = getManualValue(idH, 'TiriPortaManual');
@@ -887,9 +1062,11 @@ async function runDeepAnalysis() {
         }
 
         let s_cA = combineEstimates([
-            { mean: seasonSotA, n: nSeasonA, priorWeight: 0.7 },
-            { mean: formSotA.mean, n: formSotA.n, priorWeight: 1.1 },
-            { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.3 }
+            { mean: seasonSotA, n: nSeasonA, priorWeight: 0.55 },
+            { mean: formSotA.mean, n: formSotA.n, priorWeight: 0.9 },
+            { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.1 },
+            { mean: formConcSotH.mean, n: formConcSotH.n, priorWeight: 0.7 },
+            { mean: venueConcSotH.mean, n: venueConcSotH.n, priorWeight: 1.0 }
         ]);
         if (s_cA == null) {
             const manualSotA = getManualValue(idA, 'TiriPortaManual');
@@ -903,31 +1080,46 @@ async function runDeepAnalysis() {
             s_cH = s_cH * (1 - h2hData.weight) + h2hData.avgSotH * h2hData.weight;
             s_cA = s_cA * (1 - h2hData.weight) + h2hData.avgSotA * h2hData.weight;
         }
+        s_cH = clip(s_cH, 1, 10);
+        s_cA = clip(s_cA, 1, 10);
+        // Vincolo logico: i tiri in porta non possono superare i tiri totali della stessa squadra
+        s_cH = Math.min(s_cH, cH);
+        s_cA = Math.min(s_cA, cA);
 
-        const varSotH = Math.max(formSotH.variance || 0, s_cH * 0.5, 0.6);
-        const varSotA = Math.max(formSotA.variance || 0, s_cA * 0.5, 0.6);
+        const varSotH = blendVariance(formSotH.variance, formSotH.n, s_cH, 'sot', 4);
+        const varSotA = blendVariance(formSotA.variance, formSotA.n, s_cA, 'sot', 4);
         const totalSOT = s_cH + s_cA;
-        const varTotalSOT = varSotH + varSotA;
+        const varTotalSOT = combinedVariance(varSotH, varSotA);
 
         // ---------------- CORNER ----------------
+        // Stesso modello attacco/difesa: quanti corner conquista H dipende anche da
+        // quanti ne concede A (squadre che schiacciano/si difendono basso ne concedono di piu').
         const seasonCornH = parseFloat(sH?.corners?.average) || null;
         const seasonCornA = parseFloat(sA?.corners?.average) || null;
         const formCornH = weightedStats(formH.corners);
         const formCornA = weightedStats(formA.corners);
         const venueCornH = weightedStats(venueH.corners);
         const venueCornA = weightedStats(venueA.corners);
+        const formConcCornH = weightedStats(formH.concededCorners);
+        const formConcCornA = weightedStats(formA.concededCorners);
+        const venueConcCornH = weightedStats(venueH.concededCorners);
+        const venueConcCornA = weightedStats(venueA.concededCorners);
 
         let pCornH = combineEstimates([
-            { mean: seasonCornH, n: nSeasonH, priorWeight: 0.7 },
-            { mean: formCornH.mean, n: formCornH.n, priorWeight: 1.1 },
-            { mean: venueCornH.mean, n: venueCornH.n, priorWeight: 1.3 }
+            { mean: seasonCornH, n: nSeasonH, priorWeight: 0.55 },
+            { mean: formCornH.mean, n: formCornH.n, priorWeight: 0.9 },
+            { mean: venueCornH.mean, n: venueCornH.n, priorWeight: 1.1 },
+            { mean: formConcCornA.mean, n: formConcCornA.n, priorWeight: 0.7 },
+            { mean: venueConcCornA.mean, n: venueConcCornA.n, priorWeight: 1.0 }
         ]);
         if (pCornH == null) pCornH = priors.corners * leagueInfo.homeAdv;
 
         let pCornA = combineEstimates([
-            { mean: seasonCornA, n: nSeasonA, priorWeight: 0.7 },
-            { mean: formCornA.mean, n: formCornA.n, priorWeight: 1.1 },
-            { mean: venueCornA.mean, n: venueCornA.n, priorWeight: 1.3 }
+            { mean: seasonCornA, n: nSeasonA, priorWeight: 0.55 },
+            { mean: formCornA.mean, n: formCornA.n, priorWeight: 0.9 },
+            { mean: venueCornA.mean, n: venueCornA.n, priorWeight: 1.1 },
+            { mean: formConcCornH.mean, n: formConcCornH.n, priorWeight: 0.7 },
+            { mean: venueConcCornH.mean, n: venueConcCornH.n, priorWeight: 1.0 }
         ]);
         if (pCornA == null) pCornA = priors.corners;
 
@@ -938,11 +1130,13 @@ async function runDeepAnalysis() {
             pCornH = pCornH * (1 - h2hData.weight * 0.8) + (h2hData.avgCorners / 2) * (h2hData.weight * 0.8);
             pCornA = pCornA * (1 - h2hData.weight * 0.8) + (h2hData.avgCorners / 2) * (h2hData.weight * 0.8);
         }
+        pCornH = clip(pCornH, 1, 9);
+        pCornA = clip(pCornA, 1, 9);
 
-        const varCornH = Math.max(formCornH.variance || 0, pCornH * 0.6, 0.8);
-        const varCornA = Math.max(formCornA.variance || 0, pCornA * 0.6, 0.8);
+        const varCornH = blendVariance(formCornH.variance, formCornH.n, pCornH, 'corners', 4);
+        const varCornA = blendVariance(formCornA.variance, formCornA.n, pCornA, 'corners', 4);
         const totalCorners = pCornH + pCornA;
-        const varTotalCorners = varCornH + varCornA;
+        const varTotalCorners = combinedVariance(varCornH, varCornA);
 
         // ---------------- CARTELLINI ----------------
         const seasonCardsH = parseFloat(sH?.cards?.yellow?.average) || null;
@@ -977,11 +1171,13 @@ async function runDeepAnalysis() {
             pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
             pCardsA = pCardsA * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
         }
+        pCardsH = clip(pCardsH, 0.3, 5);
+        pCardsA = clip(pCardsA, 0.3, 5);
 
-        const varCardsH = Math.max(formCardsH.variance || 0, pCardsH * 0.7, 0.5);
-        const varCardsA = Math.max(formCardsA.variance || 0, pCardsA * 0.7, 0.5);
+        const varCardsH = blendVariance(formCardsH.variance, formCardsH.n, pCardsH, 'cards', 5);
+        const varCardsA = blendVariance(formCardsA.variance, formCardsA.n, pCardsA, 'cards', 5);
         const totalCards = pCardsH + pCardsA;
-        const varTotalCards = varCardsH + varCardsA;
+        const varTotalCards = combinedVariance(varCardsH, varCardsA);
 
         // ---------------- FALLI (SOLO SERIE A) ----------------
         let totalFouls = 0, pFoulsH = 0, pFoulsA = 0, varTotalFouls = 1, varFoulsH = 1, varFoulsA = 1;
@@ -1018,11 +1214,13 @@ async function runDeepAnalysis() {
                 pFoulsH = pFoulsH * (1 - h2hData.weight * 0.5) + (h2hData.avgFouls / 2) * (h2hData.weight * 0.5);
                 pFoulsA = pFoulsA * (1 - h2hData.weight * 0.5) + (h2hData.avgFouls / 2) * (h2hData.weight * 0.5);
             }
+            pFoulsH = clip(pFoulsH, 4, 19);
+            pFoulsA = clip(pFoulsA, 4, 19);
 
-            varFoulsH = Math.max(formFoulsH.variance || 0, pFoulsH * 0.6, 1.0);
-            varFoulsA = Math.max(formFoulsA.variance || 0, pFoulsA * 0.6, 1.0);
+            varFoulsH = blendVariance(formFoulsH.variance, formFoulsH.n, pFoulsH, 'fouls', 5);
+            varFoulsA = blendVariance(formFoulsA.variance, formFoulsA.n, pFoulsA, 'fouls', 5);
             totalFouls = pFoulsH + pFoulsA;
-            varTotalFouls = varFoulsH + varFoulsA;
+            varTotalFouls = combinedVariance(varFoulsH, varFoulsA);
         }
 
         // LETTURA INPUT DEGLI SPREAD CORRENTI DELL'UTENTE
