@@ -1003,8 +1003,20 @@ async function runDeepAnalysis() {
                 fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idA })).then(r=>r.json())
             ]);
             statsH = statsRes[0]; statsA = statsRes[1];
-            const isEmptyH = !statsH.response || (Array.isArray(statsH.response) && statsH.response.length === 0);
-            const isEmptyA = !statsA.response || (Array.isArray(statsA.response) && statsA.response.length === 0);
+            // Una risposta e' considerata NON valida se: manca del tutto, e' un array
+            // vuoto [], OPPURE e' un oggetto "guscio vuoto" con i campi league/team
+            // interni tutti nulli (visto succedere con l'ID nuovo di alcune leghe:
+            // l'API risponde con una struttura apparentemente piena ma senza dati veri).
+            function isInvalidStatsResponse(s) {
+                if (!s || !s.response) return true;
+                if (Array.isArray(s.response)) return s.response.length === 0;
+                const r = s.response;
+                const hollowLeague = !r.league || r.league.id == null;
+                const hollowTeam = !r.team || r.team.id == null;
+                return hollowLeague || hollowTeam;
+            }
+            const isEmptyH = isInvalidStatsResponse(statsH);
+            const isEmptyA = isInvalidStatsResponse(statsA);
             if (isEmptyH || isEmptyA) throw new Error("empty");
         } catch (e) {
             apiId = leagueInfo.oldId;
