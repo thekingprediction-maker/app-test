@@ -1242,12 +1242,25 @@ async function runDeepAnalysis() {
         let pCardsH = baseCardsH * refFactor * (2.05 - formH.formFactor);
         let pCardsA = baseCardsA * refFactor * (2.05 - formA.formFactor);
 
+        console.log("DEBUG CARTELLINI", {
+            seasonCardsH, seasonCardsA,
+            formCardsH_mean: formCardsH.mean, formCardsH_n: formCardsH.n,
+            formCardsA_mean: formCardsA.mean, formCardsA_n: formCardsA.n,
+            nSeasonH, nSeasonA,
+            baseCardsH, baseCardsA,
+            refFactor,
+            formH_formFactor: formH.formFactor, formA_formFactor: formA.formFactor,
+            pCardsH_preH2H: pCardsH, pCardsA_preH2H: pCardsA,
+            h2hData
+        });
+
         if (h2hData) {
             pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
             pCardsA = pCardsA * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
         }
         pCardsH = clip(pCardsH, 0.3, 5);
         pCardsA = clip(pCardsA, 0.3, 5);
+        console.log("DEBUG CARTELLINI dopo H2H e clip", { pCardsH, pCardsA });
 
         const varCardsH = blendVariance(formCardsH.variance, formCardsH.n, pCardsH, 'cards', 5);
         const varCardsA = blendVariance(formCardsA.variance, formCardsA.n, pCardsA, 'cards', 5);
