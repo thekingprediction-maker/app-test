@@ -1218,18 +1218,26 @@ async function runDeepAnalysis() {
         const seasonCardsA = sumSeasonCardBuckets(sA?.cards?.yellow, nSeasonA);
         const formCardsH = weightedStats(formH.cards);
         const formCardsA = weightedStats(formA.cards);
+        // Fonte casa/trasferta: gia' scaricata da getVenueAverages ma prima non veniva
+        // usata qui, lasciando i cartellini senza rete di sicurezza quando stagione e
+        // forma generale risultano entrambe vuote (a differenza di tiri/corner, che
+        // hanno sempre questa terza fonte).
+        const venueCardsH = weightedStats(venueH.cards);
+        const venueCardsA = weightedStats(venueA.cards);
 
         let baseCardsH = combineEstimates([
             { mean: seasonCardsH, n: nSeasonH, priorWeight: 0.8 },
-            { mean: formCardsH.mean, n: formCardsH.n, priorWeight: 1.0 }
+            { mean: formCardsH.mean, n: formCardsH.n, priorWeight: 1.0 },
+            { mean: venueCardsH.mean, n: venueCardsH.n, priorWeight: 1.0 }
         ]);
-        baseCardsH = shrinkEstimate(baseCardsH, (formCardsH.n || 0) + nSeasonH, priors.cards, 6);
+        baseCardsH = shrinkEstimate(baseCardsH, (formCardsH.n || 0) + (venueCardsH.n || 0) + nSeasonH, priors.cards, 6);
 
         let baseCardsA = combineEstimates([
             { mean: seasonCardsA, n: nSeasonA, priorWeight: 0.8 },
-            { mean: formCardsA.mean, n: formCardsA.n, priorWeight: 1.0 }
+            { mean: formCardsA.mean, n: formCardsA.n, priorWeight: 1.0 },
+            { mean: venueCardsA.mean, n: venueCardsA.n, priorWeight: 1.0 }
         ]);
-        baseCardsA = shrinkEstimate(baseCardsA, (formCardsA.n || 0) + nSeasonA, priors.cards, 6);
+        baseCardsA = shrinkEstimate(baseCardsA, (formCardsA.n || 0) + (venueCardsA.n || 0) + nSeasonA, priors.cards, 6);
 
         let refFactor = 1.0;
         if (currentLeague === 7286) {
