@@ -1254,6 +1254,8 @@ async function runDeepAnalysis() {
             seasonCardsH, seasonCardsA,
             formCardsH_mean: formCardsH.mean, formCardsH_n: formCardsH.n,
             formCardsA_mean: formCardsA.mean, formCardsA_n: formCardsA.n,
+            venueCardsH_mean: venueCardsH.mean, venueCardsH_n: venueCardsH.n,
+            venueCardsA_mean: venueCardsA.mean, venueCardsA_n: venueCardsA.n,
             nSeasonH, nSeasonA,
             baseCardsH, baseCardsA,
             refFactor,
