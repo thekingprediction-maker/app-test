@@ -332,6 +332,18 @@ const LEAGUE_DATA = {
 // (incluse le neopromosse), cambiare SOLO questo numero in 2026.
 const SEASON = 2025;
 
+// Stagione precedente, usata come "base di partenza" quando la stagione corrente ha
+// ancora poche partite giocate (tipico delle prime giornate dopo il cambio di SEASON).
+// Il peso tra le due stagioni NON va mai regolato a mano: si autoregola da solo tramite
+// combineEstimates, che pesa ogni fonte in base a quanti dati reali ha dietro - man mano
+// che la stagione corrente accumula partite, il suo peso cresce e quello della stagione
+// precedente scende automaticamente, fino a diventare trascurabile.
+const PREVIOUS_SEASON = SEASON - 1;
+// Sotto questa soglia di partite giocate nella stagione corrente, si integra anche la
+// stagione precedente (chiamate API aggiuntive). Oltre questa soglia, si risparmiano
+// le chiamate perche' la stagione corrente ha gia' abbastanza dati da sola.
+const CURRENT_SEASON_MIN_GAMES = 5;
+
 const LEAGUE_PRIORS = {
     7286: { shots: 12.2, sot: 4.2, corners: 5.0, cards: 2.2, fouls: 12.0 },
     7293: { shots: 11.2, sot: 4.0, corners: 4.8, cards: 1.6, fouls: 10.0 },
@@ -902,7 +914,50 @@ async function getVenueAverages(teamId, apiId, venue) {
     } catch (e) { return empty; }
 }
 
-// Momentum continuo basato su posizione relativa + differenza reti a partita (non piu' a soglie fisse)
+// Recupera un campione della STAGIONE PRECEDENTE (PREVIOUS_SEASON), da usare come base
+// di partenza quando la stagione corrente ha ancora poche partite giocate. Struttura
+// identica a getTeamForm/getVenueAverages, ma senza split casa/trasferta (qui basta un
+// campione generale piu' ampio) e senza serie W/D/L (non serve il formFactor da qui).
+async function getPreviousSeasonSnapshot(teamId, apiId) {
+    const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [],
+                     concededShots: [], concededSot: [], concededCorners: [], n: 0 };
+    try {
+        const res = await fetch(apiUrl('fixtures', { team: teamId, season: PREVIOUS_SEASON, league: apiId, last: 10 }));
+        const data = await res.json();
+        if (!data.response || data.response.length === 0) return empty;
+
+        const fixtures = data.response;
+        const statsResults = await Promise.all(fixtures.map(fx => getFixtureStatistics(fx.fixture.id)));
+
+        let shots = [], sot = [], corners = [], cards = [], fouls = [];
+        let concededShots = [], concededSot = [], concededCorners = [];
+
+        fixtures.forEach((fixture, idx) => {
+            const { own, opp } = splitStatsByTeam(statsResults[idx], teamId);
+            if (own) {
+                const totShots = extractStat(own, 'Total Shots');
+                const onGoal = extractStat(own, 'Shots on Goal');
+                const corn = extractStat(own, 'Corner Kicks');
+                const yellow = extractStat(own, 'Yellow Cards');
+                const foulsCommitted = extractStat(own, 'Fouls');
+                if (totShots != null) shots.push(totShots);
+                if (onGoal != null) sot.push(onGoal);
+                if (corn != null) corners.push(corn);
+                if (yellow != null) cards.push(yellow);
+                if (foulsCommitted != null) fouls.push(foulsCommitted);
+            }
+            if (opp) {
+                const concShots = extractStat(opp, 'Total Shots');
+                const concSot = extractStat(opp, 'Shots on Goal');
+                const concCorn = extractStat(opp, 'Corner Kicks');
+                if (concShots != null) concededShots.push(concShots);
+                if (concSot != null) concededSot.push(concSot);
+                if (concCorn != null) concededCorners.push(concCorn);
+            }
+        });
+        return { shots, sot, corners, cards, fouls, concededShots, concededSot, concededCorners, n: fixtures.length };
+    } catch (e) { return empty; }
+}
 async function getStandingsMomentum(teamId, apiId) {
     try {
         const res = await fetch(apiUrl('standings', { season: SEASON, league: apiId, team: teamId }));
@@ -1070,6 +1125,21 @@ async function runDeepAnalysis() {
         const nSeasonH = (sH?.fixtures?.played?.total) || 10;
         const nSeasonA = (sA?.fixtures?.played?.total) || 10;
 
+        // Recupera la stagione precedente SOLO se serve (poche partite giocate finora
+        // nella stagione corrente), per non sprecare chiamate API quando non necessario.
+        const needsPrevH = nSeasonH < CURRENT_SEASON_MIN_GAMES;
+        const needsPrevA = nSeasonA < CURRENT_SEASON_MIN_GAMES;
+        const [prevSeasonHRaw, prevSeasonARaw] = await Promise.all([
+            needsPrevH ? getPreviousSeasonSnapshot(idH, apiId) : Promise.resolve(null),
+            needsPrevA ? getPreviousSeasonSnapshot(idA, apiId) : Promise.resolve(null)
+        ]);
+        const emptyPrev = { shots: [], sot: [], corners: [], cards: [], fouls: [], concededShots: [], concededSot: [], concededCorners: [], n: 0 };
+        const prevSeasonH = prevSeasonHRaw || emptyPrev;
+        const prevSeasonA = prevSeasonARaw || emptyPrev;
+        // Peso leggermente inferiore alle fonti della stagione corrente: la stagione
+        // precedente resta un'informazione utile ma meno rilevante di un dato fresco.
+        const PREV_SEASON_PRIOR_WEIGHT = 0.6;
+
         // ---------------- TIRI TOTALI ----------------
         // Modello attacco/difesa: quanti tiri fara' una squadra dipende sia da quanto
         // attacca lei, sia da quanto concede l'avversaria (stessa logica delle colonne
@@ -1086,12 +1156,19 @@ async function runDeepAnalysis() {
         const formConcShotsA = weightedStats(formA.concededShots); // quanto concede A (serve per cH)
         const venueConcShotsH = weightedStats(venueH.concededShots); // quanto concede H in casa (serve per cA)
         const venueConcShotsA = weightedStats(venueA.concededShots); // quanto concede A in trasferta (serve per cH)
+        // Stagione precedente (solo se la corrente ha ancora poche partite)
+        const prevShotsH = weightedStats(prevSeasonH.shots);
+        const prevShotsA = weightedStats(prevSeasonA.shots);
+        const prevConcShotsH = weightedStats(prevSeasonH.concededShots);
+        const prevConcShotsA = weightedStats(prevSeasonA.concededShots);
 
         let cH = combineEstimates([
             { mean: formShotsH.mean, n: formShotsH.n, priorWeight: 0.9 },
             { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.1 },
             { mean: formConcShotsA.mean, n: formConcShotsA.n, priorWeight: 0.7 },
-            { mean: venueConcShotsA.mean, n: venueConcShotsA.n, priorWeight: 1.0 }
+            { mean: venueConcShotsA.mean, n: venueConcShotsA.n, priorWeight: 1.0 },
+            { mean: prevShotsH.mean, n: prevShotsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
+            { mean: prevConcShotsA.mean, n: prevConcShotsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
         ]);
         // Nessun dato reale trovato (tipico di una neopromossa priva di storico in
         // questa lega/stagione): prima si prova il valore manuale dal CSV
@@ -1106,7 +1183,9 @@ async function runDeepAnalysis() {
             { mean: formShotsA.mean, n: formShotsA.n, priorWeight: 0.9 },
             { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.1 },
             { mean: formConcShotsH.mean, n: formConcShotsH.n, priorWeight: 0.7 },
-            { mean: venueConcShotsH.mean, n: venueConcShotsH.n, priorWeight: 1.0 }
+            { mean: venueConcShotsH.mean, n: venueConcShotsH.n, priorWeight: 1.0 },
+            { mean: prevShotsA.mean, n: prevShotsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
+            { mean: prevConcShotsH.mean, n: prevConcShotsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
         ]);
         if (cA == null) {
             const manualA = getManualValue(idA, 'TiriManual');
@@ -1141,12 +1220,18 @@ async function runDeepAnalysis() {
         const formConcSotA = weightedStats(formA.concededSot);
         const venueConcSotH = weightedStats(venueH.concededSot);
         const venueConcSotA = weightedStats(venueA.concededSot);
+        const prevSotH = weightedStats(prevSeasonH.sot);
+        const prevSotA = weightedStats(prevSeasonA.sot);
+        const prevConcSotH = weightedStats(prevSeasonH.concededSot);
+        const prevConcSotA = weightedStats(prevSeasonA.concededSot);
 
         let s_cH = combineEstimates([
             { mean: formSotH.mean, n: formSotH.n, priorWeight: 0.9 },
             { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.1 },
             { mean: formConcSotA.mean, n: formConcSotA.n, priorWeight: 0.7 },
-            { mean: venueConcSotA.mean, n: venueConcSotA.n, priorWeight: 1.0 }
+            { mean: venueConcSotA.mean, n: venueConcSotA.n, priorWeight: 1.0 },
+            { mean: prevSotH.mean, n: prevSotH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
+            { mean: prevConcSotA.mean, n: prevConcSotA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
         ]);
         if (s_cH == null) {
             const manualSotH = getManualValue(idH, 'TiriPortaManual');
@@ -1157,7 +1242,9 @@ async function runDeepAnalysis() {
             { mean: formSotA.mean, n: formSotA.n, priorWeight: 0.9 },
             { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.1 },
             { mean: formConcSotH.mean, n: formConcSotH.n, priorWeight: 0.7 },
-            { mean: venueConcSotH.mean, n: venueConcSotH.n, priorWeight: 1.0 }
+            { mean: venueConcSotH.mean, n: venueConcSotH.n, priorWeight: 1.0 },
+            { mean: prevSotA.mean, n: prevSotA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
+            { mean: prevConcSotH.mean, n: prevConcSotH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
         ]);
         if (s_cA == null) {
             const manualSotA = getManualValue(idA, 'TiriPortaManual');
@@ -1193,12 +1280,15 @@ async function runDeepAnalysis() {
         const formConcCornA = weightedStats(formA.concededCorners);
         const venueConcCornH = weightedStats(venueH.concededCorners);
         const venueConcCornA = weightedStats(venueA.concededCorners);
+        const prevCornH = weightedStats(prevSeasonH.corners);
+        const prevCornA = weightedStats(prevSeasonA.corners);
 
         let pCornH = combineEstimates([
             { mean: formCornH.mean, n: formCornH.n, priorWeight: 0.9 },
             { mean: venueCornH.mean, n: venueCornH.n, priorWeight: 1.1 },
             { mean: formConcCornA.mean, n: formConcCornA.n, priorWeight: 0.7 },
-            { mean: venueConcCornA.mean, n: venueConcCornA.n, priorWeight: 1.0 }
+            { mean: venueConcCornA.mean, n: venueConcCornA.n, priorWeight: 1.0 },
+            { mean: prevCornH.mean, n: prevCornH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
         ]);
         if (pCornH == null) pCornH = priors.corners * leagueInfo.homeAdv;
 
@@ -1206,7 +1296,8 @@ async function runDeepAnalysis() {
             { mean: formCornA.mean, n: formCornA.n, priorWeight: 0.9 },
             { mean: venueCornA.mean, n: venueCornA.n, priorWeight: 1.1 },
             { mean: formConcCornH.mean, n: formConcCornH.n, priorWeight: 0.7 },
-            { mean: venueConcCornH.mean, n: venueConcCornH.n, priorWeight: 1.0 }
+            { mean: venueConcCornH.mean, n: venueConcCornH.n, priorWeight: 1.0 },
+            { mean: prevCornA.mean, n: prevCornA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
         ]);
         if (pCornA == null) pCornA = priors.corners;
 
@@ -1236,18 +1327,22 @@ async function runDeepAnalysis() {
         // hanno sempre questa terza fonte).
         const venueCardsH = weightedStats(venueH.cards);
         const venueCardsA = weightedStats(venueA.cards);
+        const prevCardsH = weightedStats(prevSeasonH.cards);
+        const prevCardsA = weightedStats(prevSeasonA.cards);
 
         let baseCardsH = combineEstimates([
             { mean: seasonCardsH, n: nSeasonH, priorWeight: 0.8 },
             { mean: formCardsH.mean, n: formCardsH.n, priorWeight: 1.0 },
-            { mean: venueCardsH.mean, n: venueCardsH.n, priorWeight: 1.0 }
+            { mean: venueCardsH.mean, n: venueCardsH.n, priorWeight: 1.0 },
+            { mean: prevCardsH.mean, n: prevCardsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
         ]);
         baseCardsH = shrinkEstimate(baseCardsH, (formCardsH.n || 0) + (venueCardsH.n || 0) + nSeasonH, priors.cards, 6);
 
         let baseCardsA = combineEstimates([
             { mean: seasonCardsA, n: nSeasonA, priorWeight: 0.8 },
             { mean: formCardsA.mean, n: formCardsA.n, priorWeight: 1.0 },
-            { mean: venueCardsA.mean, n: venueCardsA.n, priorWeight: 1.0 }
+            { mean: venueCardsA.mean, n: venueCardsA.n, priorWeight: 1.0 },
+            { mean: prevCardsA.mean, n: prevCardsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
         ]);
         baseCardsA = shrinkEstimate(baseCardsA, (formCardsA.n || 0) + (venueCardsA.n || 0) + nSeasonA, priors.cards, 6);
 
@@ -1285,16 +1380,20 @@ async function runDeepAnalysis() {
             // sicurezza quando la sola "forma generale" risulta vuota).
             const venueFoulsH = weightedStats(venueH.fouls);
             const venueFoulsA = weightedStats(venueA.fouls);
+            const prevFoulsH = weightedStats(prevSeasonH.fouls);
+            const prevFoulsA = weightedStats(prevSeasonA.fouls);
 
             let baseFoulsH = combineEstimates([
                 { mean: formFoulsH.mean, n: formFoulsH.n, priorWeight: 1.0 },
-                { mean: venueFoulsH.mean, n: venueFoulsH.n, priorWeight: 1.0 }
+                { mean: venueFoulsH.mean, n: venueFoulsH.n, priorWeight: 1.0 },
+                { mean: prevFoulsH.mean, n: prevFoulsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
             ]);
             baseFoulsH = shrinkEstimate(baseFoulsH, (formFoulsH.n || 0) + (venueFoulsH.n || 0), priors.fouls, 5);
 
             let baseFoulsA = combineEstimates([
                 { mean: formFoulsA.mean, n: formFoulsA.n, priorWeight: 1.0 },
-                { mean: venueFoulsA.mean, n: venueFoulsA.n, priorWeight: 1.0 }
+                { mean: venueFoulsA.mean, n: venueFoulsA.n, priorWeight: 1.0 },
+                { mean: prevFoulsA.mean, n: prevFoulsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
             ]);
             baseFoulsA = shrinkEstimate(baseFoulsA, (formFoulsA.n || 0) + (venueFoulsA.n || 0), priors.fouls, 5);
 
