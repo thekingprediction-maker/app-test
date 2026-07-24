@@ -1280,16 +1280,23 @@ async function runDeepAnalysis() {
         if (currentLeague === 7286) {
             formFoulsH = weightedStats(formH.fouls);
             formFoulsA = weightedStats(formA.fouls);
+            // Fonte casa/trasferta: stessa correzione gia' fatta per i cartellini,
+            // che avevano lo stesso identico problema strutturale (nessuna rete di
+            // sicurezza quando la sola "forma generale" risulta vuota).
+            const venueFoulsH = weightedStats(venueH.fouls);
+            const venueFoulsA = weightedStats(venueA.fouls);
 
             let baseFoulsH = combineEstimates([
-                { mean: formFoulsH.mean, n: formFoulsH.n, priorWeight: 1.0 }
+                { mean: formFoulsH.mean, n: formFoulsH.n, priorWeight: 1.0 },
+                { mean: venueFoulsH.mean, n: venueFoulsH.n, priorWeight: 1.0 }
             ]);
-            baseFoulsH = shrinkEstimate(baseFoulsH, (formFoulsH.n || 0) + nSeasonH, priors.fouls, 5);
+            baseFoulsH = shrinkEstimate(baseFoulsH, (formFoulsH.n || 0) + (venueFoulsH.n || 0), priors.fouls, 5);
 
             let baseFoulsA = combineEstimates([
-                { mean: formFoulsA.mean, n: formFoulsA.n, priorWeight: 1.0 }
+                { mean: formFoulsA.mean, n: formFoulsA.n, priorWeight: 1.0 },
+                { mean: venueFoulsA.mean, n: venueFoulsA.n, priorWeight: 1.0 }
             ]);
-            baseFoulsA = shrinkEstimate(baseFoulsA, (formFoulsA.n || 0) + nSeasonA, priors.fouls, 5);
+            baseFoulsA = shrinkEstimate(baseFoulsA, (formFoulsA.n || 0) + (venueFoulsA.n || 0), priors.fouls, 5);
 
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
