@@ -1061,14 +1061,6 @@ async function runDeepAnalysis() {
         const momentumH = standH.momentum; const momentumA = standA.momentum;
         const priors = LEAGUE_PRIORS[currentLeague];
 
-        console.log("DEBUG DATI GREZZI", {
-            idH, idA,
-            formH_shots: formH.shots, formH_corners: formH.corners, formH_cards: formH.cards, formH_results: formH.results,
-            formA_shots: formA.shots, formA_corners: formA.corners, formA_cards: formA.cards, formA_results: formA.results,
-            venueH_cards: venueH.cards, venueA_cards: venueA.cards,
-            sH_cards_yellow: sH?.cards?.yellow, sA_cards_yellow: sA?.cards?.yellow
-        });
-
         const xGH_raw = dbXG.find(x => x.TeamID == idH)?.xG_Per_Shot || "0.11";
         const xGA_raw = dbXG.find(x => x.TeamID == idA)?.xG_Per_Shot || "0.11";
         const xGH = parseFloat(xGH_raw.toString().replace(',', '.'));
@@ -1269,19 +1261,6 @@ async function runDeepAnalysis() {
 
         let pCardsH = baseCardsH * refFactor * (2.05 - formH.formFactor);
         let pCardsA = baseCardsA * refFactor * (2.05 - formA.formFactor);
-
-        console.log("DEBUG CARTELLINI v2", {
-            seasonCardsH, seasonCardsA,
-            formCardsH_mean: formCardsH.mean, formCardsH_n: formCardsH.n,
-            formCardsA_mean: formCardsA.mean, formCardsA_n: formCardsA.n,
-            venueCardsH_mean: venueCardsH.mean, venueCardsH_n: venueCardsH.n,
-            venueCardsA_mean: venueCardsA.mean, venueCardsA_n: venueCardsA.n,
-            nSeasonH, nSeasonA,
-            baseCardsH, baseCardsA,
-            refFactor,
-            formH_formFactor: formH.formFactor, formA_formFactor: formA.formFactor,
-            idH, idA
-        });
 
         if (h2hData) {
             pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
