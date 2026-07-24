@@ -342,7 +342,10 @@ const PREVIOUS_SEASON = SEASON - 1;
 // Sotto questa soglia di partite giocate nella stagione corrente, si integra anche la
 // stagione precedente (chiamate API aggiuntive). Oltre questa soglia, si risparmiano
 // le chiamate perche' la stagione corrente ha gia' abbastanza dati da sola.
-const CURRENT_SEASON_MIN_GAMES = 5;
+// NOTA: 10 e non un numero piu' basso - a 5 partite la stagione precedente ha ancora
+// un'influenza consistente sul calcolo (per via del meccanismo di pesatura automatica),
+// quindi fermarsi li' creerebbe un taglio brusco invece di uno sfumare graduale.
+const CURRENT_SEASON_MIN_GAMES = 10;
 
 const LEAGUE_PRIORS = {
     7286: { shots: 12.2, sot: 4.2, corners: 5.0, cards: 2.2, fouls: 12.0 },
@@ -1136,9 +1139,18 @@ async function runDeepAnalysis() {
         const emptyPrev = { shots: [], sot: [], corners: [], cards: [], fouls: [], concededShots: [], concededSot: [], concededCorners: [], n: 0 };
         const prevSeasonH = prevSeasonHRaw || emptyPrev;
         const prevSeasonA = prevSeasonARaw || emptyPrev;
-        // Peso leggermente inferiore alle fonti della stagione corrente: la stagione
-        // precedente resta un'informazione utile ma meno rilevante di un dato fresco.
-        const PREV_SEASON_PRIOR_WEIGHT = 0.6;
+        // Peso della stagione precedente: NON fisso, sfuma linearmente da 0.6 fino a 0
+        // esattamente al raggiungimento di CURRENT_SEASON_MIN_GAMES. Cosi', nel momento
+        // esatto in cui si smette di scaricarla, il suo peso e' gia' arrivato a zero da
+        // solo - nessun salto brusco, solo una sfumatura continua che si esaurisce
+        // proprio quando il dato smette di essere raccolto.
+        function prevSeasonWeight(nCurrentSeason) {
+            if (nCurrentSeason >= CURRENT_SEASON_MIN_GAMES) return 0;
+            return 0.6 * (CURRENT_SEASON_MIN_GAMES - nCurrentSeason) / CURRENT_SEASON_MIN_GAMES;
+        }
+        const PREV_WEIGHT_H = prevSeasonWeight(nSeasonH);
+        const PREV_WEIGHT_A = prevSeasonWeight(nSeasonA);
+
 
         // ---------------- TIRI TOTALI ----------------
         // Modello attacco/difesa: quanti tiri fara' una squadra dipende sia da quanto
@@ -1167,8 +1179,8 @@ async function runDeepAnalysis() {
             { mean: venueShotsH.mean, n: venueShotsH.n, priorWeight: 1.1 },
             { mean: formConcShotsA.mean, n: formConcShotsA.n, priorWeight: 0.7 },
             { mean: venueConcShotsA.mean, n: venueConcShotsA.n, priorWeight: 1.0 },
-            { mean: prevShotsH.mean, n: prevShotsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
-            { mean: prevConcShotsA.mean, n: prevConcShotsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
+            { mean: prevShotsH.mean, n: prevShotsH.n, priorWeight: PREV_WEIGHT_H },
+            { mean: prevConcShotsA.mean, n: prevConcShotsA.n, priorWeight: PREV_WEIGHT_A * 0.7 }
         ]);
         // Nessun dato reale trovato (tipico di una neopromossa priva di storico in
         // questa lega/stagione): prima si prova il valore manuale dal CSV
@@ -1184,8 +1196,8 @@ async function runDeepAnalysis() {
             { mean: venueShotsA.mean, n: venueShotsA.n, priorWeight: 1.1 },
             { mean: formConcShotsH.mean, n: formConcShotsH.n, priorWeight: 0.7 },
             { mean: venueConcShotsH.mean, n: venueConcShotsH.n, priorWeight: 1.0 },
-            { mean: prevShotsA.mean, n: prevShotsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
-            { mean: prevConcShotsH.mean, n: prevConcShotsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
+            { mean: prevShotsA.mean, n: prevShotsA.n, priorWeight: PREV_WEIGHT_A },
+            { mean: prevConcShotsH.mean, n: prevConcShotsH.n, priorWeight: PREV_WEIGHT_H * 0.7 }
         ]);
         if (cA == null) {
             const manualA = getManualValue(idA, 'TiriManual');
@@ -1230,8 +1242,8 @@ async function runDeepAnalysis() {
             { mean: venueSotH.mean, n: venueSotH.n, priorWeight: 1.1 },
             { mean: formConcSotA.mean, n: formConcSotA.n, priorWeight: 0.7 },
             { mean: venueConcSotA.mean, n: venueConcSotA.n, priorWeight: 1.0 },
-            { mean: prevSotH.mean, n: prevSotH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
-            { mean: prevConcSotA.mean, n: prevConcSotA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
+            { mean: prevSotH.mean, n: prevSotH.n, priorWeight: PREV_WEIGHT_H },
+            { mean: prevConcSotA.mean, n: prevConcSotA.n, priorWeight: PREV_WEIGHT_A * 0.7 }
         ]);
         if (s_cH == null) {
             const manualSotH = getManualValue(idH, 'TiriPortaManual');
@@ -1243,8 +1255,8 @@ async function runDeepAnalysis() {
             { mean: venueSotA.mean, n: venueSotA.n, priorWeight: 1.1 },
             { mean: formConcSotH.mean, n: formConcSotH.n, priorWeight: 0.7 },
             { mean: venueConcSotH.mean, n: venueConcSotH.n, priorWeight: 1.0 },
-            { mean: prevSotA.mean, n: prevSotA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT },
-            { mean: prevConcSotH.mean, n: prevConcSotH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT * 0.7 }
+            { mean: prevSotA.mean, n: prevSotA.n, priorWeight: PREV_WEIGHT_A },
+            { mean: prevConcSotH.mean, n: prevConcSotH.n, priorWeight: PREV_WEIGHT_H * 0.7 }
         ]);
         if (s_cA == null) {
             const manualSotA = getManualValue(idA, 'TiriPortaManual');
@@ -1288,7 +1300,7 @@ async function runDeepAnalysis() {
             { mean: venueCornH.mean, n: venueCornH.n, priorWeight: 1.1 },
             { mean: formConcCornA.mean, n: formConcCornA.n, priorWeight: 0.7 },
             { mean: venueConcCornA.mean, n: venueConcCornA.n, priorWeight: 1.0 },
-            { mean: prevCornH.mean, n: prevCornH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
+            { mean: prevCornH.mean, n: prevCornH.n, priorWeight: PREV_WEIGHT_H }
         ]);
         if (pCornH == null) pCornH = priors.corners * leagueInfo.homeAdv;
 
@@ -1297,7 +1309,7 @@ async function runDeepAnalysis() {
             { mean: venueCornA.mean, n: venueCornA.n, priorWeight: 1.1 },
             { mean: formConcCornH.mean, n: formConcCornH.n, priorWeight: 0.7 },
             { mean: venueConcCornH.mean, n: venueConcCornH.n, priorWeight: 1.0 },
-            { mean: prevCornA.mean, n: prevCornA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
+            { mean: prevCornA.mean, n: prevCornA.n, priorWeight: PREV_WEIGHT_A }
         ]);
         if (pCornA == null) pCornA = priors.corners;
 
@@ -1334,7 +1346,7 @@ async function runDeepAnalysis() {
             { mean: seasonCardsH, n: nSeasonH, priorWeight: 0.8 },
             { mean: formCardsH.mean, n: formCardsH.n, priorWeight: 1.0 },
             { mean: venueCardsH.mean, n: venueCardsH.n, priorWeight: 1.0 },
-            { mean: prevCardsH.mean, n: prevCardsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
+            { mean: prevCardsH.mean, n: prevCardsH.n, priorWeight: PREV_WEIGHT_H }
         ]);
         baseCardsH = shrinkEstimate(baseCardsH, (formCardsH.n || 0) + (venueCardsH.n || 0) + nSeasonH, priors.cards, 6);
 
@@ -1342,7 +1354,7 @@ async function runDeepAnalysis() {
             { mean: seasonCardsA, n: nSeasonA, priorWeight: 0.8 },
             { mean: formCardsA.mean, n: formCardsA.n, priorWeight: 1.0 },
             { mean: venueCardsA.mean, n: venueCardsA.n, priorWeight: 1.0 },
-            { mean: prevCardsA.mean, n: prevCardsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
+            { mean: prevCardsA.mean, n: prevCardsA.n, priorWeight: PREV_WEIGHT_A }
         ]);
         baseCardsA = shrinkEstimate(baseCardsA, (formCardsA.n || 0) + (venueCardsA.n || 0) + nSeasonA, priors.cards, 6);
 
@@ -1386,14 +1398,14 @@ async function runDeepAnalysis() {
             let baseFoulsH = combineEstimates([
                 { mean: formFoulsH.mean, n: formFoulsH.n, priorWeight: 1.0 },
                 { mean: venueFoulsH.mean, n: venueFoulsH.n, priorWeight: 1.0 },
-                { mean: prevFoulsH.mean, n: prevFoulsH.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
+                { mean: prevFoulsH.mean, n: prevFoulsH.n, priorWeight: PREV_WEIGHT_H }
             ]);
             baseFoulsH = shrinkEstimate(baseFoulsH, (formFoulsH.n || 0) + (venueFoulsH.n || 0), priors.fouls, 5);
 
             let baseFoulsA = combineEstimates([
                 { mean: formFoulsA.mean, n: formFoulsA.n, priorWeight: 1.0 },
                 { mean: venueFoulsA.mean, n: venueFoulsA.n, priorWeight: 1.0 },
-                { mean: prevFoulsA.mean, n: prevFoulsA.n, priorWeight: PREV_SEASON_PRIOR_WEIGHT }
+                { mean: prevFoulsA.mean, n: prevFoulsA.n, priorWeight: PREV_WEIGHT_A }
             ]);
             baseFoulsA = shrinkEstimate(baseFoulsA, (formFoulsA.n || 0) + (venueFoulsA.n || 0), priors.fouls, 5);
 
