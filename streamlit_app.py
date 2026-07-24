@@ -305,7 +305,7 @@ html_code = """
 // gira lato server, dove la chiave API-Football resta nascosta e sicura.
 // IMPORTANTE: dopo aver pubblicato la function su Firebase, incolla qui il suo URL
 // (es. "https://us-central1-tuoprogetto.cloudfunctions.net/footballProxy").
-const PROXY_BASE_URL = "https://us-central1-probet-proxy.cloudfunctions.net/footballProxy";
+const PROXY_BASE_URL = "https://footballproxy-p47hlkstxa-uc.a.run.app";
 
 // Costruisce l'URL da chiamare passando dal proxy invece che direttamente all'API.
 function apiUrl(path, paramsObj) {
@@ -993,7 +993,12 @@ async function runDeepAnalysis() {
         if (idH === idA) throw new Error("Le squadre devono essere diverse");
 
         const leagueInfo = LEAGUE_DATA[currentLeague];
-        let apiId = leagueInfo.apiId;
+        // Per l'endpoint teams/statistics, l'ID lega "nuovo" (es. 7286) restituisce
+        // quasi sempre un oggetto "guscio vuoto" (confermato con un test reale il
+        // 24/07/2026: league.id null, fixtures.played 0). L'ID "vecchio" (es. 135)
+        // e' quello confermato funzionante. Si prova quindi PRIMA quello, per non
+        // sprecare 2 chiamate API garantite ad ogni singola analisi.
+        let apiId = leagueInfo.oldId;
 
         let statsH, statsA;
 
@@ -1019,7 +1024,10 @@ async function runDeepAnalysis() {
             const isEmptyA = isInvalidStatsResponse(statsA);
             if (isEmptyH || isEmptyA) throw new Error("empty");
         } catch (e) {
-            apiId = leagueInfo.oldId;
+            // Ripiego sull'ID nuovo solo se anche quello vecchio fallisse (raro, ma
+            // teniamo la rete di sicurezza per gli altri 3 campionati non ancora
+            // testati uno per uno).
+            apiId = leagueInfo.apiId;
             const statsRes = await Promise.all([
                 fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idH })).then(r=>r.json()),
                 fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idA })).then(r=>r.json())
