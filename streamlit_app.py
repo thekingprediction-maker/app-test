@@ -1004,8 +1004,14 @@ async function runDeepAnalysis() {
 
         try {
             const statsRes = await Promise.all([
-                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idH })).then(r=>r.json()),
-                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idA })).then(r=>r.json())
+                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idH })).then(async r => {
+                    if (!r.ok) { const t = await r.text(); console.error("ERRORE teams/statistics idH, status", r.status, ":", t); return { response: null }; }
+                    return r.json();
+                }),
+                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idA })).then(async r => {
+                    if (!r.ok) { const t = await r.text(); console.error("ERRORE teams/statistics idA, status", r.status, ":", t); return { response: null }; }
+                    return r.json();
+                })
             ]);
             statsH = statsRes[0]; statsA = statsRes[1];
             // Una risposta e' considerata NON valida se: manca del tutto, e' un array
@@ -1029,8 +1035,14 @@ async function runDeepAnalysis() {
             // testati uno per uno).
             apiId = leagueInfo.apiId;
             const statsRes = await Promise.all([
-                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idH })).then(r=>r.json()),
-                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idA })).then(r=>r.json())
+                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idH })).then(async r => {
+                    if (!r.ok) { const t = await r.text(); console.error("ERRORE teams/statistics idH, status", r.status, ":", t); return { response: null }; }
+                    return r.json();
+                }),
+                fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idA })).then(async r => {
+                    if (!r.ok) { const t = await r.text(); console.error("ERRORE teams/statistics idA, status", r.status, ":", t); return { response: null }; }
+                    return r.json();
+                })
             ]);
             statsH = statsRes[0]; statsA = statsRes[1];
         }
