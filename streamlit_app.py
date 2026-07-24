@@ -925,7 +925,7 @@ async function getPreviousSeasonSnapshot(teamId, apiId) {
     const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], n: 0 };
     try {
-        const res = await fetch(apiUrl('fixtures', { team: teamId, season: PREVIOUS_SEASON, league: apiId, last: 10 }));
+        const res = await fetch(apiUrl('fixtures', { team: teamId, season: PREVIOUS_SEASON, league: apiId, last: 6 }));
         const data = await res.json();
         if (!data.response || data.response.length === 0) return empty;
 
