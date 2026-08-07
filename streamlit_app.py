@@ -1369,6 +1369,21 @@ async function runDeepAnalysis() {
         let pCardsH = baseCardsH * refFactor * (2.05 - formH.formFactor);
         let pCardsA = baseCardsA * refFactor * (2.05 - formA.formFactor);
 
+        console.log("DEBUG CARTELLINI v3", {
+            seasonCardsH, seasonCardsA,
+            formCardsH_mean: formCardsH.mean, formCardsH_n: formCardsH.n,
+            formCardsA_mean: formCardsA.mean, formCardsA_n: formCardsA.n,
+            venueCardsH_mean: venueCardsH.mean, venueCardsH_n: venueCardsH.n,
+            venueCardsA_mean: venueCardsA.mean, venueCardsA_n: venueCardsA.n,
+            prevCardsH_mean: prevCardsH.mean, prevCardsH_n: prevCardsH.n,
+            prevCardsA_mean: prevCardsA.mean, prevCardsA_n: prevCardsA.n,
+            baseCardsH, baseCardsA,
+            refFactor,
+            arbitroSelezionato: document.getElementById('arbitroSelect').value,
+            formH_formFactor: formH.formFactor, formA_formFactor: formA.formFactor,
+            pCardsH_preH2H: pCardsH, pCardsA_preH2H: pCardsA
+        });
+
         if (h2hData) {
             pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
             pCardsA = pCardsA * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
