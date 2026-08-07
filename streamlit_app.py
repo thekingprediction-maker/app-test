@@ -1369,21 +1369,6 @@ async function runDeepAnalysis() {
         let pCardsH = baseCardsH * refFactor * (2.05 - formH.formFactor);
         let pCardsA = baseCardsA * refFactor * (2.05 - formA.formFactor);
 
-        console.log("DEBUG CARTELLINI v3", {
-            seasonCardsH, seasonCardsA,
-            formCardsH_mean: formCardsH.mean, formCardsH_n: formCardsH.n,
-            formCardsA_mean: formCardsA.mean, formCardsA_n: formCardsA.n,
-            venueCardsH_mean: venueCardsH.mean, venueCardsH_n: venueCardsH.n,
-            venueCardsA_mean: venueCardsA.mean, venueCardsA_n: venueCardsA.n,
-            prevCardsH_mean: prevCardsH.mean, prevCardsH_n: prevCardsH.n,
-            prevCardsA_mean: prevCardsA.mean, prevCardsA_n: prevCardsA.n,
-            baseCardsH, baseCardsA,
-            refFactor,
-            arbitroSelezionato: document.getElementById('arbitroSelect').value,
-            formH_formFactor: formH.formFactor, formA_formFactor: formA.formFactor,
-            pCardsH_preH2H: pCardsH, pCardsA_preH2H: pCardsA
-        });
-
         if (h2hData) {
             pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
             pCardsA = pCardsA * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
@@ -1433,6 +1418,21 @@ async function runDeepAnalysis() {
 
             pFoulsH = baseFoulsH * refHomeMultiplier * (2.05 - formH.formFactor);
             pFoulsA = baseFoulsA * refAwayMultiplier * (2.05 - formA.formFactor);
+
+            console.log("DEBUG FALLI", {
+                formFoulsH_mean: formFoulsH.mean, formFoulsH_n: formFoulsH.n,
+                formFoulsA_mean: formFoulsA.mean, formFoulsA_n: formFoulsA.n,
+                venueFoulsH_mean: venueFoulsH.mean, venueFoulsH_n: venueFoulsH.n,
+                venueFoulsA_mean: venueFoulsA.mean, venueFoulsA_n: venueFoulsA.n,
+                prevFoulsH_mean: prevFoulsH.mean, prevFoulsH_n: prevFoulsH.n,
+                prevFoulsA_mean: prevFoulsA.mean, prevFoulsA_n: prevFoulsA.n,
+                baseFoulsH, baseFoulsA,
+                refHomeMultiplier, refAwayMultiplier,
+                arbitroSelezionato: refSelectedVal,
+                priorsFouls: priors.fouls,
+                formH_formFactor: formH.formFactor, formA_formFactor: formA.formFactor,
+                pFoulsH_preH2H: pFoulsH, pFoulsA_preH2H: pFoulsA
+            });
 
             if (h2hData) {
                 pFoulsH = pFoulsH * (1 - h2hData.weight * 0.5) + (h2hData.avgFouls / 2) * (h2hData.weight * 0.5);
