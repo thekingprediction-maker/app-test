@@ -210,7 +210,7 @@ html_code = """
     
     <div class="header">
         <h1 class="teko">PROBET <span style="color:#3b82f6">AI</span></h1>
-        <div class="version">V4 PRO • ELITE ANALYSIS 2025/26</div>
+        <div class="version">V4 PRO • ELITE ANALYSIS 2026/27</div>
     </div>
 
     <div class="league-scroller">
@@ -236,7 +236,7 @@ html_code = """
         
         <div id="arbitroContainer" class="input-group">
             <label class="input-label" style="color:#fbbf24">Arbitro (Serie A)</label>
-            <select id="arbitroSelect"><option value="24.5">Seleziona Arbitro...</option></select>
+            <select id="arbitroSelect"><option value="24.5,11.5,12.5,0">Seleziona Arbitro...</option></select>
         </div>
 
         <div class="spread-section">
@@ -327,10 +327,10 @@ const LEAGUE_DATA = {
 // Baseline di lega, usate SOLO come ancora per lo shrinkage bayesiano e come fallback
 // quando non ci sono abbastanza dati reali (mai come sostituto silenzioso dei dati veri).
 // STAGIONE API: durante le prime 3-4 giornate (dati insufficienti per tutte le squadre
-// nella stagione nuova) resta su 2025 (stagione precedente). Da settembre in poi, quando
-// ci saranno abbastanza partite giocate nella stagione 2025/26 per tutte le squadre
-// (incluse le neopromosse), cambiare SOLO questo numero in 2026.
-const SEASON = 2025;
+// nella stagione nuova) resta sulla stagione precedente. Quando ci sono abbastanza
+// partite giocate nella stagione corrente per tutte le squadre (incluse le neopromosse),
+// si cambia SOLO questo numero. Ora impostato sulla stagione 2026/27.
+const SEASON = 2026;
 
 // Stagione precedente, usata come "base di partenza" quando la stagione corrente ha
 // ancora poche partite giocate (tipico delle prime giornate dopo il cambio di SEASON).
@@ -413,7 +413,7 @@ function loadData() {
             skipEmptyLines: true, 
             complete: (r) => {
                 const sel = document.getElementById('arbitroSelect'); 
-                sel.innerHTML = '<option value="24.5,11,13.5">Seleziona Arbitro...</option>';
+                sel.innerHTML = '<option value="24.5,11.5,12.5,0">Seleziona Arbitro...</option>';
                 
                 const rows = r.data.slice(1);
 
@@ -429,9 +429,12 @@ function loadData() {
                             let cleanTotal = valTotal.toString().replace(',', '.').trim();
                             let cleanHome = valHome.toString().replace(',', '.').trim();
                             let cleanAway = valAway.toString().replace(',', '.').trim();
+                            // Numero di partite arbitrate (colonna "Partite"): serve per fidarsi
+                            // meno delle medie degli arbitri con pochissime partite.
+                            let cleanGames = (row[1] || '0').toString().replace(',', '.').trim();
 
                             if (cleanName !== "") {
-                                let optionValue = `${cleanTotal},${cleanHome},${cleanAway}`;
+                                let optionValue = `${cleanTotal},${cleanHome},${cleanAway},${cleanGames}`;
                                 sel.add(new Option(cleanName, optionValue));
                             }
                         }
@@ -670,6 +673,15 @@ function shrinkEstimate(sampleMean, n, priorMean, k) {
     if (sampleMean == null || isNaN(sampleMean)) return priorMean;
     const w = (n || 0) / ((n || 0) + (k || 5));
     return sampleMean * w + priorMean * (1 - w);
+}
+
+// Ritira la media di un ARBITRO verso la media di lega in base a quante partite ha
+// arbitrato (colonna "Partite" del CSV). Con 1 partita pesa circa 1/9, con 4 circa 1/3,
+// con 8 il 50%. Evita che un arbitro con un solo match dimezzi le previsioni di
+// falli e cartellini.
+function shrinkRef(avg, games, leagueAvg) {
+    const w = games / (games + 8);
+    return avg * w + leagueAvg * (1 - w);
 }
 
 // Legge un valore manuale opzionale dal CSV (es. per neopromosse prive di storico
@@ -1362,7 +1374,8 @@ async function runDeepAnalysis() {
         if (currentLeague === 7286) {
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
-            const refTotal = parseFloat(refParts[0]) || 24.5;
+            // Media arbitro ritirata verso la media di lega in base alle partite arbitrate
+            const refTotal = shrinkRef(parseFloat(refParts[0]) || 24.5, parseFloat(refParts[3]) || 0, 24.5);
             refFactor = refTotal / 24.5;
         }
 
@@ -1411,28 +1424,16 @@ async function runDeepAnalysis() {
 
             const refSelectedVal = document.getElementById('arbitroSelect').value;
             const refParts = refSelectedVal.split(',');
-            const refHomeAverage = parseFloat(refParts[1]) || 11.0;
-            const refAwayAverage = parseFloat(refParts[2]) || 13.5;
+            const refGames = parseFloat(refParts[3]) || 0;
+            // Medie casa/ospite dell'arbitro ritirate verso la media di lega in base
+            // alle partite arbitrate (evita che 1 sola partita dimezzi i falli previsti)
+            const refHomeAverage = shrinkRef(parseFloat(refParts[1]) || 11.5, refGames, 11.5);
+            const refAwayAverage = shrinkRef(parseFloat(refParts[2]) || 12.5, refGames, 12.5);
             const refHomeMultiplier = refHomeAverage / 11.5;
             const refAwayMultiplier = refAwayAverage / 12.5;
 
             pFoulsH = baseFoulsH * refHomeMultiplier * (2.05 - formH.formFactor);
             pFoulsA = baseFoulsA * refAwayMultiplier * (2.05 - formA.formFactor);
-
-            console.log("DEBUG FALLI", {
-                formFoulsH_mean: formFoulsH.mean, formFoulsH_n: formFoulsH.n,
-                formFoulsA_mean: formFoulsA.mean, formFoulsA_n: formFoulsA.n,
-                venueFoulsH_mean: venueFoulsH.mean, venueFoulsH_n: venueFoulsH.n,
-                venueFoulsA_mean: venueFoulsA.mean, venueFoulsA_n: venueFoulsA.n,
-                prevFoulsH_mean: prevFoulsH.mean, prevFoulsH_n: prevFoulsH.n,
-                prevFoulsA_mean: prevFoulsA.mean, prevFoulsA_n: prevFoulsA.n,
-                baseFoulsH, baseFoulsA,
-                refHomeMultiplier, refAwayMultiplier,
-                arbitroSelezionato: refSelectedVal,
-                priorsFouls: priors.fouls,
-                formH_formFactor: formH.formFactor, formA_formFactor: formA.formFactor,
-                pFoulsH_preH2H: pFoulsH, pFoulsA_preH2H: pFoulsA
-            });
 
             if (h2hData) {
                 pFoulsH = pFoulsH * (1 - h2hData.weight * 0.5) + (h2hData.avgFouls / 2) * (h2hData.weight * 0.5);
