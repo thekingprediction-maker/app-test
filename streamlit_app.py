@@ -1088,9 +1088,15 @@ function render1X2Block(o) {
     const best = cols.reduce((a, b) => (o.probs[b.k] > o.probs[a.k] ? b : a), cols[0]);
     const pBest = o.probs[best.k];
     const solid = pBest >= 0.50;
-    const strong = pBest >= 0.65;
-    const advColor = solid ? '#10b981' : '#fbbf24';
-    const advText = strong ? `CONSIGLIO FORTE 1X2: ${best.lab}` : (solid ? `CONSIGLIO 1X2: ${best.lab}` : `PARTITA EQUILIBRATA: lieve ${best.lab}`);
+    // Dal backtest (253 partite): l'1X2 e' provato sui TIRI TOTALI (~67%), quindi li' basta il 65%
+    // per dire "FORTE". Sugli altri mercati i casi ad alta probabilita' sono pochi per verificarli,
+    // quindi serve una soglia piu' alta (70%); sotto resta "INDICATIVO".
+    const reliable = !!o.reliable;
+    const strong = pBest >= (reliable ? 0.65 : 0.70);
+    const advColor = solid ? ((reliable || strong) ? '#10b981' : '#fbbf24') : '#fbbf24';
+    const advText = strong ? `CONSIGLIO FORTE 1X2: ${best.lab}`
+        : (solid ? (reliable ? `CONSIGLIO 1X2: ${best.lab}` : `INDICATIVO 1X2: ${best.lab}`)
+                 : `PARTITA EQUILIBRATA: lieve ${best.lab}`);
     const cells = cols.map(c => {
         const p = o.probs[c.k];
         const fair = p > 0.001 ? (1 / p).toFixed(2) : '-';
@@ -1554,7 +1560,7 @@ async function runDeepAnalysis() {
         const advCardsA = getAdviceAdvanced(pCardsA, varCardsA, formCardsA.n, sprCardsA);
 
         const blk1X2 = {
-            shots: render1X2Block({title:'Tiri Totali', color:'#10b981', probs: prob1X2(cH, varShotsH, cA, varShotsA)}),
+            shots: render1X2Block({title:'Tiri Totali', color:'#10b981', reliable:true, probs: prob1X2(cH, varShotsH, cA, varShotsA)}),
             sot:   render1X2Block({title:'Tiri In Porta', color:'#a78bfa', probs: prob1X2(s_cH, varSotH, s_cA, varSotA)}),
             corn:  render1X2Block({title:'Corner', color:'#22d3ee', probs: prob1X2(pCornH, varCornH, pCornA, varCornA)}),
             cards: render1X2Block({title:'Cartellini', color:'#fbbf24', probs: prob1X2(pCardsH, varCardsH, pCardsA, varCardsA)})
