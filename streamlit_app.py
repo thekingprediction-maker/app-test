@@ -284,6 +284,43 @@ html_code = """
             </div>
         </div>
 
+
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#10b981"></span> 1X2 Tiri Totali <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Shots_1" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Shots_X" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Shots_2" step="0.01" min="1" placeholder="quota"></div>
+            </div>
+        </div>
+
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#a78bfa"></span> 1X2 Tiri In Porta <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Sot_1" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Sot_X" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Sot_2" step="0.01" min="1" placeholder="quota"></div>
+            </div>
+        </div>
+
+        <div class="spread-section">
+            <div class="spread-title"><span class="dot" style="background:#22d3ee"></span> 1X2 Corner <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Corn_1" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Corn_X" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Corn_2" step="0.01" min="1" placeholder="quota"></div>
+            </div>
+        </div>
+
+        <div class="spread-section" id="foulsInputs1X2">
+            <div class="spread-title"><span class="dot" style="background:#f87171"></span> 1X2 Falli Commessi <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
+            <div class="grid-3">
+                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Fouls_1" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Fouls_X" step="0.01" min="1" placeholder="quota"></div>
+                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Fouls_2" step="0.01" min="1" placeholder="quota"></div>
+            </div>
+        </div>
+
         <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
             <input type="hidden" name="trigger" value="ad">
         </form>
@@ -385,6 +422,8 @@ function switchLeague(id) {
     const isSerieA = (id === 7286);
     const arbContainer = document.getElementById('arbitroContainer');
     const foulsContainer = document.getElementById('foulsInputs');
+    const fouls1X2Container = document.getElementById('foulsInputs1X2');
+    if (fouls1X2Container) fouls1X2Container.classList.toggle('hidden', !isSerieA);
     
     if(isSerieA) {
         arbContainer.classList.remove('hidden');
@@ -1043,6 +1082,72 @@ async function getFixturesH2H(teamIdH, teamIdA, apiId) {
     } catch (e) { return null; }
 }
 
+const MIN_EDGE_1X2 = 0.05;
+
+// Varianza della differenza Casa - Ospite (con correlazione di ritmo partita)
+function diffVariance(varH, varA) {
+    const vH = Math.max(varH || 0, 0), vA = Math.max(varA || 0, 0);
+    return vH + vA - 2 * RHO_GAME_PACE * Math.sqrt(vH * vA);
+}
+
+// 1X2 sul conteggio: 1 = Casa ne fa di piu', X = pari, 2 = Ospite ne fa di piu'
+// Approssimazione Normale della differenza con correzione di continuita'
+function prob1X2(meanH, varH, meanA, varA) {
+    const muD = meanH - meanA;
+    const sd = Math.sqrt(Math.max(diffVariance(varH, varA), 0.25));
+    const p1 = 1 - normalCDF(0.5, muD, sd);
+    const p2 = normalCDF(-0.5, muD, sd);
+    const pX = Math.max(0, 1 - p1 - p2);
+    return { p1, pX, p2 };
+}
+
+function label1X2(nH, nA) {
+    const n = Math.min(nH || 0, nA || 0);
+    if (n >= 4) return 'ALTA';
+    if (n >= 2) return 'MEDIA';
+    return 'BASE';
+}
+
+function readQuotes1X2(prefix) {
+    const rd = k => { const el = document.getElementById(prefix + '_' + k); const v = el ? parseFloat(String(el.value).replace(',', '.')) : NaN; return (isFinite(v) && v > 1) ? v : null; };
+    const q = { q1: rd('1'), qX: rd('X'), q2: rd('2') };
+    return (q.q1 || q.qX || q.q2) ? q : null;
+}
+
+function render1X2Card(o) {
+    const cols = [
+        { k: 'p1', q: 'q1', lab: '1 CASA' },
+        { k: 'pX', q: 'qX', lab: 'X PARI' },
+        { k: 'p2', q: 'q2', lab: '2 OSPITE' }
+    ];
+    const best = cols.reduce((a, b) => (o.probs[b.k] > o.probs[a.k] ? b : a), cols[0]).k;
+    const cells = cols.map(c => {
+        const p = o.probs[c.k];
+        const fair = p > 0.001 ? (1 / p).toFixed(2) : '-';
+        let val = '';
+        const qt = o.quotes ? o.quotes[c.q] : null;
+        if (qt) {
+            const edge = p * qt - 1;
+            const isValue = edge >= MIN_EDGE_1X2;
+            val = `<div style="margin-top:6px;font-size:10px;font-weight:800;color:${isValue ? '#10b981' : '#94a3b8'}">${isValue ? 'VALUE' : 'NO VALUE'} ${(edge * 100 >= 0 ? '+' : '')}${(edge * 100).toFixed(1)}%</div><div style="font-size:9px;color:#94a3b8">quota ${qt.toFixed(2)}</div>`;
+        }
+        const hl = c.k === best ? `border:1px solid ${o.color};background:rgba(255,255,255,0.04);` : 'border:1px solid rgba(255,255,255,0.06);';
+        return `<div style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;${hl}">
+            <div style="font-size:9px;color:#94a3b8;font-weight:700">${c.lab}</div>
+            <div style="font-size:22px;font-weight:800;color:#f8fafc">${(p * 100).toFixed(1)}%</div>
+            <div style="font-size:9px;color:#94a3b8">Quota giusta ${fair}</div>${val}</div>`;
+    }).join('');
+    return `
+        <div class="result-card ${o.borderClass}">
+            <div class="res-header">
+                <span class="res-label" style="color:${o.color}">${o.title}</span>
+                <span class="badge-pro">PRECISIONE ${o.precision}</span>
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Previsti: Casa ${o.meanH.toFixed(1)} ${o.unit} - Ospite ${o.meanA.toFixed(1)} ${o.unit}</div>
+            <div style="display:flex;gap:8px">${cells}</div>
+        </div>`;
+}
+
 async function runDeepAnalysis() {
     const resDiv = document.getElementById('results');
     resDiv.classList.remove('hidden');
@@ -1482,6 +1587,13 @@ async function runDeepAnalysis() {
         const advCardsH = getAdviceAdvanced(pCardsH, varCardsH, formCardsH.n, sprCardsH);
         const advCardsA = getAdviceAdvanced(pCardsA, varCardsA, formCardsA.n, sprCardsA);
 
+        const card1X2Shots = render1X2Card({title:'1X2 Tiri Totali', color:'#10b981', borderClass:'border-green',
+            probs: prob1X2(cH, varShotsH, cA, varShotsA), quotes: readQuotes1X2('q1x2Shots'),
+            meanH: cH, meanA: cA, unit:'tiri', precision: label1X2(formShotsH.n, formShotsA.n)});
+        const card1X2Sot = render1X2Card({title:'1X2 Tiri In Porta', color:'#a78bfa', borderClass:'border-purple',
+            probs: prob1X2(s_cH, varSotH, s_cA, varSotA), quotes: readQuotes1X2('q1x2Sot'),
+            meanH: s_cH, meanA: s_cA, unit:'tiri in porta', precision: label1X2(formSotH.n, formSotA.n)});
+
         let finalHTML = `
             <div class="result-card border-green">
                 <div class="res-header">
@@ -1506,6 +1618,7 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             </div>
+            ${card1X2Shots}
 
             <div class="result-card border-purple">
                 <div class="res-header">
@@ -1528,6 +1641,7 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             </div>
+            ${card1X2Sot}
         `;
 
         // INNESTO CARD FALLI SOLO SE SERIE A ATTIVA
@@ -1563,6 +1677,9 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             `;
+            finalHTML += render1X2Card({title:'1X2 Falli Commessi', color:'#f87171', borderClass:'border-red',
+                probs: prob1X2(pFoulsH, varFoulsH, pFoulsA, varFoulsA), quotes: readQuotes1X2('q1x2Fouls'),
+                meanH: pFoulsH, meanA: pFoulsA, unit:'falli', precision: label1X2(formFoulsH.n, formFoulsA.n)});
         }
 
         // AGGIUNTA CARDS CORNER E CARTELLINI
@@ -1588,6 +1705,9 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             </div>
+            ${render1X2Card({title:'1X2 Corner', color:'#22d3ee', borderClass:'border-cyan',
+                probs: prob1X2(pCornH, varCornH, pCornA, varCornA), quotes: readQuotes1X2('q1x2Corn'),
+                meanH: pCornH, meanA: pCornA, unit:'corner', precision: label1X2(formCornH.n, formCornA.n)})}
 
             <div class="result-card border-yellow">
                 <div class="res-header">
