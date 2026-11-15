@@ -285,41 +285,9 @@ html_code = """
         </div>
 
 
-        <div class="spread-section">
-            <div class="spread-title"><span class="dot" style="background:#10b981"></span> 1X2 Tiri Totali <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
-            <div class="grid-3">
-                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Shots_1" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Shots_X" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Shots_2" step="0.01" min="1" placeholder="quota"></div>
-            </div>
-        </div>
 
-        <div class="spread-section">
-            <div class="spread-title"><span class="dot" style="background:#a78bfa"></span> 1X2 Tiri In Porta <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
-            <div class="grid-3">
-                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Sot_1" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Sot_X" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Sot_2" step="0.01" min="1" placeholder="quota"></div>
-            </div>
-        </div>
 
-        <div class="spread-section">
-            <div class="spread-title"><span class="dot" style="background:#22d3ee"></span> 1X2 Corner <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
-            <div class="grid-3">
-                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Corn_1" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Corn_X" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Corn_2" step="0.01" min="1" placeholder="quota"></div>
-            </div>
-        </div>
 
-        <div class="spread-section" id="foulsInputs1X2">
-            <div class="spread-title"><span class="dot" style="background:#f87171"></span> 1X2 Falli Commessi <span style="font-weight:400;color:var(--text-muted)">(quote opzionali)</span></div>
-            <div class="grid-3">
-                <div class="grid-input-item"><label>1 Casa</label><input type="number" id="q1x2Fouls_1" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>X Pari</label><input type="number" id="q1x2Fouls_X" step="0.01" min="1" placeholder="quota"></div>
-                <div class="grid-input-item"><label>2 Osp</label><input type="number" id="q1x2Fouls_2" step="0.01" min="1" placeholder="quota"></div>
-            </div>
-        </div>
 
         <form id="adForm" action="https://probetai.com/mostra_pubblicita" method="GET" target="_blank" style="display:none;">
             <input type="hidden" name="trigger" value="ad">
@@ -422,8 +390,6 @@ function switchLeague(id) {
     const isSerieA = (id === 7286);
     const arbContainer = document.getElementById('arbitroContainer');
     const foulsContainer = document.getElementById('foulsInputs');
-    const fouls1X2Container = document.getElementById('foulsInputs1X2');
-    if (fouls1X2Container) fouls1X2Container.classList.toggle('hidden', !isSerieA);
     
     if(isSerieA) {
         arbContainer.classList.remove('hidden');
@@ -1082,8 +1048,6 @@ async function getFixturesH2H(teamIdH, teamIdA, apiId) {
     } catch (e) { return null; }
 }
 
-const MIN_EDGE_1X2 = 0.05;
-
 // Varianza della differenza Casa - Ospite (con correlazione di ritmo partita)
 function diffVariance(varH, varA) {
     const vH = Math.max(varH || 0, 0), vA = Math.max(varA || 0, 0);
@@ -1108,42 +1072,33 @@ function label1X2(nH, nA) {
     return 'BASE';
 }
 
-function readQuotes1X2(prefix) {
-    const rd = k => { const el = document.getElementById(prefix + '_' + k); const v = el ? parseFloat(String(el.value).replace(',', '.')) : NaN; return (isFinite(v) && v > 1) ? v : null; };
-    const q = { q1: rd('1'), qX: rd('X'), q2: rd('2') };
-    return (q.q1 || q.qX || q.q2) ? q : null;
-}
-
-function render1X2Card(o) {
+// Blocco 1X2 incorporato dentro la card del mercato, con consiglio diretto
+function render1X2Block(o) {
     const cols = [
-        { k: 'p1', q: 'q1', lab: '1 CASA' },
-        { k: 'pX', q: 'qX', lab: 'X PARI' },
-        { k: 'p2', q: 'q2', lab: '2 OSPITE' }
+        { k: 'p1', lab: '1 CASA' },
+        { k: 'pX', lab: 'X PARI' },
+        { k: 'p2', lab: '2 OSPITE' }
     ];
-    const best = cols.reduce((a, b) => (o.probs[b.k] > o.probs[a.k] ? b : a), cols[0]).k;
+    const best = cols.reduce((a, b) => (o.probs[b.k] > o.probs[a.k] ? b : a), cols[0]);
+    const pBest = o.probs[best.k];
+    const solid = pBest >= 0.50;
+    const advColor = solid ? '#10b981' : '#fbbf24';
+    const advText = solid ? `CONSIGLIO 1X2: ${best.lab}` : `PARTITA EQUILIBRATA: lieve ${best.lab}`;
     const cells = cols.map(c => {
         const p = o.probs[c.k];
         const fair = p > 0.001 ? (1 / p).toFixed(2) : '-';
-        let val = '';
-        const qt = o.quotes ? o.quotes[c.q] : null;
-        if (qt) {
-            const edge = p * qt - 1;
-            const isValue = edge >= MIN_EDGE_1X2;
-            val = `<div style="margin-top:6px;font-size:10px;font-weight:800;color:${isValue ? '#10b981' : '#94a3b8'}">${isValue ? 'VALUE' : 'NO VALUE'} ${(edge * 100 >= 0 ? '+' : '')}${(edge * 100).toFixed(1)}%</div><div style="font-size:9px;color:#94a3b8">quota ${qt.toFixed(2)}</div>`;
-        }
-        const hl = c.k === best ? `border:1px solid ${o.color};background:rgba(255,255,255,0.04);` : 'border:1px solid rgba(255,255,255,0.06);';
-        return `<div style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;${hl}">
+        const hl = c.k === best.k ? `border:1px solid ${advColor};background:rgba(255,255,255,0.04);` : 'border:1px solid rgba(255,255,255,0.06);';
+        return `<div style="flex:1;text-align:center;padding:8px 4px;border-radius:12px;${hl}">
             <div style="font-size:9px;color:#94a3b8;font-weight:700">${c.lab}</div>
-            <div style="font-size:22px;font-weight:800;color:#f8fafc">${(p * 100).toFixed(1)}%</div>
-            <div style="font-size:9px;color:#94a3b8">Quota giusta ${fair}</div>${val}</div>`;
+            <div style="font-size:20px;font-weight:800;color:#f8fafc">${(p * 100).toFixed(1)}%</div>
+            <div style="font-size:9px;color:#94a3b8">Quota giusta ${fair}</div></div>`;
     }).join('');
     return `
-        <div class="result-card ${o.borderClass}">
-            <div class="res-header">
-                <span class="res-label" style="color:${o.color}">${o.title}</span>
-                <span class="badge-pro">PRECISIONE ${o.precision}</span>
+        <div style="margin:12px 0;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-size:11px;font-weight:800;color:${o.color}">1X2 ${o.title}</span>
+                <span style="font-size:10px;font-weight:800;color:${advColor}">${advText} (${(pBest * 100).toFixed(0)}%)</span>
             </div>
-            <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Previsti: Casa ${o.meanH.toFixed(1)} ${o.unit} - Ospite ${o.meanA.toFixed(1)} ${o.unit}</div>
             <div style="display:flex;gap:8px">${cells}</div>
         </div>`;
 }
@@ -1587,12 +1542,12 @@ async function runDeepAnalysis() {
         const advCardsH = getAdviceAdvanced(pCardsH, varCardsH, formCardsH.n, sprCardsH);
         const advCardsA = getAdviceAdvanced(pCardsA, varCardsA, formCardsA.n, sprCardsA);
 
-        const card1X2Shots = render1X2Card({title:'1X2 Tiri Totali', color:'#10b981', borderClass:'border-green',
-            probs: prob1X2(cH, varShotsH, cA, varShotsA), quotes: readQuotes1X2('q1x2Shots'),
-            meanH: cH, meanA: cA, unit:'tiri', precision: label1X2(formShotsH.n, formShotsA.n)});
-        const card1X2Sot = render1X2Card({title:'1X2 Tiri In Porta', color:'#a78bfa', borderClass:'border-purple',
-            probs: prob1X2(s_cH, varSotH, s_cA, varSotA), quotes: readQuotes1X2('q1x2Sot'),
-            meanH: s_cH, meanA: s_cA, unit:'tiri in porta', precision: label1X2(formSotH.n, formSotA.n)});
+        const blk1X2 = {
+            shots: render1X2Block({title:'Tiri Totali', color:'#10b981', probs: prob1X2(cH, varShotsH, cA, varShotsA)}),
+            sot:   render1X2Block({title:'Tiri In Porta', color:'#a78bfa', probs: prob1X2(s_cH, varSotH, s_cA, varSotA)}),
+            corn:  render1X2Block({title:'Corner', color:'#22d3ee', probs: prob1X2(pCornH, varCornH, pCornA, varCornA)}),
+            cards: render1X2Block({title:'Cartellini', color:'#fbbf24', probs: prob1X2(pCardsH, varCardsH, pCardsA, varCardsA)})
+        };
 
         let finalHTML = `
             <div class="result-card border-green">
@@ -1603,6 +1558,7 @@ async function runDeepAnalysis() {
                 <div class="res-value">${totalShots.toFixed(2)}</div>
                 <div class="mb-2">${advTotal.html}</div>
                 ${renderConfidenceBar(advTotal.confidence)}
+                ${blk1X2.shots}
                 <div class="split-stats">
                     <div class="stat-col">
                         <h4>Home Prediction</h4>
@@ -1618,7 +1574,6 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             </div>
-            ${card1X2Shots}
 
             <div class="result-card border-purple">
                 <div class="res-header">
@@ -1628,6 +1583,7 @@ async function runDeepAnalysis() {
                 <div class="res-value">${totalSOT.toFixed(2)}</div>
                 <div class="mb-2">${advOT.html}</div>
                 ${renderConfidenceBar(advOT.confidence)}
+                ${blk1X2.sot}
                 <div class="split-stats">
                     <div class="stat-col">
                         <h4>Home SOT</h4>
@@ -1641,7 +1597,6 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             </div>
-            ${card1X2Sot}
         `;
 
         // INNESTO CARD FALLI SOLO SE SERIE A ATTIVA
@@ -1663,6 +1618,7 @@ async function runDeepAnalysis() {
                     <div class="res-value">${totalFouls.toFixed(2)}</div>
                     <div class="mb-2">${advFouls.html}</div>
                     ${renderConfidenceBar(advFouls.confidence)}
+                    ${render1X2Block({title:'Falli Commessi', color:'#f87171', probs: prob1X2(pFoulsH, varFoulsH, pFoulsA, varFoulsA)})}
                     <div class="split-stats">
                         <div class="stat-col">
                             <h4>Home Fouls</h4>
@@ -1677,9 +1633,6 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             `;
-            finalHTML += render1X2Card({title:'1X2 Falli Commessi', color:'#f87171', borderClass:'border-red',
-                probs: prob1X2(pFoulsH, varFoulsH, pFoulsA, varFoulsA), quotes: readQuotes1X2('q1x2Fouls'),
-                meanH: pFoulsH, meanA: pFoulsA, unit:'falli', precision: label1X2(formFoulsH.n, formFoulsA.n)});
         }
 
         // AGGIUNTA CARDS CORNER E CARTELLINI
@@ -1692,6 +1645,7 @@ async function runDeepAnalysis() {
                 <div class="res-value">${totalCorners.toFixed(2)}</div>
                 <div class="mb-2">${advCorn.html}</div>
                 ${renderConfidenceBar(advCorn.confidence)}
+                ${blk1X2.corn}
                 <div class="split-stats">
                     <div class="stat-col">
                         <h4>Home Corners</h4>
@@ -1705,9 +1659,6 @@ async function runDeepAnalysis() {
                     </div>
                 </div>
             </div>
-            ${render1X2Card({title:'1X2 Corner', color:'#22d3ee', borderClass:'border-cyan',
-                probs: prob1X2(pCornH, varCornH, pCornA, varCornA), quotes: readQuotes1X2('q1x2Corn'),
-                meanH: pCornH, meanA: pCornA, unit:'corner', precision: label1X2(formCornH.n, formCornA.n)})}
 
             <div class="result-card border-yellow">
                 <div class="res-header">
@@ -1717,6 +1668,7 @@ async function runDeepAnalysis() {
                 <div class="res-value">${totalCards.toFixed(2)}</div>
                 <div class="mb-2">${advCards.html}</div>
                 ${renderConfidenceBar(advCards.confidence)}
+                ${blk1X2.cards}
                 <div class="split-stats">
                     <div class="stat-col">
                         <h4>Home Cards</h4>
