@@ -767,8 +767,14 @@ function getAdviceAdvanced(mean, variance, n, spread) {
     // da quanto la previsione si allontani dalla linea inserita.
     if (realN === 0) precisionLabel = 'BASE';
 
+    // Etichetta di forza del consiglio (dal backtest: sopra il 70% il modello e' molto affidabile,
+    // sotto il 60% e' poco piu' di un testa o croce)
+    let strengthTag = '';
+    if (displayConf >= 70) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
+    else if (displayConf < 60) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#94a3b8;border:1px solid #475569;border-radius:6px;padding:1px 5px">INCERTO</span>`;
+
     return {
-        html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>`,
+        html: `<span class="tag-pill ${isOver ? 'tag-over' : 'tag-under'}">${direction} ${spread} (${displayConf.toFixed(1)}%)</span>${strengthTag}`,
         confidence: Math.min(Math.max(displayConf, 5), 95),
         isOver: isOver,
         precision: precisionLabel
@@ -1082,8 +1088,9 @@ function render1X2Block(o) {
     const best = cols.reduce((a, b) => (o.probs[b.k] > o.probs[a.k] ? b : a), cols[0]);
     const pBest = o.probs[best.k];
     const solid = pBest >= 0.50;
+    const strong = pBest >= 0.65;
     const advColor = solid ? '#10b981' : '#fbbf24';
-    const advText = solid ? `CONSIGLIO 1X2: ${best.lab}` : `PARTITA EQUILIBRATA: lieve ${best.lab}`;
+    const advText = strong ? `CONSIGLIO FORTE 1X2: ${best.lab}` : (solid ? `CONSIGLIO 1X2: ${best.lab}` : `PARTITA EQUILIBRATA: lieve ${best.lab}`);
     const cells = cols.map(c => {
         const p = o.probs[c.k];
         const fair = p > 0.001 ? (1 / p).toFixed(2) : '-';
@@ -1276,8 +1283,10 @@ async function runDeepAnalysis() {
             cA = manualA != null ? manualA : priors.shots;
         }
 
-        const xgFactorH = 0.75 + (xGH / bench) * 0.25;
-        const xgFactorA = 0.75 + (xGA / bench) * 0.25;
+        // xG per tiro DISATTIVATO: il backtest su 12 giornate (253 partite) mostra che peggiora
+        // leggermente le previsioni dei tiri (l'informazione e' gia' nei dati reali dell'API).
+        const xgFactorH = 1.0;
+        const xgFactorA = 1.0;
         cH = cH * xgFactorH * formH.formFactor * momentumH;
         cA = cA * xgFactorA * formA.formFactor * momentumA;
 
@@ -1436,7 +1445,9 @@ async function runDeepAnalysis() {
             const refParts = refSelectedVal.split(',');
             // Media arbitro ritirata verso la media di lega in base alle partite arbitrate
             const refTotal = shrinkRef(parseFloat(refParts[0]) || 24.5, parseFloat(refParts[3]) || 0, 24.5);
-            refFactor = refTotal / 24.5;
+            // Effetto arbitro sui cartellini DISATTIVATO: il backtest mostra che la media falli
+            // dell'arbitro non migliora la previsione dei cartellini (refFactor resta 1.0).
+            // refFactor = refTotal / 24.5;
         }
 
         let pCardsH = baseCardsH * refFactor * (2.05 - formH.formFactor);
