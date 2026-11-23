@@ -336,6 +336,12 @@ const LEAGUE_DATA = {
     8333: { name: "EUROPA LEAGUE", file: null, cup: true, oldId: 3, apiId: 8333, homeAdv: 1.07 }
 };
 
+// Nelle coppe le squadre arrivano da campionati di forza diversa: i loro numeri recenti (spesso
+// contro avversarie deboli) sono gonfiati o sgonfiati. Finche' non e' validato col backtest,
+// le stime si avvicinano per meta' alla media di coppa (prudenza, non un valore tarato sui dati).
+const CUP_SHRINK = 0.5;
+function cupAdjust(val, prior) { return isCupLeague() ? (1 - CUP_SHRINK) * val + CUP_SHRINK * prior : val; }
+
 function isCupLeague() { return !!(LEAGUE_DATA[currentLeague] && LEAGUE_DATA[currentLeague].cup); }
 
 // Parametri per scaricare le ultime partite di una squadra. Nelle coppe NON si filtra per lega:
@@ -827,7 +833,7 @@ function getAdviceAdvanced(mean, variance, n, spread) {
     // Etichetta di forza del consiglio (dal backtest: sopra il 70% il modello e' molto affidabile,
     // sotto il 60% e' poco piu' di un testa o croce)
     let strengthTag = '';
-    if (displayConf >= (isCupLeague() ? 75 : 70)) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
+    if (!isCupLeague() && displayConf >= 70) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
     else if (displayConf < 60) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#94a3b8;border:1px solid #475569;border-radius:6px;padding:1px 5px">INCERTO</span>`;
 
     return {
@@ -1149,7 +1155,7 @@ function render1X2Block(o) {
     // per dire "FORTE". Sugli altri mercati i casi ad alta probabilita' sono pochi per verificarli,
     // quindi serve una soglia piu' alta (70%); sotto resta "INDICATIVO".
     const reliable = !!o.reliable;
-    const strong = pBest >= ((reliable ? 0.65 : 0.70) + (isCupLeague() ? 0.05 : 0));
+    const strong = !isCupLeague() && pBest >= (reliable ? 0.65 : 0.70);
     const advColor = solid ? ((reliable || strong) ? '#10b981' : '#fbbf24') : '#fbbf24';
     const advText = strong ? `CONSIGLIO FORTE 1X2: ${best.lab}`
         : (solid ? (reliable ? `CONSIGLIO 1X2: ${best.lab}` : `INDICATIVO 1X2: ${best.lab}`)
@@ -1359,6 +1365,8 @@ async function runDeepAnalysis() {
             cH = cH * (1 - h2hData.weight) + h2hData.avgShotsH * h2hData.weight;
             cA = cA * (1 - h2hData.weight) + h2hData.avgShotsA * h2hData.weight;
         }
+        cH = cupAdjust(cH, priors.shots * leagueInfo.homeAdv);
+        cA = cupAdjust(cA, priors.shots / leagueInfo.homeAdv);
         cH = clip(cH, 3, 22);
         cA = clip(cA, 3, 22);
 
@@ -1416,6 +1424,8 @@ async function runDeepAnalysis() {
             s_cH = s_cH * (1 - h2hData.weight) + h2hData.avgSotH * h2hData.weight;
             s_cA = s_cA * (1 - h2hData.weight) + h2hData.avgSotA * h2hData.weight;
         }
+        s_cH = cupAdjust(s_cH, priors.sot * leagueInfo.homeAdv);
+        s_cA = cupAdjust(s_cA, priors.sot / leagueInfo.homeAdv);
         s_cH = clip(s_cH, 1, 10);
         s_cA = clip(s_cA, 1, 10);
         // Vincolo logico: i tiri in porta non possono superare i tiri totali della stessa squadra
@@ -1466,6 +1476,8 @@ async function runDeepAnalysis() {
             pCornH = pCornH * (1 - h2hData.weight * 0.8) + (h2hData.avgCorners / 2) * (h2hData.weight * 0.8);
             pCornA = pCornA * (1 - h2hData.weight * 0.8) + (h2hData.avgCorners / 2) * (h2hData.weight * 0.8);
         }
+        pCornH = cupAdjust(pCornH, priors.corners * leagueInfo.homeAdv);
+        pCornA = cupAdjust(pCornA, priors.corners / leagueInfo.homeAdv);
         pCornH = clip(pCornH, 1, 9);
         pCornA = clip(pCornA, 1, 9);
 
@@ -1522,6 +1534,8 @@ async function runDeepAnalysis() {
             pCardsH = pCardsH * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
             pCardsA = pCardsA * (1 - h2hData.weight * 0.6) + (h2hData.avgCards / 2) * (h2hData.weight * 0.6);
         }
+        pCardsH = cupAdjust(pCardsH, priors.cards);
+        pCardsA = cupAdjust(pCardsA, priors.cards);
         pCardsH = clip(pCardsH, 0.3, 5);
         pCardsA = clip(pCardsA, 0.3, 5);
 
@@ -1761,7 +1775,7 @@ async function runDeepAnalysis() {
         `;
 
         if (isCupLeague()) {
-            finalHTML = `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid #475569;border-radius:12px;background:rgba(251,191,36,0.07);font-size:11px;line-height:1.45;color:#cbd5e1"><b style="color:#fbbf24">COPPA EUROPEA</b> - squadre di campionati diversi e poche partite europee: piu' incertezza del solito. "FORTE" compare solo da una soglia piu' alta.</div>` + finalHTML;
+            finalHTML = `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid #475569;border-radius:12px;background:rgba(251,191,36,0.07);font-size:11px;line-height:1.45;color:#cbd5e1"><b style="color:#fbbf24">COPPA EUROPEA</b> - squadre di campionati diversi e poche partite europee: piu' incertezza del solito. Le stime sono avvicinate alla media di coppa e l'etichetta "FORTE" e' disattivata finche' non verifichiamo la precisione.</div>` + finalHTML;
         }
         resDiv.innerHTML = finalHTML;
     } catch (e) {
