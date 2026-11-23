@@ -218,6 +218,8 @@ html_code = """
         <div id="btn-7293" class="league-btn" onclick="switchLeague(7293)">PREMIER</div>
         <div id="btn-7338" class="league-btn" onclick="switchLeague(7338)">BUNDES</div>
         <div id="btn-7351" class="league-btn" onclick="switchLeague(7351)">LA LIGA</div>
+        <div id="btn-8331" class="league-btn" onclick="switchLeague(8331)">CHAMPIONS</div>
+        <div id="btn-8333" class="league-btn" onclick="switchLeague(8333)">EUROPA L.</div>
     </div>
 
     <div class="glass-card">
@@ -326,8 +328,23 @@ const LEAGUE_DATA = {
     7286: { name: "SERIE A", file: "DATABASE_AVANZATO_SERIEA_2025.csv", oldId: 135, apiId: 7286, homeAdv: 1.08 },
     7293: { name: "PREMIER LEAGUE", file: "DATABASE_AVANZATO_PREMIER_2025.csv", oldId: 39, apiId: 7293, homeAdv: 1.05 },
     7338: { name: "BUNDESLIGA", file: "DATABASE_AVANZATO_BUNDES_2025.csv", oldId: 78, apiId: 7338, homeAdv: 1.12 },
-    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 }
+    7351: { name: "LA LIGA", file: "DATABASE_AVANZATO_LALIGA_2025.csv", oldId: 140, apiId: 7351, homeAdv: 1.06 },
+    // COPPE EUROPEE: nessun CSV (niente xG ne' manuali), nessun arbitro/falli. Gli ID sono quelli
+    // della tua API: v3 (oldId) 2 e 3, v2 (apiId) 8331 e 8333. Le partite delle squadre si
+    // leggono in TUTTE le competizioni (campionato + coppa), perche' in coppa ne hanno poche.
+    8331: { name: "CHAMPIONS LEAGUE", file: null, cup: true, oldId: 2, apiId: 8331, homeAdv: 1.07 },
+    8333: { name: "EUROPA LEAGUE", file: null, cup: true, oldId: 3, apiId: 8333, homeAdv: 1.07 }
 };
+
+function isCupLeague() { return !!(LEAGUE_DATA[currentLeague] && LEAGUE_DATA[currentLeague].cup); }
+
+// Parametri per scaricare le ultime partite di una squadra. Nelle coppe NON si filtra per lega:
+// si prendono le ultime partite in tutte le competizioni (campionato nazionale + coppa).
+function teamFixturesParams(teamId, season, apiId, last) {
+    const p = { team: teamId, season: season, last: last };
+    if (!isCupLeague()) p.league = apiId;
+    return p;
+}
 
 // Baseline di lega, usate SOLO come ancora per lo shrinkage bayesiano e come fallback
 // quando non ci sono abbastanza dati reali (mai come sostituto silenzioso dei dati veri).
@@ -356,7 +373,10 @@ const LEAGUE_PRIORS = {
     7286: { shots: 12.2, sot: 4.2, corners: 5.0, cards: 2.2, fouls: 12.0 },
     7293: { shots: 11.2, sot: 4.0, corners: 4.8, cards: 1.6, fouls: 10.0 },
     7338: { shots: 12.6, sot: 4.4, corners: 5.2, cards: 1.8, fouls: 11.5 },
-    7351: { shots: 11.6, sot: 4.0, corners: 4.9, cards: 2.4, fouls: 11.0 }
+    7351: { shots: 11.6, sot: 4.0, corners: 4.9, cards: 2.4, fouls: 11.0 },
+    // Coppe: valori di partenza APPROSSIMATI, usati solo come ancora/fallback quando mancano dati reali
+    8331: { shots: 12.0, sot: 4.2, corners: 5.0, cards: 1.9, fouls: 11.5 },
+    8333: { shots: 11.8, sot: 4.1, corners: 4.9, cards: 2.0, fouls: 11.5 }
 };
 
 function setStatus(msg, type) {
@@ -404,6 +424,7 @@ function switchLeague(id) {
 
 function loadData() {
     const leagueInfo = LEAGUE_DATA[currentLeague];
+    if (leagueInfo.cup) { dbXG = []; loadTeams(); return; }
      Papa.parse(BASE_CSV_URL + leagueInfo.file, { 
         download: true, header: true, skipEmptyLines: true, 
         complete: (r) => { dbXG = r.data; loadTeams(); },
@@ -461,6 +482,42 @@ async function loadTeams() {
     try {
         const leagueInfo = LEAGUE_DATA[currentLeague];
         let apiId = leagueInfo.apiId;
+
+        if (leagueInfo.cup) {
+            // Squadre della fase a campionato (36), dalla classifica; ripiego sull'elenco squadre.
+            let list = [];
+            for (const id of [leagueInfo.oldId, leagueInfo.apiId]) {
+                try {
+                    const r = await fetch(apiUrl('standings', { league: id, season: SEASON }));
+                    const d = await r.json();
+                    const tables = (d.response && d.response[0] && d.response[0].league && d.response[0].league.standings) || [];
+                    tables.forEach(tb => tb.forEach(row => list.push({ id: row.team.id, name: row.team.name })));
+                } catch (e) {}
+                if (list.length) break;
+            }
+            if (!list.length) {
+                for (const id of [leagueInfo.oldId, leagueInfo.apiId]) {
+                    try {
+                        const r = await fetch(apiUrl('teams', { league: id, season: SEASON }));
+                        const d = await r.json();
+                        (d.response || []).forEach(t => list.push({ id: t.team.id, name: t.team.name }));
+                    } catch (e) {}
+                    if (list.length) break;
+                }
+            }
+            if (!list.length) throw new Error("Nessuna squadra trovata");
+            const seen = new Set();
+            list = list.filter(t => !seen.has(t.id) && seen.add(t.id));
+            h.innerHTML = ""; a.innerHTML = "";
+            h.add(new Option("-- Seleziona Casa --", ""));
+            a.add(new Option("-- Seleziona Ospite --", ""));
+            list.sort((x, y) => x.name.localeCompare(y.name)).forEach(t => {
+                h.add(new Option(t.name, t.id));
+                a.add(new Option(t.name, t.id));
+            });
+            setStatus("", "");
+            return;
+        }
 
         let res = await fetch(apiUrl('teams', { league: apiId, season: SEASON }));
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -770,7 +827,7 @@ function getAdviceAdvanced(mean, variance, n, spread) {
     // Etichetta di forza del consiglio (dal backtest: sopra il 70% il modello e' molto affidabile,
     // sotto il 60% e' poco piu' di un testa o croce)
     let strengthTag = '';
-    if (displayConf >= 70) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
+    if (displayConf >= (isCupLeague() ? 75 : 70)) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
     else if (displayConf < 60) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#94a3b8;border:1px solid #475569;border-radius:6px;padding:1px 5px">INCERTO</span>`;
 
     return {
@@ -838,7 +895,7 @@ async function getTeamForm(teamId, apiId) {
     const empty = { results: [], shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], formFactor: 1.0 };
     try {
-        const res = await fetch(apiUrl('fixtures', { team: teamId, season: SEASON, league: apiId, last: 5 }));
+        const res = await fetch(apiUrl('fixtures', teamFixturesParams(teamId, SEASON, apiId, 5)));
         const data = await res.json();
         if (!data.response || data.response.length === 0) return empty;
 
@@ -899,7 +956,7 @@ async function getVenueAverages(teamId, apiId, venue) {
     const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], n: 0 };
     try {
-        const res = await fetch(apiUrl('fixtures', { team: teamId, season: SEASON, league: apiId, last: 10 }));
+        const res = await fetch(apiUrl('fixtures', teamFixturesParams(teamId, SEASON, apiId, 10)));
         const data = await res.json();
         if (!data.response) return empty;
 
@@ -948,7 +1005,7 @@ async function getPreviousSeasonSnapshot(teamId, apiId) {
     const empty = { shots: [], sot: [], corners: [], cards: [], fouls: [],
                      concededShots: [], concededSot: [], concededCorners: [], n: 0 };
     try {
-        const res = await fetch(apiUrl('fixtures', { team: teamId, season: PREVIOUS_SEASON, league: apiId, last: 6 }));
+        const res = await fetch(apiUrl('fixtures', teamFixturesParams(teamId, PREVIOUS_SEASON, apiId, 6)));
         const data = await res.json();
         if (!data.response || data.response.length === 0) return empty;
 
@@ -1092,7 +1149,7 @@ function render1X2Block(o) {
     // per dire "FORTE". Sugli altri mercati i casi ad alta probabilita' sono pochi per verificarli,
     // quindi serve una soglia piu' alta (70%); sotto resta "INDICATIVO".
     const reliable = !!o.reliable;
-    const strong = pBest >= (reliable ? 0.65 : 0.70);
+    const strong = pBest >= ((reliable ? 0.65 : 0.70) + (isCupLeague() ? 0.05 : 0));
     const advColor = solid ? ((reliable || strong) ? '#10b981' : '#fbbf24') : '#fbbf24';
     const advText = strong ? `CONSIGLIO FORTE 1X2: ${best.lab}`
         : (solid ? (reliable ? `CONSIGLIO 1X2: ${best.lab}` : `INDICATIVO 1X2: ${best.lab}`)
@@ -1143,9 +1200,11 @@ async function runDeepAnalysis() {
         // sprecare 2 chiamate API garantite ad ogni singola analisi.
         let apiId = leagueInfo.oldId;
 
-        let statsH, statsA;
+        let statsH = { response: null }, statsA = { response: null };
 
-        try {
+        // Nelle coppe teams/statistics conterebbe solo le 4-8 partite europee: si salta
+        // (e si considerano le squadre "a regime", cosi' la stagione precedente non entra).
+        if (!isCupLeague()) try {
             const statsRes = await Promise.all([
                 fetch(apiUrl('teams/statistics', { league: apiId, season: SEASON, team: idH })).then(async r => {
                     if (!r.ok) { const t = await r.text(); console.error("ERRORE teams/statistics idH, status", r.status, ":", t); return { response: null }; }
@@ -1701,6 +1760,9 @@ async function runDeepAnalysis() {
             </div>
         `;
 
+        if (isCupLeague()) {
+            finalHTML = `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid #475569;border-radius:12px;background:rgba(251,191,36,0.07);font-size:11px;line-height:1.45;color:#cbd5e1"><b style="color:#fbbf24">COPPA EUROPEA</b> - squadre di campionati diversi e poche partite europee: piu' incertezza del solito. "FORTE" compare solo da una soglia piu' alta.</div>` + finalHTML;
+        }
         resDiv.innerHTML = finalHTML;
     } catch (e) {
         resDiv.innerHTML = `
