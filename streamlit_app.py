@@ -831,7 +831,7 @@ function getAdviceAdvanced(mean, variance, n, spread) {
     // Etichetta di forza del consiglio (dal backtest: sopra il 70% il modello e' molto affidabile,
     // sotto il 60% e' poco piu' di un testa o croce)
     let strengthTag = '';
-    if (!isCupLeague() && displayConf >= 70) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
+    if (displayConf >= 70) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;color:#10b981;border:1px solid #10b981;border-radius:6px;padding:1px 5px">FORTE</span>`;
     else if (displayConf < 60) strengthTag = `<span style="margin-left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#94a3b8;border:1px solid #475569;border-radius:6px;padding:1px 5px">INCERTO</span>`;
 
     return {
@@ -1153,7 +1153,7 @@ function render1X2Block(o) {
     // per dire "FORTE". Sugli altri mercati i casi ad alta probabilita' sono pochi per verificarli,
     // quindi serve una soglia piu' alta (70%); sotto resta "INDICATIVO".
     const reliable = !!o.reliable;
-    const strong = !isCupLeague() && pBest >= (reliable ? 0.65 : 0.70);
+    const strong = pBest >= (reliable ? 0.65 : 0.70);
     const advColor = solid ? ((reliable || strong) ? '#10b981' : '#fbbf24') : '#fbbf24';
     const advText = strong ? `CONSIGLIO FORTE 1X2: ${best.lab}`
         : (solid ? (reliable ? `CONSIGLIO 1X2: ${best.lab}` : `INDICATIVO 1X2: ${best.lab}`)
@@ -1772,9 +1772,6 @@ async function runDeepAnalysis() {
             </div>
         `;
 
-        if (isCupLeague()) {
-            finalHTML = `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid #475569;border-radius:12px;background:rgba(251,191,36,0.07);font-size:11px;line-height:1.45;color:#cbd5e1"><b style="color:#fbbf24">COPPA EUROPEA</b> - stime basate SOLO sulle partite di questa coppa (poche per squadra): piu' incertezza del solito. Le stime sono avvicinate alla media di coppa e l'etichetta "FORTE" e' disattivata finche' non verifichiamo la precisione.</div>` + finalHTML;
-        }
         resDiv.innerHTML = finalHTML;
     } catch (e) {
         resDiv.innerHTML = `
