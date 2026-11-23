@@ -344,12 +344,10 @@ function cupAdjust(val, prior) { return isCupLeague() ? (1 - CUP_SHRINK) * val +
 
 function isCupLeague() { return !!(LEAGUE_DATA[currentLeague] && LEAGUE_DATA[currentLeague].cup); }
 
-// Parametri per scaricare le ultime partite di una squadra. Nelle coppe NON si filtra per lega:
-// si prendono le ultime partite in tutte le competizioni (campionato nazionale + coppa).
+// Parametri per scaricare le ultime partite di una squadra. Sempre filtrate per la lega
+// scelta: nelle coppe significa SOLO le partite di quella coppa (niente campionato nazionale).
 function teamFixturesParams(teamId, season, apiId, last) {
-    const p = { team: teamId, season: season, last: last };
-    if (!isCupLeague()) p.league = apiId;
-    return p;
+    return { team: teamId, season: season, last: last, league: apiId };
 }
 
 // Baseline di lega, usate SOLO come ancora per lo shrinkage bayesiano e come fallback
@@ -1775,7 +1773,7 @@ async function runDeepAnalysis() {
         `;
 
         if (isCupLeague()) {
-            finalHTML = `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid #475569;border-radius:12px;background:rgba(251,191,36,0.07);font-size:11px;line-height:1.45;color:#cbd5e1"><b style="color:#fbbf24">COPPA EUROPEA</b> - squadre di campionati diversi e poche partite europee: piu' incertezza del solito. Le stime sono avvicinate alla media di coppa e l'etichetta "FORTE" e' disattivata finche' non verifichiamo la precisione.</div>` + finalHTML;
+            finalHTML = `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid #475569;border-radius:12px;background:rgba(251,191,36,0.07);font-size:11px;line-height:1.45;color:#cbd5e1"><b style="color:#fbbf24">COPPA EUROPEA</b> - stime basate SOLO sulle partite di questa coppa (poche per squadra): piu' incertezza del solito. Le stime sono avvicinate alla media di coppa e l'etichetta "FORTE" e' disattivata finche' non verifichiamo la precisione.</div>` + finalHTML;
         }
         resDiv.innerHTML = finalHTML;
     } catch (e) {
